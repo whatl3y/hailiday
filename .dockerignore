@@ -1,0 +1,24 @@
+# Never ship host installs into images: pnpm node_modules are symlinks into
+# version-named store paths, so a host copy would overwrite the image's own
+# install with links that dangle inside the container.
+**/node_modules
+**/*.tsbuildinfo
+**/dist
+**/coverage
+**/playwright-report
+**/test-results
+**/blob-report
+
+# Secrets and repository noise are never part of an image's build context.
+.env
+.env.*
+!.env.example
+.git
+.claude
+.DS_Store
+
+# Planning documents and tests are not needed at runtime.
+docs
+**/*.test.ts
+**/*.test.tsx
+**/e2e

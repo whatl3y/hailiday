@@ -1,0 +1,123 @@
+{
+  "exampleId": "example.christmas.interior.classic.source.v1",
+  "photoId": "sample-living-room-mantel",
+  "working": {
+    "width": 1536,
+    "height": 1024
+  },
+  "usd": 0.025676,
+  "analysis": {
+    "schemaVersion": "1.0",
+    "sourceAssetId": "example.christmas.interior.classic.source.v1",
+    "workingImage": {
+      "width": 1536,
+      "height": 1024,
+      "checksum": "08bcdecf4c6609bf5686bbeed48a8692e08c017622a8d824282ee3cd8961efee"
+    },
+    "sceneType": "interior",
+    "sceneTypeConfidence": 0.97,
+    "sceneTypeMismatch": false,
+    "roomType": "living_room",
+    "targetFacadeAmbiguous": false,
+    "anchors": [
+      {
+        "id": "mantel_1",
+        "category": "mantel",
+        "box": [0.316, 0.397, 0.674, 0.492],
+        "confidence": 0.95,
+        "occluded": false,
+        "note": "White mantel shelf above fireplace with framed prints and oil lamps"
+      },
+      {
+        "id": "window_left",
+        "category": "interior_window",
+        "box": [0, 0.173, 0.212, 0.7],
+        "confidence": 0.9,
+        "occluded": true,
+        "occlusionFraction": 0.2,
+        "note": "White-trimmed window, lower part blocked by pillow"
+      },
+      {
+        "id": "window_right",
+        "category": "interior_window",
+        "box": [0.776, 0.173, 1, 0.7],
+        "confidence": 0.9,
+        "occluded": true,
+        "occlusionFraction": 0.2,
+        "note": "White-trimmed window, partly blocked by armchair and pillow"
+      },
+      {
+        "id": "wall_center",
+        "category": "wall",
+        "box": [0.212, 0, 0.776, 0.84],
+        "confidence": 0.9,
+        "occluded": false,
+        "note": "Light gray wall around fireplace and mantel"
+      },
+      {
+        "id": "floor_1",
+        "category": "floor_area",
+        "box": [0.04, 0.87, 0.76, 1],
+        "confidence": 0.7,
+        "occluded": true,
+        "occlusionFraction": 0.6,
+        "note": "Gray plank floor mostly covered by coffee table"
+      }
+    ],
+    "preserveRegions": [
+      {
+        "kind": "existing_decor",
+        "box": [0.365, 0.168, 0.618, 0.399]
+      },
+      {
+        "kind": "existing_decor",
+        "box": [0.341, 0.763, 0.38, 0.884]
+      }
+    ],
+    "accessRegions": [],
+    "hazards": [
+      {
+        "kind": "open_flame",
+        "box": [0.38, 0.545, 0.62, 0.865]
+      },
+      {
+        "kind": "fragile",
+        "box": [0.365, 0.225, 0.395, 0.4]
+      },
+      {
+        "kind": "fragile",
+        "box": [0.598, 0.225, 0.632, 0.4]
+      }
+    ],
+    "existingDecorations": {
+      "present": false,
+      "density": "none",
+      "boxes": []
+    },
+    "peopleBoxes": [],
+    "protectedBlurRegions": [],
+    "lighting": {
+      "timeOfDay": "day",
+      "isDaylight": true,
+      "exposure": "normal"
+    },
+    "seasonCues": {
+      "snowVisible": false,
+      "foliage": "unknown"
+    },
+    "qualityFlags": {
+      "blur": false,
+      "lowLight": false,
+      "heavyOcclusion": false,
+      "multipleBuildings": false,
+      "embeddedPhoto": false,
+      "tooClose": false,
+      "tooFar": false
+    },
+    "model": {
+      "analysisModel": "claude-opus-5-5",
+      "analysisPromptVersion": "analysis-2026.11.0"
+    },
+    "elapsedMs": 8474
+  }
+}

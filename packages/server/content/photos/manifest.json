@@ -1,0 +1,1798 @@
+{
+  "retrievedAt": "2026-11-09",
+  "photos": [
+    {
+      "id": "thanksgiving_us",
+      "kind": "hero",
+      "file": "heroes/thanksgiving_us.jpg",
+      "width": 3200,
+      "height": 2136,
+      "title": "Candlelit autumn dining table",
+      "description": "Warm candlelit autumn dining table: tall taper candles, wheat and pine cones in a white pitcher, woven chargers and checked linens in a bright home dining room. A close table-level composition; no turkey on the table.",
+      "photographer": "Libby Penner",
+      "sourceUrl": "https://unsplash.com/photos/white-candles-on-round-table-4CnaFQRDI0A",
+      "license": "Unsplash License",
+      "licenseUrl": "https://unsplash.com/license",
+      "tags": ["thanksgiving", "dining-room", "candlelight", "autumn", "table-setting"],
+      "slot": "thanksgiving_us",
+      "focalPoint": [0.46, 0.5],
+      "safeArea": [0.5, 0.02, 0.98, 0.14],
+      "landscapeFocal": [0.5, 0.5],
+      "portraitFocal": [0.5, 0.5]
+    },
+    {
+      "id": "christmas",
+      "kind": "hero",
+      "file": "heroes/christmas.jpg",
+      "width": 3200,
+      "height": 2133,
+      "title": "Gold and evergreen Christmas tree with garlanded mantel",
+      "description": "An elegant bright living room: a tall tree glowing with warm-white lights and champagne-gold ornaments beside a white mantel with lit evergreen garland, a gold-framed mirror and stacked birch logs. Real interior photograph (landscape crop of a portrait original); no snow, no people, no readable text. A decorative wall clock with numerals appears at the upper right.",
+      "photographer": "Valeria Boltneva",
+      "sourceUrl": "https://www.pexels.com/photo/elegant-living-room-with-christmas-tree-19441268/",
+      "license": "Pexels License",
+      "licenseUrl": "https://www.pexels.com/license/",
+      "tags": [
+        "christmas",
+        "living-room",
+        "christmas-tree",
+        "mantel",
+        "garland",
+        "warm-white-lights",
+        "interior"
+      ],
+      "slot": "christmas",
+      "focalPoint": [0.62, 0.5],
+      "safeArea": [0.03, 0.03, 0.4, 0.25],
+      "landscapeFocal": [0.6, 0.5],
+      "portraitFocal": [0.62, 0.5]
+    },
+    {
+      "id": "halloween",
+      "kind": "hero",
+      "file": "heroes/halloween.jpg",
+      "width": 3200,
+      "height": 2133,
+      "title": "Porch glowing with jack-o-lanterns at dusk",
+      "description": "A white American front-porch house at dusk with glowing jack-o-lanterns on the rail and lawn, bunting and string lights; no characters or gore. The house number was blurred.",
+      "photographer": "Bruno Guerrero",
+      "sourceUrl": "https://unsplash.com/photos/a-house-decorated-for-halloween-with-pumpkins-and-lights--FR8KNy5r1o",
+      "license": "Unsplash License",
+      "licenseUrl": "https://unsplash.com/license",
+      "tags": ["halloween", "porch", "jack-o-lanterns", "dusk", "house-exterior"],
+      "slot": "halloween",
+      "focalPoint": [0.5, 0.56],
+      "safeArea": [0.34, 0.075, 0.6, 0.3],
+      "landscapeFocal": [0.5, 0.58],
+      "portraitFocal": [0.5, 0.6]
+    },
+    {
+      "id": "new_years_eve",
+      "kind": "hero",
+      "file": "heroes/new_years_eve.jpg",
+      "width": 3200,
+      "height": 2136,
+      "title": "Gold and warm-white lights with metallic decor",
+      "description": "Gold tinsel curtain, fairy lights, a round mirror and a table of gold baubles, pine cones and dried grasses in warm light. No text or branded items.",
+      "photographer": "Arina Krasnikova",
+      "sourceUrl": "https://www.pexels.com/photo/a-room-with-christmas-decorations-6212298/",
+      "license": "Pexels License",
+      "licenseUrl": "https://www.pexels.com/license/",
+      "tags": ["new-years-eve", "gold", "string-lights", "metallic", "interior"],
+      "slot": "new_years_eve",
+      "focalPoint": [0.55, 0.5],
+      "safeArea": [0.58, 0.03, 0.9, 0.2],
+      "landscapeFocal": [0.5, 0.5],
+      "portraitFocal": [0.55, 0.5]
+    },
+    {
+      "id": "neutral",
+      "kind": "hero",
+      "file": "heroes/neutral.jpg",
+      "width": 3200,
+      "height": 2133,
+      "title": "Sunlit living room",
+      "description": "A bright, uncluttered, sunlit modern living room with large windows onto a flower garden, warm rug and natural wood. A wall-mounted air conditioner was blurred.",
+      "photographer": "Clay Banks",
+      "sourceUrl": "https://unsplash.com/photos/a-living-room-filled-with-furniture-and-large-windows-7pvC_d2iXSE",
+      "license": "Unsplash License",
+      "licenseUrl": "https://unsplash.com/license",
+      "tags": ["neutral", "living-room", "sunlit", "bright", "interior"],
+      "slot": "neutral",
+      "focalPoint": [0.5, 0.6],
+      "safeArea": [0.12, 0.02, 0.88, 0.17],
+      "landscapeFocal": [0.5, 0.6],
+      "portraitFocal": [0.45, 0.6]
+    },
+    {
+      "id": "house-01-colonial-spring",
+      "kind": "house",
+      "file": "houses/house-01-colonial-spring.jpg",
+      "width": 2000,
+      "height": 1324,
+      "title": "White colonial with picket fence",
+      "description": "White colonial with picket fence. Wood picket fence crosses the lower facade; small year-round wreath by the door.",
+      "photographer": "Roger Starnes Sr",
+      "sourceUrl": "https://unsplash.com/photos/a-traditional-white-house-with-a-picket-fence-and-trees-YHaw38vhcW0",
+      "license": "Unsplash License",
+      "licenseUrl": "https://unsplash.com/license",
+      "tags": ["house", "colonial", "spring", "detached"],
+      "style": "colonial",
+      "buildingForm": "detached",
+      "season": "spring",
+      "unobstructed": false,
+      "existingDecor": "none",
+      "anchors": {
+        "houseFacade": [0.165, 0.265, 0.765, 0.865],
+        "roofline": [0.165, 0.265, 0.765, 0.362],
+        "eaves": [0.165, 0.335, 0.765, 0.375],
+        "frontDoor": [0.413, 0.655, 0.459, 0.8],
+        "doorFrame": [0.4, 0.645, 0.47, 0.81],
+        "windows": [
+          [0.263, 0.372, 0.347, 0.5],
+          [0.395, 0.372, 0.475, 0.505],
+          [0.52, 0.395, 0.592, 0.51],
+          [0.63, 0.404, 0.698, 0.514],
+          [0.259, 0.629, 0.345, 0.758],
+          [0.646, 0.629, 0.706, 0.744]
+        ],
+        "porchRail": null,
+        "porchSteps": null,
+        "columns": [
+          [0.395, 0.61, 0.416, 0.8],
+          [0.635, 0.61, 0.65, 0.8]
+        ],
+        "walkwayEdge": null,
+        "planters": [[0.51, 0.645, 0.55, 0.715]],
+        "garageDoor": null,
+        "existingDecor": [[0.48, 0.64, 0.515, 0.69]],
+        "parkedCar": [0.78, 0.725, 0.9, 0.83],
+        "neighborFacades": []
+      }
+    },
+    {
+      "id": "house-02-georgian-autumn",
+      "kind": "house",
+      "file": "houses/house-02-georgian-autumn.jpg",
+      "width": 2000,
+      "height": 1433,
+      "title": "Brick Georgian with white portico",
+      "description": "Brick Georgian with white portico. Seasonal mums in planters at the portico; dark SUV parked in the driveway.",
+      "photographer": "Roger Starnes Sr",
+      "sourceUrl": "https://unsplash.com/photos/historic-brick-house-with-white-portico-tiUrUBzY0qg",
+      "license": "Unsplash License",
+      "licenseUrl": "https://unsplash.com/license",
+      "tags": ["house", "georgian_colonial", "autumn", "detached"],
+      "style": "georgian_colonial",
+      "buildingForm": "detached",
+      "season": "autumn",
+      "unobstructed": true,
+      "existingDecor": "none",
+      "anchors": {
+        "houseFacade": [0.2, 0.17, 0.86, 0.92],
+        "roofline": [0.2, 0.17, 0.86, 0.37],
+        "eaves": [0.2, 0.3, 0.84, 0.38],
+        "frontDoor": [0.463, 0.72, 0.512, 0.89],
+        "doorFrame": [0.455, 0.708, 0.52, 0.895],
+        "windows": [
+          [0.257, 0.476, 0.299, 0.611],
+          [0.36, 0.467, 0.404, 0.608],
+          [0.468, 0.462, 0.516, 0.6],
+          [0.579, 0.452, 0.629, 0.605],
+          [0.696, 0.442, 0.754, 0.6],
+          [0.246, 0.693, 0.3, 0.848],
+          [0.35, 0.695, 0.384, 0.85],
+          [0.571, 0.69, 0.632, 0.838],
+          [0.694, 0.693, 0.759, 0.86],
+          [0.265, 0.391, 0.304, 0.425],
+          [0.366, 0.383, 0.405, 0.417],
+          [0.473, 0.373, 0.512, 0.407],
+          [0.585, 0.362, 0.624, 0.396],
+          [0.705, 0.351, 0.745, 0.387]
+        ],
+        "porchRail": null,
+        "porchSteps": [0.38, 0.885, 0.55, 0.95],
+        "columns": [
+          [0.378, 0.68, 0.41, 0.89],
+          [0.513, 0.68, 0.54, 0.88]
+        ],
+        "walkwayEdge": null,
+        "planters": [
+          [0.366, 0.857, 0.4, 0.89],
+          [0.505, 0.855, 0.54, 0.89],
+          [0.354, 0.9, 0.39, 0.935],
+          [0.488, 0.91, 0.53, 0.95]
+        ],
+        "garageDoor": null,
+        "existingDecor": [],
+        "parkedCar": [0.545, 0.84, 0.825, 0.99],
+        "neighborFacades": [],
+        "lightLines": [
+          [
+            [0.205, 0.349],
+            [0.835, 0.349]
+          ],
+          [
+            [0.372, 0.654],
+            [0.565, 0.654]
+          ]
+        ],
+        "standSpots": [
+          [0.432, 0.888],
+          [0.385, 0.952],
+          [0.407, 0.913]
+        ],
+        "standSurfaces": [
+          {
+            "from": 0.416,
+            "to": 0.452
+          },
+          {
+            "from": 0.352,
+            "to": 0.405,
+            "open": true
+          },
+          {
+            "from": 0.393,
+            "to": 0.428
+          }
+        ]
+      }
+    },
+    {
+      "id": "house-03-ranch-spring",
+      "kind": "house",
+      "file": "houses/house-03-ranch-spring.jpg",
+      "width": 2000,
+      "height": 1352,
+      "title": "Stone and siding ranch",
+      "description": "Stone and siding ranch. Brick and stone ranch with covered porch; small year-round door wreath; house number retouched.",
+      "photographer": "Roger Starnes Sr",
+      "sourceUrl": "https://unsplash.com/photos/a-modern-brick-house-with-a-green-lawn-_jh0Rx42TzQ",
+      "license": "Unsplash License",
+      "licenseUrl": "https://unsplash.com/license",
+      "tags": ["house", "ranch", "spring", "detached"],
+      "style": "ranch",
+      "buildingForm": "detached",
+      "season": "spring",
+      "unobstructed": true,
+      "existingDecor": "none",
+      "anchors": {
+        "houseFacade": [0.06, 0.3, 0.96, 0.74],
+        "roofline": [0.06, 0.3, 0.96, 0.545],
+        "eaves": [0.06, 0.5, 0.96, 0.56],
+        "frontDoor": [0.637, 0.555, 0.673, 0.685],
+        "doorFrame": [0.617, 0.54, 0.69, 0.69],
+        "windows": [
+          [0.216, 0.547, 0.273, 0.637],
+          [0.53, 0.572, 0.58, 0.65],
+          [0.737, 0.574, 0.76, 0.61],
+          [0.83, 0.576, 0.886, 0.657],
+          [0.459, 0.56, 0.481, 0.605]
+        ],
+        "porchRail": [0.434, 0.637, 0.596, 0.687],
+        "porchSteps": [0.606, 0.687, 0.71, 0.73],
+        "columns": [
+          [0.595, 0.545, 0.608, 0.685],
+          [0.695, 0.545, 0.708, 0.685]
+        ],
+        "walkwayEdge": [0.05, 0.72, 0.66, 0.795],
+        "planters": [],
+        "garageDoor": null,
+        "existingDecor": [[0.645, 0.58, 0.664, 0.608]],
+        "parkedCar": null,
+        "neighborFacades": [],
+        "railLines": [
+          [
+            [0.436, 0.641],
+            [0.595, 0.641]
+          ]
+        ],
+        "standSpots": [
+          [0.585, 0.722],
+          [0.724, 0.73],
+          [0.585, 0.764],
+          [0.7, 0.767]
+        ],
+        "standSurfaces": [
+          {
+            "from": 0.552,
+            "to": 0.6
+          },
+          {
+            "from": 0.706,
+            "to": 0.745
+          },
+          {
+            "from": 0.55,
+            "to": 0.606,
+            "open": true
+          },
+          {
+            "from": 0.668,
+            "to": 0.74,
+            "open": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "house-04-bungalow-summer",
+      "kind": "house",
+      "file": "houses/house-04-bungalow-summer.jpg",
+      "width": 2000,
+      "height": 1324,
+      "title": "Brick craftsman bungalow",
+      "description": "Brick craftsman bungalow. Slightly angled view; brick piers and stucco; garden beds along the walk. Neighbor sign retouched.",
+      "photographer": "Roger Starnes Sr",
+      "sourceUrl": "https://unsplash.com/photos/brown-and-white-concrete-house-O_YmfaRpjaE",
+      "license": "Unsplash License",
+      "licenseUrl": "https://unsplash.com/license",
+      "tags": ["house", "craftsman_bungalow", "summer", "detached"],
+      "style": "craftsman_bungalow",
+      "buildingForm": "detached",
+      "season": "summer",
+      "unobstructed": true,
+      "existingDecor": "none",
+      "anchors": {
+        "houseFacade": [0.07, 0.32, 0.97, 0.93],
+        "roofline": [0.07, 0.32, 1, 0.552],
+        "eaves": [0.07, 0.53, 1, 0.6],
+        "frontDoor": [0.57, 0.615, 0.665, 0.793],
+        "doorFrame": [0.565, 0.61, 0.67, 0.8],
+        "windows": [
+          [0.274, 0.604, 0.33, 0.72],
+          [0.43, 0.604, 0.497, 0.731],
+          [0.79, 0.613, 0.83, 0.73],
+          [0.857, 0.615, 0.916, 0.735]
+        ],
+        "porchRail": null,
+        "porchSteps": [0.646, 0.83, 0.684, 0.95],
+        "columns": [
+          [0.495, 0.577, 0.54, 0.77],
+          [0.739, 0.58, 0.8, 0.836],
+          [0.105, 0.585, 0.16, 0.76]
+        ],
+        "walkwayEdge": [0, 0.89, 0.62, 0.96],
+        "planters": [
+          [0.1, 0.7, 0.135, 0.76],
+          [0.2, 0.76, 0.4, 0.88],
+          [0.45, 0.78, 0.6, 0.95]
+        ],
+        "garageDoor": [0.805, 0.845, 0.87, 0.99],
+        "existingDecor": [],
+        "parkedCar": null,
+        "neighborFacades": [[0.935, 0.63, 1, 0.8]],
+        "standSpots": [
+          [0.6, 0.82],
+          [0.725, 0.818],
+          [0.631, 0.946],
+          [0.699, 0.946]
+        ],
+        "standSurfaces": [
+          {
+            "from": 0.588,
+            "to": 0.618
+          },
+          {
+            "from": 0.708,
+            "to": 0.742
+          },
+          {
+            "from": 0.619,
+            "to": 0.646
+          },
+          {
+            "from": 0.684,
+            "to": 0.71
+          }
+        ]
+      }
+    },
+    {
+      "id": "house-05-farmhouse-autumn",
+      "kind": "house",
+      "file": "houses/house-05-farmhouse-autumn.jpg",
+      "width": 2000,
+      "height": 1232,
+      "title": "White farmhouse with wraparound porch",
+      "description": "White farmhouse with wraparound porch. Cropped from a wider photo; a few mums and small pumpkins on the porch (mild seasonal planting).",
+      "photographer": "Roger Starnes Sr",
+      "sourceUrl": "https://unsplash.com/photos/a-large-white-farmhouse-with-a-wrap-around-porch-pGH1-iHveX0",
+      "license": "Unsplash License",
+      "licenseUrl": "https://unsplash.com/license",
+      "tags": ["house", "farmhouse", "autumn", "detached"],
+      "style": "farmhouse",
+      "buildingForm": "detached",
+      "season": "autumn",
+      "unobstructed": true,
+      "existingDecor": "none",
+      "anchors": {
+        "houseFacade": [0.03, 0.37, 0.81, 0.725],
+        "roofline": [0.03, 0.37, 0.81, 0.58],
+        "eaves": [0.03, 0.53, 0.81, 0.585],
+        "frontDoor": [0.55, 0.588, 0.6, 0.69],
+        "doorFrame": [0.545, 0.585, 0.605, 0.695],
+        "windows": [
+          [0.143, 0.462, 0.168, 0.54],
+          [0.082, 0.59, 0.116, 0.647],
+          [0.186, 0.59, 0.227, 0.647],
+          [0.279, 0.59, 0.307, 0.647],
+          [0.464, 0.466, 0.489, 0.522],
+          [0.558, 0.438, 0.587, 0.522],
+          [0.657, 0.466, 0.679, 0.522],
+          [0.436, 0.588, 0.457, 0.65],
+          [0.507, 0.585, 0.532, 0.655],
+          [0.69, 0.585, 0.714, 0.655]
+        ],
+        "porchRail": null,
+        "porchSteps": [0.55, 0.69, 0.6, 0.71],
+        "columns": [
+          [0.452, 0.58, 0.467, 0.69],
+          [0.536, 0.58, 0.55, 0.69],
+          [0.619, 0.58, 0.634, 0.69],
+          [0.702, 0.58, 0.717, 0.69]
+        ],
+        "walkwayEdge": null,
+        "planters": [
+          [0.572, 0.655, 0.6, 0.695],
+          [0.605, 0.65, 0.628, 0.69]
+        ],
+        "garageDoor": null,
+        "existingDecor": [[0.562, 0.594, 0.586, 0.634]],
+        "parkedCar": null,
+        "neighborFacades": [[0.8, 0.585, 1, 0.72]],
+        "lightLines": [
+          [
+            [0.03, 0.582],
+            [0.81, 0.582]
+          ]
+        ],
+        "standSpots": [
+          [0.535, 0.721],
+          [0.64, 0.721]
+        ],
+        "standSurfaces": [
+          {
+            "from": 0.519,
+            "to": 0.549,
+            "open": true
+          },
+          {
+            "from": 0.624,
+            "to": 0.67,
+            "open": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "house-06-dutchcolonial-summer",
+      "kind": "house",
+      "file": "houses/house-06-dutchcolonial-summer.jpg",
+      "width": 2000,
+      "height": 1500,
+      "title": "Blue Dutch colonial with front porch",
+      "description": "Blue Dutch colonial with front porch. Cropped from a portrait photo; a young street tree overlaps the right side of the facade.",
+      "photographer": "Ian MacDonald",
+      "sourceUrl": "https://unsplash.com/photos/blue-and-white-wooden-house-near-green-trees-during-daytime-pmqTJDVbKdM",
+      "license": "Unsplash License",
+      "licenseUrl": "https://unsplash.com/license",
+      "tags": ["house", "dutch_colonial", "summer", "detached"],
+      "style": "dutch_colonial",
+      "buildingForm": "detached",
+      "season": "summer",
+      "unobstructed": false,
+      "existingDecor": "none",
+      "anchors": {
+        "houseFacade": [0.14, 0.03, 0.82, 0.94],
+        "roofline": [0.56, 0.36, 0.82, 0.52],
+        "eaves": [0.13, 0.53, 0.57, 0.58],
+        "frontDoor": [0.33, 0.624, 0.404, 0.852],
+        "doorFrame": [0.32, 0.61, 0.415, 0.86],
+        "windows": [
+          [0.389, 0.273, 0.469, 0.455],
+          [0.531, 0.273, 0.611, 0.455],
+          [0.209, 0.605, 0.314, 0.684],
+          [0.568, 0.586, 0.679, 0.795],
+          [0.48, 0.092, 0.523, 0.164]
+        ],
+        "porchRail": [0.17, 0.75, 0.53, 0.865],
+        "porchSteps": [0.245, 0.87, 0.44, 0.955],
+        "columns": [
+          [0.159, 0.576, 0.177, 0.862],
+          [0.261, 0.576, 0.276, 0.862],
+          [0.424, 0.576, 0.44, 0.862],
+          [0.521, 0.576, 0.543, 0.862]
+        ],
+        "walkwayEdge": [0.27, 0.955, 0.42, 1],
+        "planters": [
+          [0.175, 0.59, 0.204, 0.657],
+          [0.407, 0.598, 0.464, 0.657],
+          [0.256, 0.855, 0.286, 0.924],
+          [0.4, 0.84, 0.436, 0.925]
+        ],
+        "garageDoor": null,
+        "existingDecor": [],
+        "parkedCar": null,
+        "neighborFacades": [],
+        "lightLines": [
+          [
+            [0.134, 0.554],
+            [0.568, 0.554]
+          ]
+        ],
+        "railLines": [
+          [
+            [0.175, 0.752],
+            [0.26, 0.752]
+          ],
+          [
+            [0.441, 0.751],
+            [0.527, 0.751]
+          ]
+        ],
+        "standSpots": [
+          [0.455, 0.956],
+          [0.2, 0.958]
+        ],
+        "standSurfaces": [
+          {
+            "from": 0.443,
+            "to": 0.53,
+            "open": true
+          },
+          {
+            "from": 0.15,
+            "to": 0.243,
+            "open": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "house-07-modern-summer",
+      "kind": "house",
+      "file": "houses/house-07-modern-summer.jpg",
+      "width": 2000,
+      "height": 1324,
+      "title": "Modern two-story suburban home",
+      "description": "Modern two-story suburban home. Contemporary two-story with stone accent and craftsman-style porch columns; striped lawn in front.",
+      "photographer": "Roger Starnes Sr",
+      "sourceUrl": "https://unsplash.com/photos/a-modern-grey-house-with-a-green-lawn-and-trees-1XRV7Z4lhGo",
+      "license": "Unsplash License",
+      "licenseUrl": "https://unsplash.com/license",
+      "tags": ["house", "modern_suburban", "summer", "detached"],
+      "style": "modern_suburban",
+      "buildingForm": "detached",
+      "season": "summer",
+      "unobstructed": true,
+      "existingDecor": "none",
+      "anchors": {
+        "houseFacade": [0.09, 0.34, 0.93, 0.88],
+        "roofline": [0.09, 0.345, 0.93, 0.68],
+        "eaves": [0.09, 0.62, 0.93, 0.7],
+        "frontDoor": [0.666, 0.707, 0.714, 0.847],
+        "doorFrame": [0.65, 0.695, 0.735, 0.855],
+        "windows": [
+          [0.275, 0.525, 0.316, 0.586],
+          [0.25, 0.696, 0.34, 0.81],
+          [0.529, 0.5, 0.604, 0.61],
+          [0.668, 0.5, 0.704, 0.55],
+          [0.543, 0.7, 0.593, 0.81],
+          [0.8, 0.696, 0.843, 0.79]
+        ],
+        "porchRail": null,
+        "porchSteps": [0.645, 0.85, 0.77, 0.875],
+        "columns": [
+          [0.62, 0.675, 0.65, 0.86],
+          [0.738, 0.67, 0.766, 0.86]
+        ],
+        "walkwayEdge": null,
+        "planters": [
+          [0.645, 0.81, 0.665, 0.858],
+          [0.72, 0.79, 0.745, 0.855]
+        ],
+        "garageDoor": null,
+        "existingDecor": [],
+        "parkedCar": null,
+        "neighborFacades": [],
+        "standSpots": [
+          [0.61, 0.905],
+          [0.79, 0.905],
+          [0.656, 0.894],
+          [0.735, 0.894]
+        ],
+        "standSurfaces": [
+          {
+            "from": 0.578,
+            "to": 0.64,
+            "open": true
+          },
+          {
+            "from": 0.768,
+            "to": 0.825,
+            "open": true
+          },
+          {
+            "from": 0.646,
+            "to": 0.668
+          },
+          {
+            "from": 0.722,
+            "to": 0.745
+          }
+        ]
+      }
+    },
+    {
+      "id": "house-08-rowhouses-summer",
+      "kind": "house",
+      "file": "houses/house-08-rowhouses-summer.jpg",
+      "width": 2000,
+      "height": 1500,
+      "title": "Colorful attached row houses",
+      "description": "Colorful attached row houses. Painted brick row houses with open porches; target is the red house; cars and overhead wires partly cover the street level; plate and painted numerals retouched.",
+      "photographer": "Evan Tahler",
+      "sourceUrl": "https://unsplash.com/photos/a-row-of-multi-colored-houses-on-a-city-street-74S7ErO7Ghk",
+      "license": "Unsplash License",
+      "licenseUrl": "https://unsplash.com/license",
+      "tags": ["house", "row_house", "summer", "attached"],
+      "style": "row_house",
+      "buildingForm": "attached",
+      "season": "summer",
+      "unobstructed": false,
+      "existingDecor": "none",
+      "anchors": {
+        "houseFacade": [0.345, 0.055, 0.535, 0.76],
+        "roofline": [0.345, 0.055, 0.535, 0.135],
+        "eaves": [0.345, 0.365, 0.53, 0.425],
+        "frontDoor": [0.35, 0.43, 0.41, 0.54],
+        "doorFrame": [0.345, 0.42, 0.415, 0.555],
+        "windows": [
+          [0.389, 0.208, 0.432, 0.333],
+          [0.457, 0.214, 0.502, 0.338],
+          [0.456, 0.42, 0.5, 0.53],
+          [0.532, 0.62, 0.56, 0.68]
+        ],
+        "porchRail": [0.43, 0.53, 0.53, 0.583],
+        "porchSteps": [0.405, 0.575, 0.55, 0.74],
+        "columns": [[0.405, 0.4, 0.422, 0.57]],
+        "walkwayEdge": [0, 0.82, 0.4, 0.97],
+        "planters": [],
+        "garageDoor": null,
+        "existingDecor": [],
+        "parkedCar": [0.383, 0.705, 0.668, 0.89],
+        "neighborFacades": [
+          [0, 0, 0.345, 0.8],
+          [0.525, 0.14, 0.67, 0.72],
+          [0.65, 0.22, 0.745, 0.7],
+          [0.74, 0.28, 0.8, 0.68]
+        ],
+        "lightLines": [
+          [
+            [0.348, 0.398],
+            [0.52, 0.398]
+          ]
+        ],
+        "railLines": [
+          [
+            [0.432, 0.534],
+            [0.52, 0.534]
+          ]
+        ]
+      }
+    },
+    {
+      "id": "house-09-townhouses-summer",
+      "kind": "house",
+      "file": "houses/house-09-townhouses-summer.jpg",
+      "width": 2000,
+      "height": 1333,
+      "title": "Attached suburban townhouses",
+      "description": "Attached suburban townhouses. Three-story attached townhomes with integral garages; house numbers and an alarm-company yard sign retouched.",
+      "photographer": "ARRHEN FEJOKWU",
+      "sourceUrl": "https://unsplash.com/photos/three-residential-houses-with-driveways-and-green-trees-Mgq3t1HyDWU",
+      "license": "Unsplash License",
+      "licenseUrl": "https://unsplash.com/license",
+      "tags": ["house", "townhouse", "summer", "attached"],
+      "style": "townhouse",
+      "buildingForm": "attached",
+      "season": "summer",
+      "unobstructed": true,
+      "existingDecor": "none",
+      "anchors": {
+        "houseFacade": [0.3, 0.055, 0.625, 0.7],
+        "roofline": null,
+        "eaves": null,
+        "frontDoor": [0.338, 0.503, 0.368, 0.6],
+        "doorFrame": [0.3, 0.47, 0.385, 0.605],
+        "windows": [
+          [0.33, 0.279, 0.384, 0.39],
+          [0.407, 0.266, 0.443, 0.32],
+          [0.466, 0.249, 0.57, 0.343],
+          [0.474, 0.4, 0.569, 0.495],
+          [0.405, 0.405, 0.445, 0.452]
+        ],
+        "porchRail": null,
+        "porchSteps": [0.34, 0.6, 0.385, 0.645],
+        "columns": [
+          [0.3, 0.47, 0.314, 0.6],
+          [0.364, 0.49, 0.379, 0.6]
+        ],
+        "walkwayEdge": [0.2, 0.69, 0.62, 0.78],
+        "planters": [
+          [0.405, 0.3, 0.447, 0.33],
+          [0.405, 0.44, 0.447, 0.47]
+        ],
+        "garageDoor": [0.405, 0.582, 0.575, 0.69],
+        "existingDecor": [[0.343, 0.51, 0.366, 0.54]],
+        "parkedCar": null,
+        "neighborFacades": [
+          [0.66, 0.07, 1, 0.78],
+          [0, 0.08, 0.27, 0.65]
+        ],
+        "lightLines": [
+          [
+            [0.302, 0.468],
+            [0.384, 0.468]
+          ]
+        ],
+        "standSpots": [[0.322, 0.603]],
+        "standSurfaces": [
+          {
+            "from": 0.311,
+            "to": 0.336
+          }
+        ]
+      }
+    },
+    {
+      "id": "house-10-foursquare-halloween-autumn",
+      "kind": "house",
+      "file": "houses/house-10-foursquare-halloween-autumn.jpg",
+      "width": 2000,
+      "height": 1333,
+      "title": "White porch house decorated with glowing jack-o-lanterns at dusk",
+      "description": "White porch house decorated with glowing jack-o-lanterns at dusk. Same photograph as the Halloween hero, here re-cropped to 2000 px for the existing-decor scenario; dusk light; house number retouched.",
+      "photographer": "Bruno Guerrero",
+      "sourceUrl": "https://unsplash.com/photos/a-house-decorated-for-halloween-with-pumpkins-and-lights--FR8KNy5r1o",
+      "license": "Unsplash License",
+      "licenseUrl": "https://unsplash.com/license",
+      "tags": ["house", "foursquare", "autumn", "detached", "existing-decor-halloween"],
+      "style": "foursquare",
+      "buildingForm": "detached",
+      "season": "autumn",
+      "unobstructed": true,
+      "existingDecor": "halloween",
+      "anchors": {
+        "houseFacade": [0.04, 0, 0.88, 0.76],
+        "roofline": [0.04, 0, 0.88, 0.09],
+        "eaves": [0.04, 0.07, 0.88, 0.095],
+        "frontDoor": [0.62, 0.43, 0.69, 0.665],
+        "doorFrame": [0.605, 0.42, 0.705, 0.68],
+        "windows": [
+          [0.194, 0.139, 0.249, 0.287],
+          [0.266, 0.139, 0.318, 0.287],
+          [0.425, 0.14, 0.489, 0.223],
+          [0.6, 0.139, 0.649, 0.287],
+          [0.668, 0.139, 0.718, 0.287],
+          [0.237, 0.44, 0.275, 0.58]
+        ],
+        "porchRail": null,
+        "porchSteps": [0.605, 0.675, 0.83, 0.87],
+        "columns": [
+          [0.056, 0.365, 0.088, 0.605],
+          [0.292, 0.365, 0.32, 0.605],
+          [0.524, 0.365, 0.552, 0.605],
+          [0.832, 0.365, 0.86, 0.605]
+        ],
+        "walkwayEdge": [0.68, 0.875, 0.96, 1],
+        "planters": [],
+        "garageDoor": null,
+        "existingDecor": [
+          [0.11, 0.36, 0.26, 0.5],
+          [0.345, 0.36, 0.49, 0.49],
+          [0.77, 0.38, 0.82, 0.51],
+          [0.075, 0.545, 0.62, 0.61],
+          [0, 0.76, 0.97, 0.92],
+          [0.76, 0.47, 0.84, 0.57],
+          [0.605, 0.565, 0.665, 0.66],
+          [0.63, 0.73, 0.67, 0.81],
+          [0.565, 0.47, 0.63, 0.56]
+        ],
+        "parkedCar": null,
+        "neighborFacades": [[0.9, 0.46, 1, 0.62]]
+      }
+    },
+    {
+      "id": "house-11-ranch-christmas-winter",
+      "kind": "house",
+      "file": "houses/house-11-ranch-christmas-winter.jpg",
+      "width": 2000,
+      "height": 1333,
+      "title": "Red craftsman-style ranch in snow with wreaths",
+      "description": "Red craftsman-style ranch in snow with wreaths. Snowfall; modest existing Christmas decor (door wreaths, two white reindeer figures, red flowers in planters).",
+      "photographer": "Erik Mclean",
+      "sourceUrl": "https://unsplash.com/photos/red-and-gray-house-during-snow-I1IQH40D1E4",
+      "license": "Unsplash License",
+      "licenseUrl": "https://unsplash.com/license",
+      "tags": ["house", "craftsman_ranch", "winter", "detached", "existing-decor-christmas"],
+      "style": "craftsman_ranch",
+      "buildingForm": "detached",
+      "season": "winter",
+      "unobstructed": true,
+      "existingDecor": "christmas",
+      "anchors": {
+        "houseFacade": [0.03, 0.25, 0.975, 0.67],
+        "roofline": [0.03, 0.25, 0.975, 0.5],
+        "eaves": [0.03, 0.44, 0.975, 0.5],
+        "frontDoor": [0.586, 0.53, 0.626, 0.605],
+        "doorFrame": [0.57, 0.51, 0.65, 0.62],
+        "windows": [
+          [0.206, 0.504, 0.268, 0.59],
+          [0.478, 0.517, 0.543, 0.616],
+          [0.585, 0.48, 0.63, 0.51],
+          [0.427, 0.52, 0.443, 0.565],
+          [0.687, 0.509, 0.727, 0.586],
+          [0.775, 0.51, 0.795, 0.55],
+          [0.832, 0.49, 0.886, 0.52]
+        ],
+        "porchRail": null,
+        "porchSteps": null,
+        "columns": [
+          [0.442, 0.47, 0.458, 0.635],
+          [0.543, 0.465, 0.565, 0.635],
+          [0.626, 0.465, 0.648, 0.635]
+        ],
+        "walkwayEdge": null,
+        "planters": [
+          [0.53, 0.646, 0.55, 0.673],
+          [0.59, 0.646, 0.614, 0.673]
+        ],
+        "garageDoor": null,
+        "existingDecor": [
+          [0.376, 0.555, 0.402, 0.59],
+          [0.6, 0.54, 0.628, 0.575],
+          [0.266, 0.61, 0.287, 0.66],
+          [0.668, 0.61, 0.69, 0.665]
+        ],
+        "parkedCar": null,
+        "neighborFacades": []
+      }
+    },
+    {
+      "id": "house-12-apartments-summer",
+      "kind": "house",
+      "file": "houses/house-12-apartments-summer.jpg",
+      "width": 2000,
+      "height": 1501,
+      "title": "Brick apartment complex with landscaping",
+      "description": "Brick apartment complex with landscaping. Target is the left brick-and-stucco building with street-level entrances; overcast; plaza planting in front; roof cut off by the frame.",
+      "photographer": "Jordan Heinz",
+      "sourceUrl": "https://unsplash.com/photos/multi-story-building-with-statue-trees-and-garden-KxQJt7aWjOk",
+      "license": "Unsplash License",
+      "licenseUrl": "https://unsplash.com/license",
+      "tags": ["house", "apartment_complex", "summer", "multi_unit"],
+      "style": "apartment_complex",
+      "buildingForm": "multi_unit",
+      "season": "summer",
+      "unobstructed": false,
+      "existingDecor": "none",
+      "anchors": {
+        "houseFacade": [0, 0, 0.4, 0.56],
+        "roofline": null,
+        "eaves": [0.085, 0.375, 0.225, 0.425],
+        "frontDoor": [0.105, 0.435, 0.165, 0.49],
+        "doorFrame": [0.095, 0.43, 0.17, 0.495],
+        "windows": [
+          [0.037, 0.068, 0.081, 0.175],
+          [0.154, 0.13, 0.196, 0.24],
+          [0.196, 0.13, 0.229, 0.24],
+          [0.107, 0.278, 0.174, 0.379],
+          [0.246, 0.324, 0.294, 0.426],
+          [0.316, 0.347, 0.357, 0.428]
+        ],
+        "porchRail": null,
+        "porchSteps": null,
+        "columns": [],
+        "walkwayEdge": [0, 0.68, 0.6, 0.74],
+        "planters": [
+          [0.45, 0.68, 0.76, 0.88],
+          [0.74, 0.62, 1, 0.86]
+        ],
+        "garageDoor": null,
+        "existingDecor": [],
+        "parkedCar": null,
+        "neighborFacades": [
+          [0.4, 0, 0.74, 0.56],
+          [0.84, 0.25, 1, 0.56]
+        ]
+      }
+    },
+    {
+      "id": "house-13-apartments-dusk",
+      "kind": "house",
+      "file": "houses/house-13-apartments-dusk.jpg",
+      "width": 2000,
+      "height": 1500,
+      "title": "Apartment buildings on a street at dusk",
+      "description": "Apartment buildings on a street at dusk. Mid-rise apartment block at blue hour with lit windows; moving traffic and overhead wires cross the frame; lobby sign and street number retouched.",
+      "photographer": "Osmany M Leyva Aldana",
+      "sourceUrl": "https://unsplash.com/photos/modern-apartment-buildings-with-cars-on-street-XAG1rCZBm0c",
+      "license": "Unsplash License",
+      "licenseUrl": "https://unsplash.com/license",
+      "tags": ["house", "apartment_midrise", "summer", "multi_unit"],
+      "style": "apartment_midrise",
+      "buildingForm": "multi_unit",
+      "season": "summer",
+      "unobstructed": false,
+      "existingDecor": "none",
+      "anchors": {
+        "houseFacade": [0.49, 0.445, 0.86, 0.99],
+        "roofline": [0.49, 0.445, 0.86, 0.52],
+        "eaves": null,
+        "frontDoor": [0.65, 0.905, 0.7, 0.985],
+        "doorFrame": [0.645, 0.885, 0.815, 0.99],
+        "windows": [
+          [0.51, 0.64, 0.527, 0.69],
+          [0.558, 0.628, 0.574, 0.678],
+          [0.51, 0.73, 0.527, 0.78],
+          [0.558, 0.72, 0.574, 0.775],
+          [0.51, 0.815, 0.527, 0.865],
+          [0.558, 0.81, 0.574, 0.865],
+          [0.786, 0.605, 0.815, 0.66],
+          [0.786, 0.81, 0.812, 0.865]
+        ],
+        "porchRail": [0.5, 0.565, 0.72, 0.61],
+        "porchSteps": null,
+        "columns": [],
+        "walkwayEdge": null,
+        "planters": [
+          [0.7, 0.81, 0.76, 0.89],
+          [0.82, 0.82, 0.895, 0.92]
+        ],
+        "garageDoor": null,
+        "existingDecor": [],
+        "parkedCar": null,
+        "neighborFacades": [
+          [0.07, 0.62, 0.49, 0.955],
+          [0.85, 0.48, 1, 0.95]
+        ],
+        "lightLines": [
+          [
+            [0.49, 0.516],
+            [0.845, 0.516]
+          ]
+        ]
+      }
+    },
+    {
+      "id": "house-14-victorian-autumn",
+      "kind": "house",
+      "file": "houses/house-14-victorian-autumn.jpg",
+      "width": 2000,
+      "height": 1500,
+      "title": "Queen Anne Victorian in autumn color",
+      "description": "Queen Anne Victorian in autumn color. Queen Anne with corner turret and wraparound porch seen at a slight angle, in peak autumn color.",
+      "photographer": "Brett Wharton",
+      "sourceUrl": "https://unsplash.com/photos/a-large-house-with-a-front-yard-IslNMR8-jww",
+      "license": "Unsplash License",
+      "licenseUrl": "https://unsplash.com/license",
+      "tags": ["house", "victorian", "autumn", "detached"],
+      "style": "victorian",
+      "buildingForm": "detached",
+      "season": "autumn",
+      "unobstructed": true,
+      "existingDecor": "none",
+      "anchors": {
+        "houseFacade": [0.15, 0.13, 0.93, 0.9],
+        "roofline": [0.645, 0.2, 0.905, 0.288],
+        "eaves": [0.15, 0.495, 0.76, 0.58],
+        "frontDoor": [0.634, 0.585, 0.68, 0.77],
+        "windows": [
+          [0.568, 0.233, 0.618, 0.314],
+          [0.477, 0.392, 0.532, 0.5],
+          [0.574, 0.373, 0.625, 0.405],
+          [0.681, 0.367, 0.757, 0.476],
+          [0.376, 0.386, 0.434, 0.505],
+          [0.796, 0.576, 0.846, 0.629]
+        ],
+        "porchRail": [0.155, 0.7, 0.75, 0.757],
+        "porchSteps": [0.512, 0.776, 0.655, 0.885],
+        "columns": [
+          [0.508, 0.555, 0.54, 0.672],
+          [0.672, 0.545, 0.71, 0.672],
+          [0.228, 0.555, 0.262, 0.672],
+          [0.462, 0.555, 0.48, 0.672]
+        ],
+        "walkwayEdge": [0.275, 0.89, 0.55, 1],
+        "planters": [],
+        "garageDoor": null,
+        "existingDecor": [],
+        "parkedCar": null,
+        "neighborFacades": [],
+        "lightLines": [
+          [
+            [0.142, 0.552],
+            [0.17, 0.538],
+            [0.21, 0.53],
+            [0.27, 0.525],
+            [0.34, 0.522],
+            [0.42, 0.523],
+            [0.48, 0.526],
+            [0.6, 0.527],
+            [0.725, 0.527]
+          ],
+          [
+            [0.645, 0.322],
+            [0.905, 0.274]
+          ]
+        ],
+        "railLines": [
+          [
+            [0.153, 0.704],
+            [0.208, 0.704]
+          ],
+          [
+            [0.262, 0.7],
+            [0.421, 0.7]
+          ]
+        ],
+        "standSpots": [
+          [0.487, 0.81],
+          [0.693, 0.768],
+          [0.598, 0.767],
+          [0.497, 0.873],
+          [0.662, 0.826]
+        ],
+        "doorFrame": null,
+        "standSurfaces": [
+          {
+            "from": 0.461,
+            "to": 0.511
+          },
+          {
+            "from": 0.657,
+            "to": 0.702
+          },
+          {
+            "from": 0.56,
+            "to": 0.628
+          },
+          {
+            "from": 0.478,
+            "to": 0.53
+          },
+          {
+            "from": 0.645,
+            "to": 0.72
+          }
+        ]
+      }
+    },
+    {
+      "id": "sample-dining-room",
+      "kind": "sample",
+      "file": "samples/sample-dining-room.jpg",
+      "width": 2400,
+      "height": 1601,
+      "title": "Dining room with wooden table",
+      "description": "Dining room with a wooden table and chairs. Undecorated, no people.",
+      "photographer": "Clay Banks",
+      "sourceUrl": "https://unsplash.com/photos/dining-room-with-rustic-wooden-table-and-chairs-lGWmTzCyEB8",
+      "license": "Unsplash License",
+      "licenseUrl": "https://unsplash.com/license",
+      "tags": ["sample-upload", "dining-room"],
+      "scene": "dining_room",
+      "anchors": {
+        "scale": {
+          "box": [0.585, 0.235, 0.885, 0.92],
+          "meters": 2.03,
+          "axis": "height"
+        },
+        "eyeHeight": 1.3,
+        "doorGlass": [
+          [0.605, 0.255, 0.705, 0.73],
+          [0.735, 0.245, 0.865, 0.74]
+        ],
+        "windows": [[0.118, 0.215, 0.395, 0.66]],
+        "windowTops": [
+          [
+            [0.085, 0.09],
+            [0.405, 0.168]
+          ]
+        ],
+        "tableSpots": [[0.485, 0.688]],
+        "keepClear": [
+          [0.365, 0.555, 0.425, 0.666],
+          [0.3, 0.4, 0.49, 0.555],
+          [0.545, 0.655, 0.625, 0.705],
+          [0.635, 0.65, 0.68, 0.705],
+          [0.44, 0.27, 0.53, 0.375]
+        ]
+      }
+    },
+    {
+      "id": "sample-living-room-mantel",
+      "kind": "sample",
+      "file": "samples/sample-living-room-mantel.jpg",
+      "width": 2400,
+      "height": 1597,
+      "title": "Living room with fireplace mantel",
+      "description": "Living room with a fireplace and mantel. Undecorated, no people.",
+      "photographer": "Cole Ankney",
+      "sourceUrl": "https://unsplash.com/photos/a-living-room-with-a-fire-place-and-blue-chairs-cfUbiZFaIqQ",
+      "license": "Unsplash License",
+      "licenseUrl": "https://unsplash.com/license",
+      "tags": ["sample-upload", "living-room"],
+      "scene": "living_room",
+      "anchors": {
+        "scale": {
+          "box": [0.318, 0.398, 0.672, 0.49],
+          "meters": 1.56,
+          "axis": "width"
+        },
+        "eyeHeight": 1.2,
+        "windows": [
+          [0.0, 0.215, 0.198, 0.665],
+          [0.79, 0.215, 1.0, 0.665]
+        ],
+        "windowTops": [
+          [
+            [0.0, 0.183],
+            [0.208, 0.183]
+          ],
+          [
+            [0.782, 0.183],
+            [1.0, 0.183]
+          ]
+        ],
+        "mantel": [
+          [0.322, 0.401],
+          [0.668, 0.401]
+        ],
+        "surfaceSpots": [[0.62, 0.877]],
+        "keepClear": [
+          [0.36, 0.165, 0.635, 0.398],
+          [0.705, 0.455, 0.725, 0.5],
+          [0.335, 0.76, 0.385, 0.885],
+          [0.395, 0.655, 0.595, 0.82],
+          [0.73, 0.55, 1.0, 1.0],
+          [0.0, 0.58, 0.22, 1.0]
+        ]
+      }
+    },
+    {
+      "id": "sample-apartment-hallway",
+      "kind": "sample",
+      "file": "samples/sample-apartment-hallway.jpg",
+      "width": 2400,
+      "height": 1347,
+      "title": "Apartment hallway with entry doors",
+      "description": "Apartment hallway with numbered entry doors. Undecorated, no people.",
+      "photographer": "OSMAN ESPINOZA FRANCO",
+      "sourceUrl": "https://unsplash.com/photos/a-long-dimly-lit-hallway-with-doors-on-both-sides-pu815qnqhpY",
+      "license": "Unsplash License",
+      "licenseUrl": "https://unsplash.com/license",
+      "tags": ["sample-upload", "apartment-entry"],
+      "scene": "apartment_entry",
+      "anchors": {
+        "scale": {
+          "box": [0.3, 0.06, 0.33, 1.0],
+          "meters": 2.1,
+          "axis": "height"
+        },
+        "eyeHeight": 1.5,
+        "standSpots": [
+          [0.36, 0.975],
+          [0.665, 0.93]
+        ],
+        "keepClear": [[0.73, 0.0, 1.0, 1.0]]
+      }
+    },
+    {
+      "id": "sample-balcony",
+      "kind": "sample",
+      "file": "samples/sample-balcony.jpg",
+      "width": 2400,
+      "height": 1601,
+      "title": "Balcony with wooden railing",
+      "description": "Balcony with a wooden railing over a field. Undecorated, no people.",
+      "photographer": "Josh Lemmon",
+      "sourceUrl": "https://unsplash.com/photos/wooden-balcony-overlooking-green-field-EDqqxCAcGwU",
+      "license": "Unsplash License",
+      "licenseUrl": "https://unsplash.com/license",
+      "tags": ["sample-upload", "balcony"],
+      "scene": "balcony",
+      "anchors": {
+        "scale": {
+          "box": [0.355, 0.525, 0.375, 0.71],
+          "meters": 1.0,
+          "axis": "height"
+        },
+        "eyeHeight": 1.6,
+        "rails": [
+          [
+            [0.0, 0.535],
+            [0.355, 0.523]
+          ],
+          [
+            [0.375, 0.523],
+            [0.98, 0.598]
+          ]
+        ],
+        "standSpots": [
+          [0.31, 0.735],
+          [0.12, 0.79],
+          [0.52, 0.79]
+        ],
+        "keepClear": [[0.05, 0.1, 0.65, 0.36]]
+      }
+    },
+    {
+      "id": "sample-front-porch",
+      "kind": "sample",
+      "file": "samples/sample-front-porch.jpg",
+      "width": 2400,
+      "height": 1600,
+      "title": "Front porch entry with double doors",
+      "description": "Front porch with double doors and rocking chair. Undecorated, no people.",
+      "photographer": "Avi Werde",
+      "sourceUrl": "https://unsplash.com/photos/brown-wooden-rocking-chair-on-porch-beside-closed-french-doors-iAD4Ry8z3JU",
+      "license": "Unsplash License",
+      "licenseUrl": "https://unsplash.com/license",
+      "tags": ["sample-upload", "front-porch"],
+      "scene": "front_porch",
+      "anchors": {
+        "scale": {
+          "box": [0.4, 0.025, 0.575, 0.615],
+          "meters": 2.4,
+          "axis": "height"
+        },
+        "eyeHeight": 0.75,
+        "doors": [
+          [0.4, 0.025, 0.487, 0.615],
+          [0.488, 0.025, 0.575, 0.615]
+        ],
+        "doorFrames": [[0.345, 0.0, 0.635, 0.62]],
+        "doorGlass": [
+          [0.415, 0.04, 0.47, 0.5],
+          [0.505, 0.04, 0.56, 0.5]
+        ],
+        "windows": [
+          [0.69, 0.03, 0.775, 0.44],
+          [0.95, 0.02, 1.0, 0.36],
+          [0.24, 0.05, 0.32, 0.235]
+        ],
+        "rails": [
+          [
+            [0.172, 0.415],
+            [0.124, 0.69]
+          ],
+          [
+            [0.726, 0.415],
+            [0.79, 0.69]
+          ],
+          [
+            [0.75, 0.418],
+            [0.935, 0.418]
+          ]
+        ],
+        "standSpots": [
+          [0.26, 0.822],
+          [0.695, 0.757],
+          [0.255, 0.757],
+          [0.7, 0.822],
+          [0.665, 0.621]
+        ],
+        "keepClear": [
+          [0.235, 0.335, 0.395, 0.635],
+          [0.42, 0.6, 0.565, 0.63]
+        ]
+      }
+    },
+    {
+      "id": "sample-kitchen",
+      "kind": "sample",
+      "file": "samples/sample-kitchen.jpg",
+      "width": 2400,
+      "height": 1601,
+      "title": "Bright white kitchen",
+      "description": "Bright white kitchen with island. Undecorated, no people.",
+      "photographer": "Clay Banks",
+      "sourceUrl": "https://unsplash.com/photos/bright-modern-kitchen-with-white-cabinets-and-stainless-steel-appliances-nTqR3B3dp-Q",
+      "license": "Unsplash License",
+      "licenseUrl": "https://unsplash.com/license",
+      "tags": ["sample-upload", "kitchen"],
+      "scene": "kitchen",
+      "anchors": {
+        "scale": {
+          "box": [0.325, 0.6, 0.5, 0.9],
+          "meters": 0.76,
+          "axis": "width"
+        },
+        "eyeHeight": 1.4,
+        "windows": [[0.805, 0.18, 0.86, 0.53]],
+        "windowTops": [
+          [
+            [0.8, 0.165],
+            [0.868, 0.147]
+          ]
+        ],
+        "tableSpots": [[0.13, 0.735]],
+        "keepClear": [
+          [0.2, 0.68, 0.29, 0.76],
+          [0.0, 0.57, 0.05, 0.75],
+          [0.75, 0.73, 0.92, 0.84],
+          [0.21, 0.72, 0.32, 0.85]
+        ]
+      }
+    },
+    {
+      "id": "decor-wreath-evergreen",
+      "kind": "decor",
+      "file": "decor/wreath-evergreen.webp",
+      "width": 800,
+      "height": 799,
+      "title": "Evergreen Christmas wreath",
+      "description": "A full mixed-evergreen wreath with berries, cones and dried leaves, shot flat on a plain backdrop.",
+      "photographer": "Vera Davidova",
+      "sourceUrl": "https://unsplash.com/photos/a-christmas-wreath-with-a-white-background-XT0FjGm4nLM",
+      "license": "Unsplash License",
+      "licenseUrl": "https://unsplash.com/license",
+      "tags": ["christmas", "wreath", "evergreen"],
+      "decor": {
+        "sizeMeters": 0.6,
+        "sizeAxis": "width",
+        "attach": "hang",
+        "attachPoint": [0.5, 0.0],
+        "emitsLight": false
+      }
+    },
+    {
+      "id": "decor-wreath-autumn",
+      "kind": "decor",
+      "file": "decor/wreath-autumn.webp",
+      "width": 524,
+      "height": 800,
+      "title": "Autumn wreath with ribbon",
+      "description": "A harvest wreath of yellow leaves, berries and a red bow hanging from a ribbon loop.",
+      "photographer": "Magda Ehlers",
+      "sourceUrl": "https://www.pexels.com/photo/colorful-autumn-wreath-with-red-ribbon-on-white-wall-31040892/",
+      "license": "Pexels License",
+      "licenseUrl": "https://www.pexels.com/license/",
+      "tags": ["thanksgiving", "halloween", "wreath", "autumn"],
+      "decor": {
+        "sizeMeters": 0.7,
+        "sizeAxis": "height",
+        "attach": "hang",
+        "attachPoint": [0.534, 0.0],
+        "emitsLight": false
+      }
+    },
+    {
+      "id": "decor-bough-pine",
+      "kind": "decor",
+      "file": "decor/bough-pine.webp",
+      "width": 1100,
+      "height": 424,
+      "title": "Pine bough",
+      "description": "A long pine bough, stem along the top, needles hanging down: the repeating unit of a draped garland.",
+      "photographer": "Umut Hasanoglu",
+      "sourceUrl": "https://unsplash.com/photos/h-KTD4rpVao",
+      "license": "Unsplash License",
+      "licenseUrl": "https://unsplash.com/license",
+      "tags": ["garland", "evergreen"],
+      "decor": {
+        "sizeMeters": 0.6,
+        "sizeAxis": "width",
+        "attach": "hang",
+        "attachPoint": [0.5, 0.12],
+        "emitsLight": false
+      }
+    },
+    {
+      "id": "decor-bough-yew",
+      "kind": "decor",
+      "file": "decor/bough-yew.webp",
+      "width": 551,
+      "height": 900,
+      "title": "Yew branch",
+      "description": "A dark yew branch that varies the texture of a garland.",
+      "photographer": "Laurence Ziegler",
+      "sourceUrl": "https://unsplash.com/photos/a-close-up-of-a-tree-branch-on-a-white-background-fuilNTp81m4",
+      "license": "Unsplash License",
+      "licenseUrl": "https://unsplash.com/license",
+      "tags": ["garland", "evergreen"],
+      "decor": {
+        "sizeMeters": 0.55,
+        "sizeAxis": "height",
+        "attach": "hang",
+        "attachPoint": [0.5, 0.5],
+        "emitsLight": false
+      }
+    },
+    {
+      "id": "decor-leaf-maple-orange",
+      "kind": "decor",
+      "file": "decor/leaf-maple-orange.webp",
+      "width": 367,
+      "height": 400,
+      "title": "Orange maple leaf",
+      "description": "A single orange-brown maple leaf for a harvest garland.",
+      "photographer": "Lucas George Wendt",
+      "sourceUrl": "https://unsplash.com/photos/5usLKNEhPB0",
+      "license": "Unsplash License",
+      "licenseUrl": "https://unsplash.com/license",
+      "tags": ["garland", "autumn", "leaf"],
+      "decor": {
+        "sizeMeters": 0.12,
+        "sizeAxis": "height",
+        "attach": "hang",
+        "attachPoint": [0.5, 0.5],
+        "emitsLight": false
+      }
+    },
+    {
+      "id": "decor-leaf-oak-gold",
+      "kind": "decor",
+      "file": "decor/leaf-oak-gold.webp",
+      "width": 373,
+      "height": 400,
+      "title": "Golden oak leaf",
+      "description": "A single golden oak leaf for a harvest garland.",
+      "photographer": "Lucas George Wendt",
+      "sourceUrl": "https://unsplash.com/photos/5usLKNEhPB0",
+      "license": "Unsplash License",
+      "licenseUrl": "https://unsplash.com/license",
+      "tags": ["garland", "autumn", "leaf"],
+      "decor": {
+        "sizeMeters": 0.12,
+        "sizeAxis": "height",
+        "attach": "hang",
+        "attachPoint": [0.5, 0.5],
+        "emitsLight": false
+      }
+    },
+    {
+      "id": "decor-leaf-japanese-maple-red",
+      "kind": "decor",
+      "file": "decor/leaf-japanese-maple-red.webp",
+      "width": 395,
+      "height": 400,
+      "title": "Red Japanese maple leaf",
+      "description": "A single red Japanese maple leaf for a harvest garland.",
+      "photographer": "Lucas George Wendt",
+      "sourceUrl": "https://unsplash.com/photos/5usLKNEhPB0",
+      "license": "Unsplash License",
+      "licenseUrl": "https://unsplash.com/license",
+      "tags": ["garland", "autumn", "leaf"],
+      "decor": {
+        "sizeMeters": 0.1,
+        "sizeAxis": "height",
+        "attach": "hang",
+        "attachPoint": [0.5, 0.5],
+        "emitsLight": false
+      }
+    },
+    {
+      "id": "decor-leaf-japanese-maple-orange",
+      "kind": "decor",
+      "file": "decor/leaf-japanese-maple-orange.webp",
+      "width": 366,
+      "height": 400,
+      "title": "Orange Japanese maple leaf",
+      "description": "A single orange Japanese maple leaf for a harvest garland.",
+      "photographer": "Lucas George Wendt",
+      "sourceUrl": "https://unsplash.com/photos/5usLKNEhPB0",
+      "license": "Unsplash License",
+      "licenseUrl": "https://unsplash.com/license",
+      "tags": ["garland", "autumn", "leaf"],
+      "decor": {
+        "sizeMeters": 0.1,
+        "sizeAxis": "height",
+        "attach": "hang",
+        "attachPoint": [0.5, 0.5],
+        "emitsLight": false
+      }
+    },
+    {
+      "id": "decor-pumpkin-orange",
+      "kind": "decor",
+      "file": "decor/pumpkin-orange.webp",
+      "width": 671,
+      "height": 496,
+      "title": "Orange pumpkin",
+      "description": "A classic orange field pumpkin with a curled stem.",
+      "photographer": "Boris Hamer",
+      "sourceUrl": "https://www.pexels.com/photo/pumpkin-on-white-background-16253358/",
+      "license": "Pexels License",
+      "licenseUrl": "https://www.pexels.com/license/",
+      "tags": ["pumpkin", "autumn"],
+      "decor": {
+        "sizeMeters": 0.38,
+        "sizeAxis": "width",
+        "attach": "base",
+        "attachPoint": [0.5, 0.99],
+        "emitsLight": false
+      }
+    },
+    {
+      "id": "decor-pumpkin-small",
+      "kind": "decor",
+      "file": "decor/pumpkin-small.webp",
+      "width": 496,
+      "height": 500,
+      "title": "Small yellow pumpkin",
+      "description": "A small mottled yellow pumpkin.",
+      "photographer": "Tijana Drndarski",
+      "sourceUrl": "https://www.pexels.com/photo/yellow-pumpkin-on-white-surface-5474395/",
+      "license": "Pexels License",
+      "licenseUrl": "https://www.pexels.com/license/",
+      "tags": ["pumpkin", "autumn"],
+      "decor": {
+        "sizeMeters": 0.2,
+        "sizeAxis": "width",
+        "attach": "base",
+        "attachPoint": [0.5, 0.985],
+        "emitsLight": false
+      }
+    },
+    {
+      "id": "decor-pumpkins-white",
+      "kind": "decor",
+      "file": "decor/pumpkins-white.webp",
+      "width": 700,
+      "height": 434,
+      "title": "White pumpkins",
+      "description": "Three white pumpkins in a group.",
+      "photographer": "Aimee Armour-Avant",
+      "sourceUrl": "https://unsplash.com/photos/three-white-squash-on-black-background-GV7GtlHYce4",
+      "license": "Unsplash License",
+      "licenseUrl": "https://unsplash.com/license",
+      "tags": ["pumpkin", "autumn"],
+      "decor": {
+        "sizeMeters": 0.42,
+        "sizeAxis": "width",
+        "attach": "base",
+        "attachPoint": [0.5, 0.99],
+        "emitsLight": false
+      }
+    },
+    {
+      "id": "decor-pumpkins-harvest",
+      "kind": "decor",
+      "file": "decor/pumpkins-harvest.webp",
+      "width": 800,
+      "height": 606,
+      "title": "Harvest pumpkins",
+      "description": "Two red kuri pumpkins and a butternut squash grouped together.",
+      "photographer": "Atlantic Ambience",
+      "sourceUrl": "https://www.pexels.com/photo/pumpkins-on-gray-background-12932827/",
+      "license": "Pexels License",
+      "licenseUrl": "https://www.pexels.com/license/",
+      "tags": ["pumpkin", "autumn", "thanksgiving"],
+      "decor": {
+        "sizeMeters": 0.55,
+        "sizeAxis": "width",
+        "attach": "base",
+        "attachPoint": [0.5, 0.99],
+        "emitsLight": false
+      }
+    },
+    {
+      "id": "decor-gourds-group",
+      "kind": "decor",
+      "file": "decor/gourds-group.webp",
+      "width": 700,
+      "height": 623,
+      "title": "Ornamental gourds",
+      "description": "A small pile of yellow, green-striped and orange ornamental gourds.",
+      "photographer": "Girl with red hat",
+      "sourceUrl": "https://unsplash.com/photos/a-group-of-gourds-sitting-on-top-of-each-other-U6THzORkIx0",
+      "license": "Unsplash License",
+      "licenseUrl": "https://unsplash.com/license",
+      "tags": ["gourd", "autumn", "centerpiece"],
+      "decor": {
+        "sizeMeters": 0.34,
+        "sizeAxis": "width",
+        "attach": "base",
+        "attachPoint": [0.5, 0.99],
+        "emitsLight": false
+      }
+    },
+    {
+      "id": "decor-jack-o-lantern",
+      "kind": "decor",
+      "file": "decor/jack-o-lantern.webp",
+      "width": 700,
+      "height": 685,
+      "title": "Lit jack-o'-lantern",
+      "description": "A carved pumpkin glowing from a candle inside, photographed at night.",
+      "photographer": "Thomas Stix",
+      "sourceUrl": "https://www.pexels.com/photo/an-illuminated-jack-o-lantern-in-close-up-photography-10223940/",
+      "license": "Pexels License",
+      "licenseUrl": "https://www.pexels.com/license/",
+      "tags": ["halloween", "pumpkin", "light"],
+      "decor": {
+        "sizeMeters": 0.32,
+        "sizeAxis": "height",
+        "attach": "base",
+        "attachPoint": [0.5, 0.99],
+        "emitsLight": true,
+        "lightPoint": [0.413, 0.596]
+      }
+    },
+    {
+      "id": "decor-lantern-white",
+      "kind": "decor",
+      "file": "decor/lantern-white.webp",
+      "width": 378,
+      "height": 800,
+      "title": "Candle lantern, lit",
+      "description": "A white metal candle lantern with a lit tealight.",
+      "photographer": "Berke Can",
+      "sourceUrl": "https://www.pexels.com/photo/white-metal-candle-lantern-6043114/",
+      "license": "Pexels License",
+      "licenseUrl": "https://www.pexels.com/license/",
+      "tags": ["lantern", "light"],
+      "decor": {
+        "sizeMeters": 0.42,
+        "sizeAxis": "height",
+        "attach": "base",
+        "attachPoint": [0.5, 0.995],
+        "emitsLight": true,
+        "lightPoint": [0.518, 0.778]
+      }
+    },
+    {
+      "id": "decor-lantern-white-unlit",
+      "kind": "decor",
+      "file": "decor/lantern-white-unlit.webp",
+      "width": 378,
+      "height": 800,
+      "title": "Candle lantern, unlit",
+      "description": "The same white metal lantern with its candle out (flame retouched away).",
+      "photographer": "Berke Can",
+      "sourceUrl": "https://www.pexels.com/photo/white-metal-candle-lantern-6043114/",
+      "license": "Pexels License",
+      "licenseUrl": "https://www.pexels.com/license/",
+      "tags": ["lantern"],
+      "decor": {
+        "sizeMeters": 0.42,
+        "sizeAxis": "height",
+        "attach": "base",
+        "attachPoint": [0.5, 0.995],
+        "emitsLight": false
+      }
+    },
+    {
+      "id": "decor-mums-yellow",
+      "kind": "decor",
+      "file": "decor/mums-yellow.webp",
+      "width": 700,
+      "height": 541,
+      "title": "Potted yellow mums",
+      "description": "Yellow chrysanthemums in a terracotta pot.",
+      "photographer": "Ana Lourenco",
+      "sourceUrl": "https://www.pexels.com/photo/yellow-chrysanthemums-in-terracotta-pot-outdoors-37804628/",
+      "license": "Pexels License",
+      "licenseUrl": "https://www.pexels.com/license/",
+      "tags": ["mums", "autumn", "planter"],
+      "decor": {
+        "sizeMeters": 0.45,
+        "sizeAxis": "height",
+        "attach": "base",
+        "attachPoint": [0.5, 0.99],
+        "emitsLight": false
+      }
+    },
+    {
+      "id": "decor-candle-centerpiece",
+      "kind": "decor",
+      "file": "decor/candle-centerpiece.webp",
+      "width": 800,
+      "height": 418,
+      "title": "Candle centerpiece",
+      "description": "Burgundy pillar candles, one lit, on an evergreen ring with pine cones and stars.",
+      "photographer": "Georg Manfred Heinlein",
+      "sourceUrl": "https://www.pexels.com/photo/wax-candles-and-decorations-14745924/",
+      "license": "Pexels License",
+      "licenseUrl": "https://www.pexels.com/license/",
+      "tags": ["christmas", "centerpiece", "candles", "light"],
+      "decor": {
+        "sizeMeters": 0.45,
+        "sizeAxis": "width",
+        "attach": "base",
+        "attachPoint": [0.5, 0.97],
+        "emitsLight": true,
+        "lightPoint": [0.357, 0.15]
+      }
+    },
+    {
+      "id": "decor-stocking",
+      "kind": "decor",
+      "file": "decor/stocking.webp",
+      "width": 484,
+      "height": 700,
+      "title": "Christmas stocking",
+      "description": "A burlap stocking with a gingham cuff, filled with spruce sprigs.",
+      "photographer": "Antoni Shkraba",
+      "sourceUrl": "https://www.pexels.com/photo/a-christmas-stocking-filled-with-pine-leaves-5853909/",
+      "license": "Pexels License",
+      "licenseUrl": "https://www.pexels.com/license/",
+      "tags": ["christmas", "stocking"],
+      "decor": {
+        "sizeMeters": 0.55,
+        "sizeAxis": "height",
+        "attach": "hang",
+        "attachPoint": [0.55, 0.33],
+        "emitsLight": false
+      }
+    },
+    {
+      "id": "decor-wreath-fir-holly",
+      "kind": "decor",
+      "file": "decor/wreath-fir-holly.webp",
+      "width": 640,
+      "height": 724,
+      "title": "Fir and holly wreath",
+      "description": "A full fir wreath with holly, red berries, pine cones and poppy heads, shot flat on kraft paper.",
+      "photographer": "Milada Vigerova",
+      "sourceUrl": "https://www.pexels.com/photo/christmas-wreath-with-hollies-6073045/",
+      "license": "Pexels License",
+      "licenseUrl": "https://www.pexels.com/license/",
+      "tags": ["christmas", "wreath", "evergreen"],
+      "decor": {
+        "sizeMeters": 0.66,
+        "sizeAxis": "width",
+        "attach": "hang",
+        "attachPoint": [0.52, 0.5],
+        "emitsLight": false
+      }
+    },
+    {
+      "id": "decor-bow-red",
+      "kind": "decor",
+      "file": "decor/bow-red.webp",
+      "width": 349,
+      "height": 600,
+      "title": "Red velvet bow",
+      "description": "A red velvet ribbon bow with long tails, cut from a photograph of a wreath on a shingle wall.",
+      "photographer": "Tim Mossholder",
+      "sourceUrl": "https://www.pexels.com/photo/green-and-red-christmas-wreath-1708842/",
+      "license": "Pexels License",
+      "licenseUrl": "https://www.pexels.com/license/",
+      "tags": ["christmas", "bow", "ribbon"],
+      "decor": {
+        "sizeMeters": 0.3,
+        "sizeAxis": "width",
+        "attach": "hang",
+        "attachPoint": [0.5, 0.2],
+        "emitsLight": false
+      }
+    },
+    {
+      "id": "decor-spruce-potted",
+      "kind": "decor",
+      "file": "decor/spruce-potted.webp",
+      "width": 383,
+      "height": 900,
+      "title": "Potted dwarf spruce",
+      "description": "A dwarf conifer about three feet tall in a black nursery pot, photographed outdoors at a garden market.",
+      "photographer": "Uriel Mont",
+      "sourceUrl": "https://www.pexels.com/photo/potted-juniper-plants-on-street-6280465/",
+      "license": "Pexels License",
+      "licenseUrl": "https://www.pexels.com/license/",
+      "tags": ["christmas", "potted", "evergreen"],
+      "decor": {
+        "sizeMeters": 1.1,
+        "sizeAxis": "height",
+        "attach": "base",
+        "attachPoint": [0.45, 0.985],
+        "emitsLight": false
+      }
+    }
+  ]
+}

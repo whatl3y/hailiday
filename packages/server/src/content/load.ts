@@ -1,0 +1,676 @@
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { parse as parseYaml } from 'yaml';
+import { z } from 'zod';
+import {
+  CLIMATE_CLASSES,
+  CommerceCatalogSchema,
+  HOLIDAY_IDS,
+  HolidayPackSchema,
+  LIGHTING_MODES,
+  SCENE_TYPES,
+  STYLES,
+  SceneTypeSchema,
+  SpecAttributesSchema,
+  StyleKitSchema,
+  packMajorMinor,
+} from '@holiday/core';
+import type {
+  ClimateClass,
+  CommerceCatalog,
+  HolidayId,
+  HolidayPack,
+  LightingMode,
+  SceneType,
+  SpecAttributes,
+  Style,
+  StyleKit,
+} from '@holiday/core';
+import { sha256Hex } from '../ids/index.js';
+
+/** Default content directory: `packages/server/content` (sibling of `src` and `dist`). */
+export const DEFAULT_CONTENT_DIR = fileURLToPath(new URL('../../content/', import.meta.url));
+/** Default fixtures directory: `packages/server/fixtures`. */
+export const DEFAULT_FIXTURES_DIR = fileURLToPath(new URL('../../fixtures/', import.meta.url));
+
+/** A content file failed validation; `issues` lists every problem found. */
+export class ContentError extends Error {
+  readonly issues: string[];
+  constructor(issues: string[]) {
+    super(`Invalid content:\n  - ${issues.slice(0, 50).join('\n  - ')}`);
+    this.name = 'ContentError';
+    this.issues = issues;
+  }
+}
+
+/** One validated holiday pack file with its publication fingerprint. */
+export interface PackContent {
+  holidayId: HolidayId;
+  region: string;
+  version: string;
+  majorMinor: string;
+  /** SHA-256 of the file bytes, stored as `holiday_pack_versions.content_sha256`. */
+  sha256: string;
+  /** Server-only path relative to the content directory (`packs/<holidayId>.yaml`). */
+  contentRef: string;
+  pack: HolidayPack;
+}
+
+/** A style kit validated by the core schema, plus the product each item currently maps to. */
+export interface KitContent {
+  kit: StyleKit;
+  packVersion: string;
+  /** `kitItemId` → product key from `currentProductId`, or null. */
+  currentProducts: ReadonlyMap<string, string | null>;
+}
+
+/** Fields of a merchant program record beyond the core content schema. */
+export interface MerchantProgramExtras {
+  programType: string;
+  subIdParam: string | null;
+  trackingIds: { holidayId: string; channel: string; trackingId: string }[];
+  statusHistory: { status: string; at: string; evidenceRef: string | null }[];
+  logoPermitted: boolean;
+  notes: string | null;
+}
+
+/** Fields of an offer record beyond the core content schema. */
+export interface OfferExtras {
+  contentRightsEvidence: Record<'imageDisplay' | 'imageAiInput' | 'textUse', string | null>;
+  verifiedByLabel: string | null;
+}
+
+export interface CommerceContent {
+  catalog: CommerceCatalog;
+  programExtras: ReadonlyMap<string, MerchantProgramExtras>;
+  offerExtras: ReadonlyMap<string, OfferExtras>;
+  /** Offer timestamps are authored relative to this instant. */
+  authoredAt: string | null;
+  /** Whether the seed shifts offer timestamps by (now − authoredAt). */
+  rebaseTimestampsOnSeed: boolean;
+}
+
+export interface HeroCropSpec {
+  focalPoint: { x: number; y: number };
+  safeArea: [number, number, number, number];
+}
+
+/** One hero art specification (images are produced by a later seed step). */
+export interface HeroContent {
+  heroAssetId: string;
+  holidayId: HolidayId | null;
+  sceneType: SceneType | null;
+  roomType?: string;
+  title: string;
+  lightingMode: LightingMode;
+  altKey: string;
+  altText: string;
+  palette: string[];
+  /** The licensed photograph the hero is cropped from (`content/photos` manifest ID). */
+  photo?: { photoId: string };
+  crops: Record<string, HeroCropSpec>;
+  rights: Record<string, unknown>;
+  approval: { approvedAt: string; approvedBy: string; approvedCrops: string[] };
+}
+
+export interface HeroCropConfig {
+  aspect: string;
+  master?: { width: number; height: number };
+  renditionWidths?: number[];
+  renditions?: { width: number; height: number }[];
+  derivedFrom?: string;
+  width?: number;
+  height?: number;
+}
+
+/** One before/after example specification (images are produced by a later seed step). */
+export interface ExampleContent {
+  exampleId: string;
+  holidayId: HolidayId;
+  sceneType: SceneType;
+  style: Style;
+  lightingMode: LightingMode;
+  source: Record<string, unknown>;
+  packVersion: string;
+  width: number;
+  height: number;
+  captionKey: string;
+  rights: Record<string, unknown>;
+  approval: { approvedAt: string; approvedBy: string };
+}
+
+export interface Content {
+  dir: string;
+  packs: PackContent[];
+  kits: KitContent[];
+  commerce: CommerceContent;
+  heroes: HeroContent[];
+  heroCrops: Record<string, HeroCropConfig>;
+  heroFormats: string[];
+  /** Byte budget of the hero rendition a phone loads first. */
+  heroByteBudget: number | null;
+  examples: ExampleContent[];
+  genericScenes: Record<string, Record<string, unknown>>;
+  climateClasses: Record<string, ClimateClass>;
+  packFor(holidayId: HolidayId): PackContent | undefined;
+  kitFor(holidayId: HolidayId, sceneType: SceneType): KitContent | undefined;
+}
+
+/** Splits `"green, red"` style lists; arrays pass through. */
+function toList(value: unknown): string[] {
+  if (Array.isArray(value)) return value.map((item) => String(item).trim()).filter(Boolean);
+  if (typeof value === 'string') {
+    return value
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+  return [];
+}
+
+function normalizeSpecAttributes(raw: unknown): SpecAttributes {
+  const record = (raw ?? {}) as Record<string, unknown>;
+  const candidate: Record<string, unknown> = { ...record, colorFamily: toList(record.colorFamily) };
+  for (const key of ['countRange', 'sizeRange', 'material', 'lightColor']) {
+    if (candidate[key] !== undefined && candidate[key] !== null)
+      candidate[key] = String(candidate[key]);
+    else delete candidate[key];
+  }
+  return SpecAttributesSchema.parse(candidate);
+}
+
+function zodIssues(prefix: string, error: z.ZodError): string[] {
+  return error.issues.map(
+    (issue) => `${prefix}: ${issue.path.join('.') || '(root)'}: ${issue.message}`,
+  );
+}
+
+async function readText(dir: string, relative: string): Promise<{ text: string; bytes: Buffer }> {
+  const bytes = await readFile(path.join(dir, relative));
+  return { text: bytes.toString('utf8'), bytes };
+}
+
+const KitFileSchema = z.object({
+  holidayId: z.enum(HOLIDAY_IDS),
+  packId: z.string(),
+  packVersion: z.string(),
+  kits: z.array(
+    z.object({
+      kitId: z.string(),
+      holidayId: z.enum(HOLIDAY_IDS),
+      sceneType: SceneTypeSchema,
+      version: z.string(),
+      status: z.enum(['draft', 'published', 'retired']).default('published'),
+      items: z.array(
+        z.object({
+          kitItemId: z.string(),
+          sortOrder: z.int().nonnegative(),
+          anchorCategory: z.string(),
+          anchors: z.array(z.string()).min(1),
+          specText: z.string(),
+          specAttributes: z.unknown(),
+          quantity: z.record(z.enum(STYLES), z.tuple([z.int(), z.int()])),
+          required: z.array(z.enum(STYLES)).default([]),
+          currentProductId: z.string().nullable().optional(),
+        }),
+      ),
+    }),
+  ),
+});
+
+const ProgramFileSchema = z.object({
+  programs: z.array(z.record(z.string(), z.unknown())),
+});
+const ProductFileSchema = z.object({ products: z.array(z.record(z.string(), z.unknown())) });
+const OfferFileSchema = z.object({
+  authoredAt: z.string().nullable().optional(),
+  rebaseTimestampsOnSeed: z.boolean().optional(),
+  offers: z.array(z.record(z.string(), z.unknown())),
+});
+
+const HeroFileSchema = z.object({
+  crops: z.record(z.string(), z.record(z.string(), z.unknown())),
+  formats: z.array(z.string()).default(['jpeg']),
+  firstLoadByteBudget: z.int().positive().optional(),
+  heroes: z.array(
+    z.object({
+      heroAssetId: z.string().min(1),
+      holidayId: z.enum(HOLIDAY_IDS).nullable(),
+      sceneType: SceneTypeSchema.nullable(),
+      roomType: z.string().optional(),
+      title: z.string(),
+      lightingMode: z.enum(LIGHTING_MODES),
+      altKey: z.string(),
+      altText: z.string(),
+      palette: z.array(z.string()).default([]),
+      photo: z.object({ photoId: z.string().min(1) }).optional(),
+      crops: z.record(
+        z.string(),
+        z.object({
+          focalPoint: z.object({ x: z.number(), y: z.number() }),
+          safeArea: z.tuple([z.number(), z.number(), z.number(), z.number()]),
+        }),
+      ),
+      rights: z.record(z.string(), z.unknown()),
+      approval: z.object({
+        approvedAt: z.string(),
+        approvedBy: z.string(),
+        approvedCrops: z.array(z.string()).default(['landscape', 'portrait']),
+      }),
+    }),
+  ),
+});
+
+const ExampleFileSchema = z.object({
+  genericScenes: z.record(z.string(), z.record(z.string(), z.unknown())).default({}),
+  examples: z.array(
+    z.object({
+      exampleId: z.string().min(1),
+      holidayId: z.enum(HOLIDAY_IDS),
+      sceneType: SceneTypeSchema,
+      style: z.enum(STYLES),
+      lightingMode: z.enum(LIGHTING_MODES),
+      source: z.record(z.string(), z.unknown()),
+      packVersion: z.string(),
+      width: z.int().positive(),
+      height: z.int().positive(),
+      captionKey: z.string(),
+      rights: z.record(z.string(), z.unknown()),
+      approval: z.object({ approvedAt: z.string(), approvedBy: z.string() }),
+    }),
+  ),
+});
+
+const ClimateFileSchema = z.object({
+  classes: z.record(z.string(), z.enum(CLIMATE_CLASSES)),
+});
+
+function rightsState(raw: unknown): { state: string; evidenceRef: string | null } {
+  if (raw && typeof raw === 'object') {
+    const value = raw as { state?: unknown; evidenceRef?: unknown };
+    return {
+      state: typeof value.state === 'string' ? value.state : 'unknown',
+      evidenceRef: typeof value.evidenceRef === 'string' ? value.evidenceRef : null,
+    };
+  }
+  return { state: typeof raw === 'string' ? raw : 'unknown', evidenceRef: null };
+}
+
+function mapCommerce(
+  programs: Record<string, unknown>[],
+  products: Record<string, unknown>[],
+  offers: Record<string, unknown>[],
+  issues: string[],
+): {
+  catalog: CommerceCatalog | null;
+  programExtras: Map<string, MerchantProgramExtras>;
+  offerExtras: Map<string, OfferExtras>;
+} {
+  const programExtras = new Map<string, MerchantProgramExtras>();
+  const offerExtras = new Map<string, OfferExtras>();
+  const str = (value: unknown) => (typeof value === 'string' ? value : null);
+
+  const mappedPrograms = programs.map((program) => {
+    const key = String(program.merchantProgramId ?? program.programKey ?? '');
+    programExtras.set(key, {
+      programType: str(program.programType) ?? 'network',
+      subIdParam: str(program.subIdParam),
+      trackingIds: Array.isArray(program.trackingIds)
+        ? (program.trackingIds as MerchantProgramExtras['trackingIds'])
+        : [],
+      statusHistory: Array.isArray(program.statusHistory)
+        ? (program.statusHistory as MerchantProgramExtras['statusHistory'])
+        : [],
+      logoPermitted: program.logoPermitted === true,
+      notes: str(program.notes),
+    });
+    return {
+      programKey: key,
+      displayName: program.merchantName ?? program.displayName ?? key,
+      network: program.network,
+      status: program.status,
+      appliedAt: program.appliedAt ?? null,
+      approvedAt: program.approvedAt ?? null,
+      endedAt: program.endedAt ?? null,
+      requiredDisclosureKey: program.requiredDisclosureKey ?? null,
+      disclosureText: program.disclosureText ?? null,
+      redirectPermitted: program.redirectPermitted ?? false,
+      linkMethod: program.linkMethod ?? 'manual_links',
+      subIdCapability: program.subIdCapability ?? false,
+      apiAccess: program.apiAccess ?? 'none',
+      attributionWindowHours: program.attributionWindowHours ?? null,
+      commissionSchedule: program.commissionSchedule ?? [],
+      policyVersion: program.policyVersion ?? null,
+      reviewedAt: program.reviewedAt ?? null,
+    };
+  });
+
+  const mappedProducts = products.map((product) => ({
+    productKey: product.productId ?? product.productKey,
+    kitItemIds: product.kitItemIds,
+    ourTitle: product.ourTitle,
+    ourDescription: product.ourDescription,
+    category: product.category,
+    specAttributes: (() => {
+      try {
+        return normalizeSpecAttributes(product.specAttributes);
+      } catch (error) {
+        issues.push(`products ${String(product.productId)}: specAttributes: ${String(error)}`);
+        return product.specAttributes;
+      }
+    })(),
+    archivedAt: product.archivedAt ?? null,
+  }));
+
+  const mappedOffers = offers.map((offer) => {
+    const key = String(offer.offerId ?? offer.offerKey ?? '');
+    const rights = (offer.contentRights ?? {}) as Record<string, unknown>;
+    const imageDisplay = rightsState(rights.imageDisplay);
+    const imageAiInput = rightsState(rights.imageAiInput);
+    const textUse = rightsState(rights.textUse);
+    offerExtras.set(key, {
+      contentRightsEvidence: {
+        imageDisplay: imageDisplay.evidenceRef,
+        imageAiInput: imageAiInput.evidenceRef,
+        textUse: textUse.evidenceRef,
+      },
+      verifiedByLabel: str(offer.verifiedBy),
+    });
+    return {
+      offerKey: key,
+      productKey: offer.productId ?? offer.productKey,
+      merchantProgramKey: offer.merchantProgramId ?? offer.merchantProgramKey,
+      merchantItemId: offer.merchantItemId,
+      destinationCountry: offer.destinationCountry,
+      currency: offer.currency,
+      priceMinor: offer.priceMinor ?? null,
+      priceSource: offer.priceSource ?? 'none',
+      priceObservedAt: offer.priceObservedAt ?? null,
+      availability: offer.availability ?? 'unknown',
+      availabilityCheckedAt: offer.availabilityObservedAt ?? offer.availabilityCheckedAt ?? null,
+      destinationUrl: offer.destinationUrl,
+      trackingUrlTemplate: offer.trackingUrlTemplate ?? null,
+      contentRights: {
+        imageDisplay: imageDisplay.state,
+        imageAiInput: imageAiInput.state,
+        textUse: textUse.state,
+      },
+      status: offer.lifecycleStatus ?? offer.status,
+      seasonalEligibility: offer.seasonalEligibility ?? [],
+      sponsored: offer.sponsored ?? false,
+      lastVerifiedAt: offer.lastVerifiedAt ?? null,
+      verificationMethod: offer.verificationMethod ?? null,
+      ...(typeof offer.notes === 'string' ? { notes: offer.notes } : {}),
+    };
+  });
+
+  const parsed = CommerceCatalogSchema.safeParse({
+    merchantPrograms: mappedPrograms,
+    products: mappedProducts,
+    offers: mappedOffers,
+  });
+  if (!parsed.success) {
+    issues.push(...zodIssues('commerce', parsed.error));
+    return { catalog: null, programExtras, offerExtras };
+  }
+  return { catalog: parsed.data, programExtras, offerExtras };
+}
+
+function crossCheckKit(
+  kitFile: z.infer<typeof KitFileSchema>['kits'][number],
+  pack: HolidayPack,
+  issues: string[],
+): void {
+  const section = pack.sceneSections[kitFile.sceneType];
+  const where = `kit ${kitFile.kitId}`;
+  if (!section) {
+    issues.push(`${where}: pack ${pack.id} has no ${kitFile.sceneType} section`);
+    return;
+  }
+  if (section.kitId !== kitFile.kitId) issues.push(`${where}: pack kitId is ${section.kitId}`);
+  const packItems = new Map(section.kit.map((item) => [item.kitItemId, item]));
+  const kitIds = new Set(kitFile.items.map((item) => item.kitItemId));
+  for (const id of packItems.keys()) {
+    if (!kitIds.has(id)) issues.push(`${where}: missing kit item ${id} from the pack`);
+  }
+  for (const item of kitFile.items) {
+    const packItem = packItems.get(item.kitItemId);
+    if (!packItem) {
+      issues.push(`${where}: kit item ${item.kitItemId} is not in the pack`);
+      continue;
+    }
+    if (packItem.specText !== item.specText) {
+      issues.push(`${where}: ${item.kitItemId} specText differs from the pack`);
+    }
+    if (packItem.anchors.join(',') !== item.anchors.join(',')) {
+      issues.push(`${where}: ${item.kitItemId} anchors differ from the pack`);
+    }
+    for (const style of STYLES) {
+      const fromPack = packItem.quantity[style];
+      const fromKit = item.quantity[style];
+      if (!fromKit || fromPack[0] !== fromKit[0] || fromPack[1] !== fromKit[1]) {
+        issues.push(`${where}: ${item.kitItemId} quantity.${style} differs from the pack`);
+      }
+    }
+    if ([...packItem.required].sort().join(',') !== [...item.required].sort().join(',')) {
+      issues.push(`${where}: ${item.kitItemId} required differs from the pack`);
+    }
+  }
+}
+
+/**
+ * Reads and validates the server-only content: holiday packs (with cross-field rules), style
+ * kits (checked against their packs), the commerce catalog, hero and example specifications and
+ * the climate table. Every problem is collected and reported together in a `ContentError`.
+ */
+export async function loadContent(options: { dir?: string } = {}): Promise<Content> {
+  const dir = options.dir ?? DEFAULT_CONTENT_DIR;
+  const issues: string[] = [];
+  const packs: PackContent[] = [];
+  const kits: KitContent[] = [];
+
+  for (const holidayId of HOLIDAY_IDS) {
+    const contentRef = `packs/${holidayId}.yaml`;
+    let raw: { text: string; bytes: Buffer };
+    try {
+      raw = await readText(dir, contentRef);
+    } catch {
+      continue;
+    }
+    const parsed = HolidayPackSchema.safeParse(parseYaml(raw.text, { uniqueKeys: true }));
+    if (!parsed.success) {
+      issues.push(...zodIssues(contentRef, parsed.error));
+      continue;
+    }
+    const pack = parsed.data;
+    if (pack.holidayId !== holidayId) {
+      issues.push(`${contentRef}: holidayId ${pack.holidayId} does not match the file name`);
+    }
+    packs.push({
+      holidayId: pack.holidayId,
+      region: pack.region,
+      version: pack.version,
+      majorMinor: packMajorMinor(pack.version),
+      sha256: sha256Hex(raw.bytes),
+      contentRef,
+      pack,
+    });
+  }
+  if (packs.length === 0) issues.push(`no holiday packs found under ${dir}`);
+
+  for (const pack of packs) {
+    const relative = `kits/${pack.holidayId}.yaml`;
+    let raw: { text: string };
+    try {
+      raw = await readText(dir, relative);
+    } catch {
+      issues.push(`${relative}: missing kit file for pack ${pack.pack.id}`);
+      continue;
+    }
+    const file = KitFileSchema.safeParse(parseYaml(raw.text, { uniqueKeys: true }));
+    if (!file.success) {
+      issues.push(...zodIssues(relative, file.error));
+      continue;
+    }
+    if (file.data.packVersion !== pack.version) {
+      issues.push(`${relative}: packVersion ${file.data.packVersion} differs from ${pack.version}`);
+    }
+    for (const kitFile of file.data.kits) {
+      crossCheckKit(kitFile, pack.pack, issues);
+      let items;
+      try {
+        items = kitFile.items.map((item) => ({
+          kitItemId: item.kitItemId,
+          anchorCategory: item.anchorCategory,
+          anchorCategories: item.anchors,
+          specText: item.specText,
+          specAttributes: normalizeSpecAttributes(item.specAttributes),
+          styleQuantities: Object.fromEntries(
+            STYLES.map((style) => {
+              const [min, max] = item.quantity[style] ?? [0, 0];
+              return [style, { min, max }];
+            }),
+          ),
+          sortOrder: item.sortOrder,
+        }));
+      } catch (error) {
+        issues.push(`${relative}: ${kitFile.kitId}: ${String(error)}`);
+        continue;
+      }
+      const kit = StyleKitSchema.safeParse({
+        kitKey: kitFile.kitId,
+        holidayId: kitFile.holidayId,
+        sceneType: kitFile.sceneType,
+        version: kitFile.version,
+        status: kitFile.status,
+        items,
+      });
+      if (!kit.success) {
+        issues.push(...zodIssues(`${relative} ${kitFile.kitId}`, kit.error));
+        continue;
+      }
+      kits.push({
+        kit: kit.data,
+        packVersion: file.data.packVersion,
+        currentProducts: new Map(
+          kitFile.items.map((item) => [item.kitItemId, item.currentProductId ?? null]),
+        ),
+      });
+    }
+  }
+
+  const programFile = ProgramFileSchema.safeParse(
+    JSON.parse((await readText(dir, 'commerce/merchant-programs.json')).text),
+  );
+  const productFile = ProductFileSchema.safeParse(
+    JSON.parse((await readText(dir, 'commerce/products.json')).text),
+  );
+  const offerFile = OfferFileSchema.safeParse(
+    JSON.parse((await readText(dir, 'commerce/offers.json')).text),
+  );
+  let commerce: CommerceContent = {
+    catalog: { merchantPrograms: [], products: [], offers: [] },
+    programExtras: new Map(),
+    offerExtras: new Map(),
+    authoredAt: null,
+    rebaseTimestampsOnSeed: false,
+  };
+  if (!programFile.success) issues.push(...zodIssues('merchant-programs.json', programFile.error));
+  if (!productFile.success) issues.push(...zodIssues('products.json', productFile.error));
+  if (!offerFile.success) issues.push(...zodIssues('offers.json', offerFile.error));
+  if (programFile.success && productFile.success && offerFile.success) {
+    const mapped = mapCommerce(
+      programFile.data.programs,
+      productFile.data.products,
+      offerFile.data.offers,
+      issues,
+    );
+    if (mapped.catalog) {
+      commerce = {
+        catalog: mapped.catalog,
+        programExtras: mapped.programExtras,
+        offerExtras: mapped.offerExtras,
+        authoredAt: offerFile.data.authoredAt ?? null,
+        rebaseTimestampsOnSeed: offerFile.data.rebaseTimestampsOnSeed ?? false,
+      };
+      const kitItemIds = new Set(
+        kits.flatMap(({ kit }) => kit.items.map((item) => item.kitItemId)),
+      );
+      const productKeys = new Set(mapped.catalog.products.map((product) => product.productKey));
+      for (const product of mapped.catalog.products) {
+        for (const id of product.kitItemIds) {
+          if (!kitItemIds.has(id))
+            issues.push(`products ${product.productKey}: unknown kit item ${id}`);
+        }
+      }
+      for (const { kit, currentProducts } of kits) {
+        for (const [kitItemId, productKey] of currentProducts) {
+          if (productKey && !productKeys.has(productKey)) {
+            issues.push(`kit ${kit.kitKey}: ${kitItemId} names unknown product ${productKey}`);
+          }
+        }
+      }
+    }
+  }
+
+  const heroFile = HeroFileSchema.safeParse(JSON.parse((await readText(dir, 'heroes.json')).text));
+  if (!heroFile.success) issues.push(...zodIssues('heroes.json', heroFile.error));
+  const exampleFile = ExampleFileSchema.safeParse(
+    JSON.parse((await readText(dir, 'examples.json')).text),
+  );
+  if (!exampleFile.success) issues.push(...zodIssues('examples.json', exampleFile.error));
+  const climateFile = ClimateFileSchema.safeParse(
+    JSON.parse((await readText(dir, 'climate-classes.json')).text),
+  );
+  if (!climateFile.success) issues.push(...zodIssues('climate-classes.json', climateFile.error));
+
+  if (issues.length > 0) throw new ContentError(issues);
+
+  const heroes = heroFile.success ? (heroFile.data.heroes as HeroContent[]) : [];
+  const examples = exampleFile.success ? (exampleFile.data.examples as ExampleContent[]) : [];
+  for (const example of examples) {
+    if (!SCENE_TYPES.includes(example.sceneType)) continue;
+    const pack = packs.find((candidate) => candidate.holidayId === example.holidayId);
+    if (pack && pack.version !== example.packVersion) {
+      issues.push(`examples ${example.exampleId}: packVersion differs from ${pack.version}`);
+    }
+  }
+  if (issues.length > 0) throw new ContentError(issues);
+
+  return {
+    dir,
+    packs,
+    kits,
+    commerce,
+    heroes,
+    heroCrops: heroFile.success
+      ? (heroFile.data.crops as unknown as Record<string, HeroCropConfig>)
+      : {},
+    heroFormats: heroFile.success ? heroFile.data.formats : ['jpeg'],
+    heroByteBudget: heroFile.success ? (heroFile.data.firstLoadByteBudget ?? null) : null,
+    examples,
+    genericScenes: exampleFile.success ? exampleFile.data.genericScenes : {},
+    climateClasses: climateFile.success ? climateFile.data.classes : {},
+    packFor: (holidayId) => packs.find((pack) => pack.holidayId === holidayId),
+    kitFor: (holidayId, sceneType) =>
+      kits.find(({ kit }) => kit.holidayId === holidayId && kit.sceneType === sceneType),
+  };
+}
+
+/** Reads a pack file by its `content_ref` (workers load the stamped version this way). */
+export async function readPackByRef(
+  contentRef: string,
+  options: { dir?: string; expectedSha256?: string } = {},
+): Promise<HolidayPack> {
+  if (!/^packs\/[a-z_]+\.yaml$/.test(contentRef)) {
+    throw new ContentError([`unexpected content_ref ${contentRef}`]);
+  }
+  const { text, bytes } = await readText(options.dir ?? DEFAULT_CONTENT_DIR, contentRef);
+  if (options.expectedSha256 && sha256Hex(bytes) !== options.expectedSha256) {
+    throw new ContentError([`${contentRef}: content changed since it was published`]);
+  }
+  const parsed = HolidayPackSchema.safeParse(parseYaml(text, { uniqueKeys: true }));
+  if (!parsed.success) throw new ContentError(zodIssues(contentRef, parsed.error));
+  return parsed.data;
+}

@@ -1,0 +1,136 @@
+/* ---------- Share sheet ---------- */
+
+.share-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.share-card__frame {
+  position: relative;
+  aspect-ratio: 1200 / 630;
+  overflow: hidden;
+  border-radius: var(--radius-m);
+  background: var(--paper-sunk);
+  box-shadow: var(--shadow-card);
+}
+
+.share-card__frame img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.share-card__badge {
+  position: absolute;
+  right: var(--space-3);
+  bottom: var(--space-3);
+}
+
+.share-card__badge--lower-left {
+  right: auto;
+  left: var(--space-3);
+}
+
+/* The link keeps the field's 16px text, so focusing it (which selects it) never zooms on iOS. */
+.share__link {
+  text-overflow: ellipsis;
+}
+
+.share__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.share__buttons .button {
+  flex: 1 1 160px;
+}
+
+.share__copied {
+  min-height: 1.4em;
+  font-size: var(--text-s);
+  font-weight: 600;
+  color: var(--accent-strong);
+}
+
+.share__stop {
+  align-self: flex-start;
+  color: var(--danger);
+}
+
+/* ---------- Public share page ---------- */
+
+.share-page-app__header {
+  justify-content: center;
+}
+
+.share-page-app__main {
+  width: 100%;
+  max-width: 64rem;
+  margin-inline: auto;
+  padding: var(--space-5) max(var(--gutter), var(--safe-left)) var(--space-8)
+    max(var(--gutter), var(--safe-right));
+}
+
+.share-page-app__article {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-6);
+}
+
+.shared {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+}
+
+.shared .segmented {
+  align-self: center;
+}
+
+.shared__card {
+  width: 100%;
+  margin: 0;
+  box-shadow: var(--shadow-lift);
+  animation: rise-in var(--dur-slow) var(--ease-out);
+}
+
+/* The app's card replacing the server-painted one stays in place rather than rising again. */
+.shared__card[data-continues] {
+  animation: none;
+}
+
+.shared__frame img {
+  transition: opacity var(--dur-slow) var(--ease-in-out);
+}
+
+.shared__after[data-hidden] {
+  opacity: 0;
+}
+
+.share-page-app__text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  text-align: center;
+}
+
+.share-page-app__caption {
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  line-height: var(--leading-snug);
+  text-wrap: balance;
+}
+
+.share-page-app__gone {
+  align-items: flex-start;
+  padding-block: var(--space-7);
+}

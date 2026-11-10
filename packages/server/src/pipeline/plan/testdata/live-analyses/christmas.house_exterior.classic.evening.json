@@ -1,0 +1,256 @@
+{
+  "exampleId": "example.christmas.house_exterior.classic.evening.v1",
+  "photoId": "house-04-bungalow-summer",
+  "working": {
+    "width": 1536,
+    "height": 1024
+  },
+  "usd": 0.045488,
+  "analysis": {
+    "schemaVersion": "1.0",
+    "sourceAssetId": "example.christmas.house_exterior.classic.evening.v1",
+    "workingImage": {
+      "width": 1536,
+      "height": 1024,
+      "checksum": "2bb043dbe8656d826be6a9214eec3808a0fcbf87474ba456e3e7c7e05ff41397"
+    },
+    "sceneType": "house_exterior",
+    "sceneTypeConfidence": 0.97,
+    "sceneTypeMismatch": false,
+    "buildingForm": "detached",
+    "targetFacade": [0.07, 0.32, 0.96, 0.97],
+    "targetFacadeAmbiguous": false,
+    "anchors": [
+      {
+        "id": "front_door_1",
+        "category": "front_door",
+        "box": [0.575, 0.62, 0.665, 0.79],
+        "confidence": 0.8,
+        "occluded": true,
+        "occlusionFraction": 0.3,
+        "note": "teal glazed double door behind porch bench and urns"
+      },
+      {
+        "id": "door_frame_1",
+        "category": "door_frame",
+        "box": [0.57, 0.61, 0.672, 0.8],
+        "confidence": 0.75,
+        "occluded": true,
+        "occlusionFraction": 0.3
+      },
+      {
+        "id": "porch_steps_front",
+        "category": "porch_steps",
+        "box": [0.615, 0.83, 0.725, 0.955],
+        "confidence": 0.9,
+        "occluded": false,
+        "note": "concrete steps between brick cheek walls"
+      },
+      {
+        "id": "porch_steps_side",
+        "category": "porch_steps",
+        "box": [0.11, 0.795, 0.2, 0.89],
+        "confidence": 0.8,
+        "occluded": false,
+        "note": "side porch steps"
+      },
+      {
+        "id": "porch_rail_left",
+        "category": "porch_rail",
+        "box": [0.54, 0.735, 0.62, 0.95],
+        "confidence": 0.8,
+        "occluded": false,
+        "note": "stepped brick cheek wall"
+      },
+      {
+        "id": "porch_rail_right",
+        "category": "porch_rail",
+        "box": [0.685, 0.74, 0.75, 0.945],
+        "confidence": 0.8,
+        "occluded": false,
+        "note": "stepped brick cheek wall"
+      },
+      {
+        "id": "porch_rail_side",
+        "category": "porch_rail",
+        "box": [0.09, 0.74, 0.26, 0.88],
+        "confidence": 0.7,
+        "occluded": true,
+        "occlusionFraction": 0.2
+      },
+      {
+        "id": "column_left",
+        "category": "column",
+        "box": [0.495, 0.575, 0.542, 0.78],
+        "confidence": 0.9,
+        "occluded": false,
+        "note": "brick porch pier"
+      },
+      {
+        "id": "column_right",
+        "category": "column",
+        "box": [0.74, 0.585, 0.808, 0.89],
+        "confidence": 0.9,
+        "occluded": false
+      },
+      {
+        "id": "column_side",
+        "category": "column",
+        "box": [0.105, 0.6, 0.158, 0.77],
+        "confidence": 0.75,
+        "occluded": false
+      },
+      {
+        "id": "roofline_gable",
+        "category": "roofline",
+        "box": [0.45, 0.36, 0.85, 0.56],
+        "confidence": 0.9,
+        "occluded": false,
+        "note": "front gable with brackets"
+      },
+      {
+        "id": "eaves_main",
+        "category": "eaves",
+        "box": [0.07, 0.55, 0.99, 0.6],
+        "confidence": 0.85,
+        "occluded": false
+      },
+      {
+        "id": "window_1",
+        "category": "window_frame",
+        "box": [0.274, 0.595, 0.328, 0.72],
+        "confidence": 0.9,
+        "occluded": false
+      },
+      {
+        "id": "window_2",
+        "category": "window_frame",
+        "box": [0.43, 0.6, 0.485, 0.73],
+        "confidence": 0.9,
+        "occluded": false
+      },
+      {
+        "id": "window_3",
+        "category": "window_frame",
+        "box": [0.792, 0.612, 0.834, 0.71],
+        "confidence": 0.9,
+        "occluded": false
+      },
+      {
+        "id": "window_4",
+        "category": "window_frame",
+        "box": [0.862, 0.612, 0.92, 0.735],
+        "confidence": 0.9,
+        "occluded": false
+      },
+      {
+        "id": "planter_1",
+        "category": "planter",
+        "box": [0.1, 0.69, 0.13, 0.775],
+        "confidence": 0.75,
+        "occluded": false
+      },
+      {
+        "id": "planter_2",
+        "category": "planter",
+        "box": [0.2, 0.69, 0.23, 0.775],
+        "confidence": 0.7,
+        "occluded": false
+      },
+      {
+        "id": "planter_3",
+        "category": "planter",
+        "box": [0.578, 0.72, 0.605, 0.765],
+        "confidence": 0.7,
+        "occluded": false,
+        "note": "white urn"
+      },
+      {
+        "id": "planter_4",
+        "category": "planter",
+        "box": [0.682, 0.725, 0.71, 0.768],
+        "confidence": 0.7,
+        "occluded": false,
+        "note": "white urn"
+      },
+      {
+        "id": "walkway_1",
+        "category": "walkway_edge",
+        "box": [0, 0.88, 0.73, 1],
+        "confidence": 0.8,
+        "occluded": false
+      },
+      {
+        "id": "lawn_1",
+        "category": "lawn",
+        "box": [0, 0.9, 0.58, 1],
+        "confidence": 0.9,
+        "occluded": false
+      }
+    ],
+    "preserveRegions": [
+      {
+        "kind": "other",
+        "box": [0.87, 0.905, 1, 1]
+      }
+    ],
+    "accessRegions": [
+      {
+        "kind": "door",
+        "box": [0.575, 0.62, 0.665, 0.79]
+      },
+      {
+        "kind": "steps",
+        "box": [0.615, 0.83, 0.725, 0.955]
+      },
+      {
+        "kind": "steps",
+        "box": [0.11, 0.795, 0.2, 0.89]
+      },
+      {
+        "kind": "walkway",
+        "box": [0, 0.88, 0.73, 1]
+      },
+      {
+        "kind": "door",
+        "box": [0.81, 0.845, 0.86, 1]
+      }
+    ],
+    "hazards": [
+      {
+        "kind": "power_line",
+        "box": [0, 0.15, 0.23, 0.6]
+      }
+    ],
+    "existingDecorations": {
+      "present": false,
+      "density": "none",
+      "boxes": []
+    },
+    "peopleBoxes": [],
+    "protectedBlurRegions": [],
+    "lighting": {
+      "timeOfDay": "day",
+      "isDaylight": true,
+      "exposure": "normal"
+    },
+    "seasonCues": {
+      "snowVisible": false,
+      "foliage": "leafy"
+    },
+    "qualityFlags": {
+      "blur": false,
+      "lowLight": false,
+      "heavyOcclusion": false,
+      "multipleBuildings": true,
+      "embeddedPhoto": false,
+      "tooClose": false,
+      "tooFar": false
+    },
+    "model": {
+      "analysisModel": "claude-opus-5-5",
+      "analysisPromptVersion": "analysis-2026.11.0"
+    },
+    "elapsedMs": 15889
+  }
+}

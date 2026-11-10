@@ -1,0 +1,3079 @@
+{
+  "version": 1,
+  "providerMode": "fixture",
+  "description": "Fictional places for fixture mode. Street and town names are invented; states are real so the climate table applies. Coordinates are synthetic, placed in large public lands or open water, and are never geocoded from a real address. No place depicts a real home.",
+  "conventions": {
+    "placeId": "Places-style identifiers (27 characters, ChIJ prefix); stable across runs.",
+    "addressComponents": "Places API (New) shape: longText, shortText, types, languageCode.",
+    "geocode": "Geocoding API signals: locationType (ROOFTOP, RANGE_INTERPOLATED, GEOMETRIC_CENTER, APPROXIMATE) and partialMatch.",
+    "destinations": "SearchDestinations-shaped signals. structureType BUILDING with hasOutline true means geometry is available (heading mode geometry); facadeNormalDeg is the compass direction the facade faces.",
+    "metadataStatus": "Street View metadata status at this place: OK when panoramas exist, ZERO_RESULTS when there is no imagery within 200 m (also used where discovery never reaches metadata), UNKNOWN_ERROR when every metadata call fails, including the one retry.",
+    "panoramas": "At most 3. The first is the probe at the target point; offsets are probes displaced along the road. distanceM and headingDeg are computed with the haversine distance and initial great-circle bearing from the panorama location to destinations.targetPoint. captureDate is YYYY-MM, YYYY or null; copyright credits the licensed fixture photograph (\"Fixture photo: <photographer> / <license>\"); a copyright ending \"(contributor imagery stand-in)\" stands in for contributor imagery, any other fixture photo for first-party imagery.",
+    "manualEntry": "A typed address resolves to a place when its normalized line 1 (and line 2 for units) equals one of geocodeAliases. Normalization: Unicode NFD with diacritics removed, lowercase, every character other than a-z, 0-9, # and space replaced by a space, whitespace collapsed. When city, state or ZIP differ from manualEntry the candidate is returned with partialMatch true. No match returns no candidates (ADDRESS_NOT_FOUND).",
+    "scenario": "match is the discovery outcome for the autocomplete path (manual entry is capped at confirm); reason is set for skip_to_upload; render is the render scenario used for jobs whose source comes from this place.",
+    "photo": "Every panorama shows a licensed real photograph from content/photos/manifest.json (photoId), panned and zoomed to the requested view: the reference view (heading to the target, fov from the facade width and distance, pitch from the distance) frames the photo's houseFacade box; heading offsets shift the crop horizontally, pitch vertically and fov sets its size. framing scales the reference framing (more surroundings above 1) and shiftX / shiftY offset it as fractions of its size. blurredHouse blurs the whole target facade (owner-requested blur). Anchors come from the manifest, transformed into the frame. Panoramas may instead carry procedural house parameters for the SVG renderer (tests only)."
+  },
+  "places": [
+    {
+      "placeId": "ChIJfxLanternHillColonial01",
+      "label": "Lantern Hill colonial",
+      "scenario": {
+        "match": "auto_start",
+        "reason": null,
+        "render": "pass",
+        "tags": ["showcase", "all_holidays"]
+      },
+      "exercises": "Clean auto-start: rooftop match, imagery 12 m away, 2025 capture. A Queen Anne Victorian with a wraparound porch, steps, columns and rail: the best all-round test house.",
+      "formattedAddress": "14 Lantern Hill Rd, Maplebrook, VT 05341, USA",
+      "primaryText": "14 Lantern Hill Rd",
+      "secondaryText": "Maplebrook, VT, USA",
+      "addressComponents": [
+        {
+          "longText": "14",
+          "shortText": "14",
+          "types": ["street_number"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Lantern Hill Road",
+          "shortText": "Lantern Hill Rd",
+          "types": ["route"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Maplebrook",
+          "shortText": "Maplebrook",
+          "types": ["locality", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Vermont",
+          "shortText": "VT",
+          "types": ["administrative_area_level_1", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "United States",
+          "shortText": "US",
+          "types": ["country", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "05341",
+          "shortText": "05341",
+          "types": ["postal_code"],
+          "languageCode": "en"
+        }
+      ],
+      "countryCode": "US",
+      "location": {
+        "latitude": 43.0612,
+        "longitude": -72.9351
+      },
+      "viewport": {
+        "low": {
+          "latitude": 43.0599,
+          "longitude": -72.9364
+        },
+        "high": {
+          "latitude": 43.0625,
+          "longitude": -72.9338
+        }
+      },
+      "types": ["street_address"],
+      "geocode": {
+        "locationType": "ROOFTOP",
+        "partialMatch": false
+      },
+      "destinations": {
+        "structureType": "BUILDING",
+        "hasOutline": true,
+        "targetPoint": {
+          "latitude": 43.0612,
+          "longitude": -72.9351
+        },
+        "facadeWidthM": 13.5,
+        "roadBearingDeg": 90,
+        "facadeNormalDeg": 180,
+        "entranceOffsetM": 0.8,
+        "attachedFacade": false
+      },
+      "multiUnit": false,
+      "blocked": false,
+      "metadataStatus": "OK",
+      "manualEntry": {
+        "line1": "14 Lantern Hill Road",
+        "line2": "",
+        "city": "Maplebrook",
+        "state": "VT",
+        "postalCode": "05341"
+      },
+      "geocodeAliases": ["14 lantern hill road", "14 lantern hill rd"],
+      "panoramas": [
+        {
+          "panoId": "fxSvLanternHillC01p1Sv",
+          "probe": "target",
+          "probeRadiusM": 50,
+          "location": {
+            "latitude": 43.0610921,
+            "longitude": -72.9351
+          },
+          "captureDate": "2025-09",
+          "captureGranularity": "month",
+          "copyright": "Fixture photo: Brett Wharton / Unsplash License",
+          "isGoogleImagery": true,
+          "distanceM": 12,
+          "headingDeg": 0,
+          "photo": {
+            "photoId": "house-14-victorian-autumn"
+          }
+        },
+        {
+          "panoId": "fxSvLanternHillC01p2Sv",
+          "probe": "offset_+15m",
+          "probeRadiusM": 50,
+          "location": {
+            "latitude": 43.0610921,
+            "longitude": -72.9349154
+          },
+          "captureDate": "2025-09",
+          "captureGranularity": "month",
+          "copyright": "Fixture photo: Brett Wharton / Unsplash License",
+          "isGoogleImagery": true,
+          "distanceM": 19.2,
+          "headingDeg": 308.7,
+          "photo": {
+            "photoId": "house-14-victorian-autumn",
+            "framing": 1.12,
+            "shiftX": 0.06
+          }
+        },
+        {
+          "panoId": "fxSvLanternHillC01p3Sv",
+          "probe": "offset_-30m",
+          "probeRadiusM": 50,
+          "location": {
+            "latitude": 43.0610921,
+            "longitude": -72.9354693
+          },
+          "captureDate": "2023-06",
+          "captureGranularity": "month",
+          "copyright": "Fixture photo: Brett Wharton / Unsplash License",
+          "isGoogleImagery": true,
+          "distanceM": 32.3,
+          "headingDeg": 68.2,
+          "photo": {
+            "photoId": "house-14-victorian-autumn",
+            "framing": 1.3,
+            "shiftX": -0.08
+          }
+        }
+      ]
+    },
+    {
+      "placeId": "ChIJfxSaguaroBendRanchXXX02",
+      "label": "Saguaro Bend ranch",
+      "scenario": {
+        "match": "auto_start",
+        "reason": null,
+        "render": "pass",
+        "tags": ["warm_climate"]
+      },
+      "exercises": "Auto-start in a warm climate: stucco ranch with a garage; Christmas must never add snow.",
+      "formattedAddress": "2207 Saguaro Bend Dr, Copper Mesa, AZ 85297, USA",
+      "primaryText": "2207 Saguaro Bend Dr",
+      "secondaryText": "Copper Mesa, AZ, USA",
+      "addressComponents": [
+        {
+          "longText": "2207",
+          "shortText": "2207",
+          "types": ["street_number"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Saguaro Bend Drive",
+          "shortText": "Saguaro Bend Dr",
+          "types": ["route"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Copper Mesa",
+          "shortText": "Copper Mesa",
+          "types": ["locality", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Arizona",
+          "shortText": "AZ",
+          "types": ["administrative_area_level_1", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "United States",
+          "shortText": "US",
+          "types": ["country", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "85297",
+          "shortText": "85297",
+          "types": ["postal_code"],
+          "languageCode": "en"
+        }
+      ],
+      "countryCode": "US",
+      "location": {
+        "latitude": 33.6841,
+        "longitude": -111.3322
+      },
+      "viewport": {
+        "low": {
+          "latitude": 33.6828,
+          "longitude": -111.3335
+        },
+        "high": {
+          "latitude": 33.6854,
+          "longitude": -111.3309
+        }
+      },
+      "types": ["street_address"],
+      "geocode": {
+        "locationType": "ROOFTOP",
+        "partialMatch": false
+      },
+      "destinations": {
+        "structureType": "BUILDING",
+        "hasOutline": true,
+        "targetPoint": {
+          "latitude": 33.6841,
+          "longitude": -111.3322
+        },
+        "facadeWidthM": 16,
+        "roadBearingDeg": 0,
+        "facadeNormalDeg": 270,
+        "entranceOffsetM": 1.1,
+        "attachedFacade": false
+      },
+      "multiUnit": false,
+      "blocked": false,
+      "metadataStatus": "OK",
+      "manualEntry": {
+        "line1": "2207 Saguaro Bend Drive",
+        "line2": "",
+        "city": "Copper Mesa",
+        "state": "AZ",
+        "postalCode": "85297"
+      },
+      "geocodeAliases": ["2207 saguaro bend drive", "2207 saguaro bend dr"],
+      "panoramas": [
+        {
+          "panoId": "fxSvSaguaroBendR02p1Sv",
+          "probe": "target",
+          "probeRadiusM": 50,
+          "location": {
+            "latitude": 33.6841,
+            "longitude": -111.3323729
+          },
+          "captureDate": "2025-03",
+          "captureGranularity": "month",
+          "copyright": "Fixture photo: Roger Starnes Sr / Unsplash License",
+          "isGoogleImagery": true,
+          "distanceM": 16,
+          "headingDeg": 90,
+          "photo": {
+            "photoId": "house-03-ranch-spring"
+          }
+        }
+      ]
+    },
+    {
+      "placeId": "ChIJfxLarkspurCourtBungal03",
+      "label": "Larkspur Court bungalow",
+      "scenario": {
+        "match": "auto_start",
+        "reason": null,
+        "render": "pass",
+        "tags": ["warm_climate"]
+      },
+      "exercises": "Auto-start with a full front porch: sage-green craftsman bungalow, good for porch rail and step placements.",
+      "formattedAddress": "418 Larkspur Ct, Alder Glen, CA 93117, USA",
+      "primaryText": "418 Larkspur Ct",
+      "secondaryText": "Alder Glen, CA, USA",
+      "addressComponents": [
+        {
+          "longText": "418",
+          "shortText": "418",
+          "types": ["street_number"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Larkspur Court",
+          "shortText": "Larkspur Ct",
+          "types": ["route"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Alder Glen",
+          "shortText": "Alder Glen",
+          "types": ["locality", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "California",
+          "shortText": "CA",
+          "types": ["administrative_area_level_1", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "United States",
+          "shortText": "US",
+          "types": ["country", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "93117",
+          "shortText": "93117",
+          "types": ["postal_code"],
+          "languageCode": "en"
+        }
+      ],
+      "countryCode": "US",
+      "location": {
+        "latitude": 34.7019,
+        "longitude": -119.6047
+      },
+      "viewport": {
+        "low": {
+          "latitude": 34.7006,
+          "longitude": -119.606
+        },
+        "high": {
+          "latitude": 34.7032,
+          "longitude": -119.6034
+        }
+      },
+      "types": ["street_address"],
+      "geocode": {
+        "locationType": "ROOFTOP",
+        "partialMatch": false
+      },
+      "destinations": {
+        "structureType": "BUILDING",
+        "hasOutline": true,
+        "targetPoint": {
+          "latitude": 34.7019,
+          "longitude": -119.6047
+        },
+        "facadeWidthM": 11,
+        "roadBearingDeg": 90,
+        "facadeNormalDeg": 180,
+        "entranceOffsetM": 0.5,
+        "attachedFacade": false
+      },
+      "multiUnit": false,
+      "blocked": false,
+      "metadataStatus": "OK",
+      "manualEntry": {
+        "line1": "418 Larkspur Court",
+        "line2": "",
+        "city": "Alder Glen",
+        "state": "CA",
+        "postalCode": "93117"
+      },
+      "geocodeAliases": ["418 larkspur court", "418 larkspur ct"],
+      "panoramas": [
+        {
+          "panoId": "fxSvLarkspurCour03p1Sv",
+          "probe": "target",
+          "probeRadiusM": 50,
+          "location": {
+            "latitude": 34.7018101,
+            "longitude": -119.6047
+          },
+          "captureDate": "2025-05",
+          "captureGranularity": "month",
+          "copyright": "Fixture photo: Roger Starnes Sr / Unsplash License",
+          "isGoogleImagery": true,
+          "distanceM": 10,
+          "headingDeg": 0,
+          "photo": {
+            "photoId": "house-04-bungalow-summer"
+          }
+        },
+        {
+          "panoId": "fxSvLarkspurCour03p2Sv",
+          "probe": "offset_-15m",
+          "probeRadiusM": 50,
+          "location": {
+            "latitude": 34.7018101,
+            "longitude": -119.6048641
+          },
+          "captureDate": "2024-11",
+          "captureGranularity": "month",
+          "copyright": "Fixture photo: Roger Starnes Sr / Unsplash License",
+          "isGoogleImagery": true,
+          "distanceM": 18,
+          "headingDeg": 56.3,
+          "photo": {
+            "photoId": "house-04-bungalow-summer",
+            "framing": 1.12,
+            "shiftX": -0.05
+          }
+        }
+      ]
+    },
+    {
+      "placeId": "ChIJfxBirchfieldPikeFarmh04",
+      "label": "Birchfield Pike farmhouse (snow)",
+      "scenario": {
+        "match": "auto_start",
+        "reason": null,
+        "render": "pass",
+        "tags": ["snow_visible", "cold_climate"]
+      },
+      "exercises": "Winter capture with snow already on the ground and roof (a red ranch with a few existing wreaths): snow may stay, but nothing adds more.",
+      "formattedAddress": "6610 Birchfield Pike, Wren Hollow, OH 43764, USA",
+      "primaryText": "6610 Birchfield Pike",
+      "secondaryText": "Wren Hollow, OH, USA",
+      "addressComponents": [
+        {
+          "longText": "6610",
+          "shortText": "6610",
+          "types": ["street_number"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Birchfield Pike",
+          "shortText": "Birchfield Pike",
+          "types": ["route"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Wren Hollow",
+          "shortText": "Wren Hollow",
+          "types": ["locality", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Ohio",
+          "shortText": "OH",
+          "types": ["administrative_area_level_1", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "United States",
+          "shortText": "US",
+          "types": ["country", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "43764",
+          "shortText": "43764",
+          "types": ["postal_code"],
+          "languageCode": "en"
+        }
+      ],
+      "countryCode": "US",
+      "location": {
+        "latitude": 39.6034,
+        "longitude": -82.2051
+      },
+      "viewport": {
+        "low": {
+          "latitude": 39.6021,
+          "longitude": -82.2064
+        },
+        "high": {
+          "latitude": 39.6047,
+          "longitude": -82.2038
+        }
+      },
+      "types": ["street_address"],
+      "geocode": {
+        "locationType": "ROOFTOP",
+        "partialMatch": false
+      },
+      "destinations": {
+        "structureType": "BUILDING",
+        "hasOutline": true,
+        "targetPoint": {
+          "latitude": 39.6034,
+          "longitude": -82.2051
+        },
+        "facadeWidthM": 15,
+        "roadBearingDeg": 0,
+        "facadeNormalDeg": 90,
+        "entranceOffsetM": 1.4,
+        "attachedFacade": false
+      },
+      "multiUnit": false,
+      "blocked": false,
+      "metadataStatus": "OK",
+      "manualEntry": {
+        "line1": "6610 Birchfield Pike",
+        "line2": "",
+        "city": "Wren Hollow",
+        "state": "OH",
+        "postalCode": "43764"
+      },
+      "geocodeAliases": ["6610 birchfield pike"],
+      "panoramas": [
+        {
+          "panoId": "fxSvBirchfieldPi04p1Sv",
+          "probe": "target",
+          "probeRadiusM": 50,
+          "location": {
+            "latitude": 39.6034,
+            "longitude": -82.2048666
+          },
+          "captureDate": "2025-01",
+          "captureGranularity": "month",
+          "copyright": "Fixture photo: Erik Mclean / Unsplash License",
+          "isGoogleImagery": true,
+          "distanceM": 20,
+          "headingDeg": 270,
+          "photo": {
+            "photoId": "house-11-ranch-christmas-winter"
+          }
+        }
+      ]
+    },
+    {
+      "placeId": "ChIJfxGullwingLaneCapeXXX05",
+      "label": "Gullwing Lane cape",
+      "scenario": {
+        "match": "auto_start",
+        "reason": null,
+        "render": "repair_then_pass",
+        "tags": []
+      },
+      "exercises": "Render repair: attempt 1 fails quality checks with a repairable code, attempt 2 passes. Weathered-blue cape with a yellow door.",
+      "formattedAddress": "9 Gullwing Ln, Saltmarsh Point, MA 01069, USA",
+      "primaryText": "9 Gullwing Ln",
+      "secondaryText": "Saltmarsh Point, MA, USA",
+      "addressComponents": [
+        {
+          "longText": "9",
+          "shortText": "9",
+          "types": ["street_number"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Gullwing Lane",
+          "shortText": "Gullwing Ln",
+          "types": ["route"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Saltmarsh Point",
+          "shortText": "Saltmarsh Point",
+          "types": ["locality", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Massachusetts",
+          "shortText": "MA",
+          "types": ["administrative_area_level_1", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "United States",
+          "shortText": "US",
+          "types": ["country", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "01069",
+          "shortText": "01069",
+          "types": ["postal_code"],
+          "languageCode": "en"
+        }
+      ],
+      "countryCode": "US",
+      "location": {
+        "latitude": 42.3912,
+        "longitude": -72.3035
+      },
+      "viewport": {
+        "low": {
+          "latitude": 42.3899,
+          "longitude": -72.3048
+        },
+        "high": {
+          "latitude": 42.3925,
+          "longitude": -72.3022
+        }
+      },
+      "types": ["street_address"],
+      "geocode": {
+        "locationType": "ROOFTOP",
+        "partialMatch": false
+      },
+      "destinations": {
+        "structureType": "BUILDING",
+        "hasOutline": true,
+        "targetPoint": {
+          "latitude": 42.3912,
+          "longitude": -72.3035
+        },
+        "facadeWidthM": 10.5,
+        "roadBearingDeg": 45,
+        "facadeNormalDeg": 135,
+        "entranceOffsetM": 0.3,
+        "attachedFacade": false
+      },
+      "multiUnit": false,
+      "blocked": false,
+      "metadataStatus": "OK",
+      "manualEntry": {
+        "line1": "9 Gullwing Lane",
+        "line2": "",
+        "city": "Saltmarsh Point",
+        "state": "MA",
+        "postalCode": "01069"
+      },
+      "geocodeAliases": ["9 gullwing lane", "9 gullwing ln"],
+      "panoramas": [
+        {
+          "panoId": "fxSvGullwingLane05p1Sv",
+          "probe": "target",
+          "probeRadiusM": 50,
+          "location": {
+            "latitude": 42.39113,
+            "longitude": -72.3034053
+          },
+          "captureDate": "2025-07",
+          "captureGranularity": "month",
+          "copyright": "Fixture photo: Roger Starnes Sr / Unsplash License",
+          "isGoogleImagery": true,
+          "distanceM": 11,
+          "headingDeg": 315,
+          "photo": {
+            "photoId": "house-05-farmhouse-autumn"
+          }
+        }
+      ]
+    },
+    {
+      "placeId": "ChIJfxMagnoliaTerraceColo06",
+      "label": "Magnolia Terrace colonial (slow)",
+      "scenario": {
+        "match": "auto_start",
+        "reason": null,
+        "render": "slow",
+        "tags": ["warm_climate"]
+      },
+      "exercises": "Slow render: the render stage takes about 20 seconds, so the waiting screen and its stage labels are visible.",
+      "formattedAddress": "1735 Magnolia Ter, Peachtree Vale, GA 30545, USA",
+      "primaryText": "1735 Magnolia Ter",
+      "secondaryText": "Peachtree Vale, GA, USA",
+      "addressComponents": [
+        {
+          "longText": "1735",
+          "shortText": "1735",
+          "types": ["street_number"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Magnolia Terrace",
+          "shortText": "Magnolia Ter",
+          "types": ["route"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Peachtree Vale",
+          "shortText": "Peachtree Vale",
+          "types": ["locality", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Georgia",
+          "shortText": "GA",
+          "types": ["administrative_area_level_1", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "United States",
+          "shortText": "US",
+          "types": ["country", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "30545",
+          "shortText": "30545",
+          "types": ["postal_code"],
+          "languageCode": "en"
+        }
+      ],
+      "countryCode": "US",
+      "location": {
+        "latitude": 34.7498,
+        "longitude": -84.1012
+      },
+      "viewport": {
+        "low": {
+          "latitude": 34.7485,
+          "longitude": -84.1025
+        },
+        "high": {
+          "latitude": 34.7511,
+          "longitude": -84.0999
+        }
+      },
+      "types": ["street_address"],
+      "geocode": {
+        "locationType": "ROOFTOP",
+        "partialMatch": false
+      },
+      "destinations": {
+        "structureType": "BUILDING",
+        "hasOutline": true,
+        "targetPoint": {
+          "latitude": 34.7498,
+          "longitude": -84.1012
+        },
+        "facadeWidthM": 15.5,
+        "roadBearingDeg": 90,
+        "facadeNormalDeg": 0,
+        "entranceOffsetM": 0.2,
+        "attachedFacade": false
+      },
+      "multiUnit": false,
+      "blocked": false,
+      "metadataStatus": "OK",
+      "manualEntry": {
+        "line1": "1735 Magnolia Terrace",
+        "line2": "",
+        "city": "Peachtree Vale",
+        "state": "GA",
+        "postalCode": "30545"
+      },
+      "geocodeAliases": ["1735 magnolia terrace", "1735 magnolia ter"],
+      "panoramas": [
+        {
+          "panoId": "fxSvMagnoliaTerr06p1Sv",
+          "probe": "target",
+          "probeRadiusM": 50,
+          "location": {
+            "latitude": 34.7499259,
+            "longitude": -84.1012
+          },
+          "captureDate": "2025-04",
+          "captureGranularity": "month",
+          "copyright": "Fixture photo: Roger Starnes Sr / Unsplash License",
+          "isGoogleImagery": true,
+          "distanceM": 14,
+          "headingDeg": 180,
+          "photo": {
+            "photoId": "house-02-georgian-autumn",
+            "framing": 1.05
+          }
+        }
+      ]
+    },
+    {
+      "placeId": "ChIJfxMesquiteDrawRanchXX07",
+      "label": "Mesquite Draw ranch (provider error)",
+      "scenario": {
+        "match": "auto_start",
+        "reason": null,
+        "render": "provider_error",
+        "tags": ["warm_climate"]
+      },
+      "exercises": "Image editor failure: the render job ends failed with provider_error and no allowance is consumed.",
+      "formattedAddress": "308 Mesquite Draw Rd, Lone Prairie, TX 79834, USA",
+      "primaryText": "308 Mesquite Draw Rd",
+      "secondaryText": "Lone Prairie, TX, USA",
+      "addressComponents": [
+        {
+          "longText": "308",
+          "shortText": "308",
+          "types": ["street_number"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Mesquite Draw Road",
+          "shortText": "Mesquite Draw Rd",
+          "types": ["route"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Lone Prairie",
+          "shortText": "Lone Prairie",
+          "types": ["locality", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Texas",
+          "shortText": "TX",
+          "types": ["administrative_area_level_1", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "United States",
+          "shortText": "US",
+          "types": ["country", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "79834",
+          "shortText": "79834",
+          "types": ["postal_code"],
+          "languageCode": "en"
+        }
+      ],
+      "countryCode": "US",
+      "location": {
+        "latitude": 29.3012,
+        "longitude": -103.2487
+      },
+      "viewport": {
+        "low": {
+          "latitude": 29.2999,
+          "longitude": -103.25
+        },
+        "high": {
+          "latitude": 29.3025,
+          "longitude": -103.2474
+        }
+      },
+      "types": ["street_address"],
+      "geocode": {
+        "locationType": "ROOFTOP",
+        "partialMatch": false
+      },
+      "destinations": {
+        "structureType": "BUILDING",
+        "hasOutline": true,
+        "targetPoint": {
+          "latitude": 29.3012,
+          "longitude": -103.2487
+        },
+        "facadeWidthM": 17,
+        "roadBearingDeg": 0,
+        "facadeNormalDeg": 90,
+        "entranceOffsetM": 2,
+        "attachedFacade": false
+      },
+      "multiUnit": false,
+      "blocked": false,
+      "metadataStatus": "OK",
+      "manualEntry": {
+        "line1": "308 Mesquite Draw Road",
+        "line2": "",
+        "city": "Lone Prairie",
+        "state": "TX",
+        "postalCode": "79834"
+      },
+      "geocodeAliases": ["308 mesquite draw road", "308 mesquite draw rd"],
+      "panoramas": [
+        {
+          "panoId": "fxSvMesquiteDraw07p1Sv",
+          "probe": "target",
+          "probeRadiusM": 50,
+          "location": {
+            "latitude": 29.3012,
+            "longitude": -103.2485453
+          },
+          "captureDate": "2025-02",
+          "captureGranularity": "month",
+          "copyright": "Fixture photo: Roger Starnes Sr / Unsplash License",
+          "isGoogleImagery": true,
+          "distanceM": 15,
+          "headingDeg": 270,
+          "photo": {
+            "photoId": "house-03-ranch-spring",
+            "framing": 1.1,
+            "shiftX": 0.04
+          }
+        }
+      ]
+    },
+    {
+      "placeId": "ChIJfxFernwoodLoopBungalo08",
+      "label": "Fernwood Loop bungalow (QA reject)",
+      "scenario": {
+        "match": "auto_start",
+        "reason": null,
+        "render": "reject",
+        "tags": []
+      },
+      "exercises": "Quality rejection: both attempts fail quality checks, the job ends rejected and no allowance is consumed.",
+      "formattedAddress": "52 Fernwood Loop, Mossbank, OR 97413, USA",
+      "primaryText": "52 Fernwood Loop",
+      "secondaryText": "Mossbank, OR, USA",
+      "addressComponents": [
+        {
+          "longText": "52",
+          "shortText": "52",
+          "types": ["street_number"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Fernwood Loop",
+          "shortText": "Fernwood Loop",
+          "types": ["route"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Mossbank",
+          "shortText": "Mossbank",
+          "types": ["locality", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Oregon",
+          "shortText": "OR",
+          "types": ["administrative_area_level_1", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "United States",
+          "shortText": "US",
+          "types": ["country", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "97413",
+          "shortText": "97413",
+          "types": ["postal_code"],
+          "languageCode": "en"
+        }
+      ],
+      "countryCode": "US",
+      "location": {
+        "latitude": 44.1023,
+        "longitude": -122.1987
+      },
+      "viewport": {
+        "low": {
+          "latitude": 44.101,
+          "longitude": -122.2
+        },
+        "high": {
+          "latitude": 44.1036,
+          "longitude": -122.1974
+        }
+      },
+      "types": ["street_address"],
+      "geocode": {
+        "locationType": "ROOFTOP",
+        "partialMatch": false
+      },
+      "destinations": {
+        "structureType": "BUILDING",
+        "hasOutline": true,
+        "targetPoint": {
+          "latitude": 44.1023,
+          "longitude": -122.1987
+        },
+        "facadeWidthM": 10,
+        "roadBearingDeg": 90,
+        "facadeNormalDeg": 180,
+        "entranceOffsetM": 0.4,
+        "attachedFacade": false
+      },
+      "multiUnit": false,
+      "blocked": false,
+      "metadataStatus": "OK",
+      "manualEntry": {
+        "line1": "52 Fernwood Loop",
+        "line2": "",
+        "city": "Mossbank",
+        "state": "OR",
+        "postalCode": "97413"
+      },
+      "geocodeAliases": ["52 fernwood loop"],
+      "panoramas": [
+        {
+          "panoId": "fxSvFernwoodLoop08p1Sv",
+          "probe": "target",
+          "probeRadiusM": 50,
+          "location": {
+            "latitude": 44.1021831,
+            "longitude": -122.1987
+          },
+          "captureDate": "2025-10",
+          "captureGranularity": "month",
+          "copyright": "Fixture photo: Roger Starnes Sr / Unsplash License",
+          "isGoogleImagery": true,
+          "distanceM": 13,
+          "headingDeg": 0,
+          "photo": {
+            "photoId": "house-04-bungalow-summer",
+            "framing": 1.08,
+            "shiftX": 0.03
+          }
+        }
+      ]
+    },
+    {
+      "placeId": "ChIJfxCornflowerRoadFarmh09",
+      "label": "Cornflower Road farmhouse (moderation)",
+      "scenario": {
+        "match": "auto_start",
+        "reason": null,
+        "render": "moderation",
+        "tags": []
+      },
+      "exercises": "Vendor refusal: the image editor refuses the input, the job ends failed with moderation_blocked and the source cannot be rendered again.",
+      "formattedAddress": "1199 Cornflower Rd, Elm Prairie, IA 50228, USA",
+      "primaryText": "1199 Cornflower Rd",
+      "secondaryText": "Elm Prairie, IA, USA",
+      "addressComponents": [
+        {
+          "longText": "1199",
+          "shortText": "1199",
+          "types": ["street_number"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Cornflower Road",
+          "shortText": "Cornflower Rd",
+          "types": ["route"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Elm Prairie",
+          "shortText": "Elm Prairie",
+          "types": ["locality", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Iowa",
+          "shortText": "IA",
+          "types": ["administrative_area_level_1", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "United States",
+          "shortText": "US",
+          "types": ["country", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "50228",
+          "shortText": "50228",
+          "types": ["postal_code"],
+          "languageCode": "en"
+        }
+      ],
+      "countryCode": "US",
+      "location": {
+        "latitude": 41.7187,
+        "longitude": -93.6812
+      },
+      "viewport": {
+        "low": {
+          "latitude": 41.7174,
+          "longitude": -93.6825
+        },
+        "high": {
+          "latitude": 41.72,
+          "longitude": -93.6799
+        }
+      },
+      "types": ["street_address"],
+      "geocode": {
+        "locationType": "ROOFTOP",
+        "partialMatch": false
+      },
+      "destinations": {
+        "structureType": "BUILDING",
+        "hasOutline": true,
+        "targetPoint": {
+          "latitude": 41.7187,
+          "longitude": -93.6812
+        },
+        "facadeWidthM": 14,
+        "roadBearingDeg": 0,
+        "facadeNormalDeg": 270,
+        "entranceOffsetM": 0.9,
+        "attachedFacade": false
+      },
+      "multiUnit": false,
+      "blocked": false,
+      "metadataStatus": "OK",
+      "manualEntry": {
+        "line1": "1199 Cornflower Road",
+        "line2": "",
+        "city": "Elm Prairie",
+        "state": "IA",
+        "postalCode": "50228"
+      },
+      "geocodeAliases": ["1199 cornflower road", "1199 cornflower rd"],
+      "panoramas": [
+        {
+          "panoId": "fxSvCornflowerRo09p1Sv",
+          "probe": "target",
+          "probeRadiusM": 50,
+          "location": {
+            "latitude": 41.7187,
+            "longitude": -93.6814048
+          },
+          "captureDate": "2024-08",
+          "captureGranularity": "month",
+          "copyright": "Fixture photo: Roger Starnes Sr / Unsplash License",
+          "isGoogleImagery": true,
+          "distanceM": 17,
+          "headingDeg": 90,
+          "photo": {
+            "photoId": "house-05-farmhouse-autumn",
+            "framing": 1.1,
+            "shiftX": -0.04
+          }
+        }
+      ]
+    },
+    {
+      "placeId": "ChIJfxHemlockRidgeRanchXX10",
+      "label": "Hemlock Ridge ranch (no anchors)",
+      "scenario": {
+        "match": "auto_start",
+        "reason": null,
+        "render": "no_anchors",
+        "tags": ["heavy_occlusion"]
+      },
+      "exercises": "Heavy occlusion: a picket fence and trees hide most anchors, so the job fails with source_rejected / no_usable_anchors and offers the upload path.",
+      "formattedAddress": "77 Hemlock Ridge Trl, North Pines, MN 55604, USA",
+      "primaryText": "77 Hemlock Ridge Trl",
+      "secondaryText": "North Pines, MN, USA",
+      "addressComponents": [
+        {
+          "longText": "77",
+          "shortText": "77",
+          "types": ["street_number"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Hemlock Ridge Trail",
+          "shortText": "Hemlock Ridge Trl",
+          "types": ["route"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "North Pines",
+          "shortText": "North Pines",
+          "types": ["locality", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Minnesota",
+          "shortText": "MN",
+          "types": ["administrative_area_level_1", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "United States",
+          "shortText": "US",
+          "types": ["country", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "55604",
+          "shortText": "55604",
+          "types": ["postal_code"],
+          "languageCode": "en"
+        }
+      ],
+      "countryCode": "US",
+      "location": {
+        "latitude": 47.9012,
+        "longitude": -91.5023
+      },
+      "viewport": {
+        "low": {
+          "latitude": 47.8999,
+          "longitude": -91.5036
+        },
+        "high": {
+          "latitude": 47.9025,
+          "longitude": -91.501
+        }
+      },
+      "types": ["street_address"],
+      "geocode": {
+        "locationType": "ROOFTOP",
+        "partialMatch": false
+      },
+      "destinations": {
+        "structureType": "BUILDING",
+        "hasOutline": true,
+        "targetPoint": {
+          "latitude": 47.9012,
+          "longitude": -91.5023
+        },
+        "facadeWidthM": 12,
+        "roadBearingDeg": 90,
+        "facadeNormalDeg": 180,
+        "entranceOffsetM": 3.5,
+        "attachedFacade": false
+      },
+      "multiUnit": false,
+      "blocked": false,
+      "metadataStatus": "OK",
+      "manualEntry": {
+        "line1": "77 Hemlock Ridge Trail",
+        "line2": "",
+        "city": "North Pines",
+        "state": "MN",
+        "postalCode": "55604"
+      },
+      "geocodeAliases": ["77 hemlock ridge trail", "77 hemlock ridge trl"],
+      "panoramas": [
+        {
+          "panoId": "fxSvHemlockRidge10p1Sv",
+          "probe": "target",
+          "probeRadiusM": 50,
+          "location": {
+            "latitude": 47.9009842,
+            "longitude": -91.5023
+          },
+          "captureDate": "2024-07",
+          "captureGranularity": "month",
+          "copyright": "Fixture photo: Roger Starnes Sr / Unsplash License",
+          "isGoogleImagery": true,
+          "distanceM": 24,
+          "headingDeg": 0,
+          "photo": {
+            "photoId": "house-01-colonial-spring"
+          }
+        }
+      ]
+    },
+    {
+      "placeId": "ChIJfxOrchardBluffColonia11",
+      "label": "Orchard Bluff colonial (Halloween decor)",
+      "scenario": {
+        "match": "auto_start",
+        "reason": null,
+        "render": "pass",
+        "tags": ["existing_decor_halloween"]
+      },
+      "exercises": "Existing Halloween decorations (glowing jack-o'-lanterns on the porch and lawn): new items avoid what is already there and the result notes the existing decor.",
+      "formattedAddress": "2401 Orchard Bluff Ln, Juniper Harbor, MI 49862, USA",
+      "primaryText": "2401 Orchard Bluff Ln",
+      "secondaryText": "Juniper Harbor, MI, USA",
+      "addressComponents": [
+        {
+          "longText": "2401",
+          "shortText": "2401",
+          "types": ["street_number"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Orchard Bluff Lane",
+          "shortText": "Orchard Bluff Ln",
+          "types": ["route"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Juniper Harbor",
+          "shortText": "Juniper Harbor",
+          "types": ["locality", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Michigan",
+          "shortText": "MI",
+          "types": ["administrative_area_level_1", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "United States",
+          "shortText": "US",
+          "types": ["country", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "49862",
+          "shortText": "49862",
+          "types": ["postal_code"],
+          "languageCode": "en"
+        }
+      ],
+      "countryCode": "US",
+      "location": {
+        "latitude": 46.3018,
+        "longitude": -86.7034
+      },
+      "viewport": {
+        "low": {
+          "latitude": 46.3005,
+          "longitude": -86.7047
+        },
+        "high": {
+          "latitude": 46.3031,
+          "longitude": -86.7021
+        }
+      },
+      "types": ["street_address"],
+      "geocode": {
+        "locationType": "ROOFTOP",
+        "partialMatch": false
+      },
+      "destinations": {
+        "structureType": "BUILDING",
+        "hasOutline": true,
+        "targetPoint": {
+          "latitude": 46.3018,
+          "longitude": -86.7034
+        },
+        "facadeWidthM": 12.5,
+        "roadBearingDeg": 90,
+        "facadeNormalDeg": 180,
+        "entranceOffsetM": 0.6,
+        "attachedFacade": false
+      },
+      "multiUnit": false,
+      "blocked": false,
+      "metadataStatus": "OK",
+      "manualEntry": {
+        "line1": "2401 Orchard Bluff Lane",
+        "line2": "",
+        "city": "Juniper Harbor",
+        "state": "MI",
+        "postalCode": "49862"
+      },
+      "geocodeAliases": ["2401 orchard bluff lane", "2401 orchard bluff ln"],
+      "panoramas": [
+        {
+          "panoId": "fxSvOrchardBluff11p1Sv",
+          "probe": "target",
+          "probeRadiusM": 50,
+          "location": {
+            "latitude": 46.3016831,
+            "longitude": -86.7034
+          },
+          "captureDate": "2025-10",
+          "captureGranularity": "month",
+          "copyright": "Fixture photo: Bruno Guerrero / Unsplash License",
+          "isGoogleImagery": true,
+          "distanceM": 13,
+          "headingDeg": 0,
+          "photo": {
+            "photoId": "house-10-foursquare-halloween-autumn"
+          }
+        },
+        {
+          "panoId": "fxSvOrchardBluff11p2Sv",
+          "probe": "offset_+15m",
+          "probeRadiusM": 50,
+          "location": {
+            "latitude": 46.3016831,
+            "longitude": -86.7032047
+          },
+          "captureDate": "2024-07",
+          "captureGranularity": "month",
+          "copyright": "Fixture photo: Bruno Guerrero / Unsplash License",
+          "isGoogleImagery": true,
+          "distanceM": 19.9,
+          "headingDeg": 310.9,
+          "photo": {
+            "photoId": "house-10-foursquare-halloween-autumn",
+            "framing": 1.1,
+            "shiftX": 0.05
+          }
+        }
+      ]
+    },
+    {
+      "placeId": "ChIJfxSitkaSpruceBungalow12",
+      "label": "Sitka Spruce bungalow (owner-blurred)",
+      "scenario": {
+        "match": "auto_start",
+        "reason": null,
+        "render": "pass",
+        "tags": ["owner_blurred"]
+      },
+      "exercises": "Owner-blurred facade: the whole house is blurred in the street photo; the pipeline refuses it (source_rejected / owner_blurred) and offers the upload path.",
+      "formattedAddress": "15 Sitka Spruce Way, Gray Cove, WA 98331, USA",
+      "primaryText": "15 Sitka Spruce Way",
+      "secondaryText": "Gray Cove, WA, USA",
+      "addressComponents": [
+        {
+          "longText": "15",
+          "shortText": "15",
+          "types": ["street_number"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Sitka Spruce Way",
+          "shortText": "Sitka Spruce Way",
+          "types": ["route"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Gray Cove",
+          "shortText": "Gray Cove",
+          "types": ["locality", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Washington",
+          "shortText": "WA",
+          "types": ["administrative_area_level_1", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "United States",
+          "shortText": "US",
+          "types": ["country", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "98331",
+          "shortText": "98331",
+          "types": ["postal_code"],
+          "languageCode": "en"
+        }
+      ],
+      "countryCode": "US",
+      "location": {
+        "latitude": 47.8017,
+        "longitude": -123.6012
+      },
+      "viewport": {
+        "low": {
+          "latitude": 47.8004,
+          "longitude": -123.6025
+        },
+        "high": {
+          "latitude": 47.803,
+          "longitude": -123.5999
+        }
+      },
+      "types": ["street_address"],
+      "geocode": {
+        "locationType": "ROOFTOP",
+        "partialMatch": false
+      },
+      "destinations": {
+        "structureType": "BUILDING",
+        "hasOutline": true,
+        "targetPoint": {
+          "latitude": 47.8017,
+          "longitude": -123.6012
+        },
+        "facadeWidthM": 11,
+        "roadBearingDeg": 0,
+        "facadeNormalDeg": 90,
+        "entranceOffsetM": 0.5,
+        "attachedFacade": false
+      },
+      "multiUnit": false,
+      "blocked": false,
+      "metadataStatus": "OK",
+      "manualEntry": {
+        "line1": "15 Sitka Spruce Way",
+        "line2": "",
+        "city": "Gray Cove",
+        "state": "WA",
+        "postalCode": "98331"
+      },
+      "geocodeAliases": ["15 sitka spruce way"],
+      "panoramas": [
+        {
+          "panoId": "fxSvSitkaSpruceB12p1Sv",
+          "probe": "target",
+          "probeRadiusM": 50,
+          "location": {
+            "latitude": 47.8017,
+            "longitude": -123.6010393
+          },
+          "captureDate": "2025-06",
+          "captureGranularity": "month",
+          "copyright": "Fixture photo: Ian MacDonald / Unsplash License",
+          "isGoogleImagery": true,
+          "distanceM": 12,
+          "headingDeg": 270,
+          "photo": {
+            "photoId": "house-06-dutchcolonial-summer",
+            "blurredHouse": true
+          }
+        }
+      ]
+    },
+    {
+      "placeId": "ChIJfxHearthstoneLaneColo13",
+      "label": "Hearthstone Lane colonial",
+      "scenario": {
+        "match": "auto_start",
+        "reason": null,
+        "render": "pass",
+        "tags": ["showcase"]
+      },
+      "exercises": "Second showcase house: a brick Georgian with a white portico, lovely for Thanksgiving and Christmas evening.",
+      "formattedAddress": "3 Hearthstone Ln, Chestnut Ridge, VA 24459, USA",
+      "primaryText": "3 Hearthstone Ln",
+      "secondaryText": "Chestnut Ridge, VA, USA",
+      "addressComponents": [
+        {
+          "longText": "3",
+          "shortText": "3",
+          "types": ["street_number"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Hearthstone Lane",
+          "shortText": "Hearthstone Ln",
+          "types": ["route"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Chestnut Ridge",
+          "shortText": "Chestnut Ridge",
+          "types": ["locality", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Virginia",
+          "shortText": "VA",
+          "types": ["administrative_area_level_1", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "United States",
+          "shortText": "US",
+          "types": ["country", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "24459",
+          "shortText": "24459",
+          "types": ["postal_code"],
+          "languageCode": "en"
+        }
+      ],
+      "countryCode": "US",
+      "location": {
+        "latitude": 38.4016,
+        "longitude": -79.3021
+      },
+      "viewport": {
+        "low": {
+          "latitude": 38.4003,
+          "longitude": -79.3034
+        },
+        "high": {
+          "latitude": 38.4029,
+          "longitude": -79.3008
+        }
+      },
+      "types": ["premise"],
+      "geocode": {
+        "locationType": "ROOFTOP",
+        "partialMatch": false
+      },
+      "destinations": {
+        "structureType": "BUILDING",
+        "hasOutline": true,
+        "targetPoint": {
+          "latitude": 38.4016,
+          "longitude": -79.3021
+        },
+        "facadeWidthM": 14,
+        "roadBearingDeg": 90,
+        "facadeNormalDeg": 180,
+        "entranceOffsetM": 0.4,
+        "attachedFacade": false
+      },
+      "multiUnit": false,
+      "blocked": false,
+      "metadataStatus": "OK",
+      "manualEntry": {
+        "line1": "3 Hearthstone Lane",
+        "line2": "",
+        "city": "Chestnut Ridge",
+        "state": "VA",
+        "postalCode": "24459"
+      },
+      "geocodeAliases": ["3 hearthstone lane", "3 hearthstone ln"],
+      "panoramas": [
+        {
+          "panoId": "fxSvHearthstoneL13p1Sv",
+          "probe": "target",
+          "probeRadiusM": 50,
+          "location": {
+            "latitude": 38.4014921,
+            "longitude": -79.3021
+          },
+          "captureDate": "2025-10",
+          "captureGranularity": "month",
+          "copyright": "Fixture photo: Roger Starnes Sr / Unsplash License",
+          "isGoogleImagery": true,
+          "distanceM": 12,
+          "headingDeg": 0,
+          "photo": {
+            "photoId": "house-02-georgian-autumn"
+          }
+        },
+        {
+          "panoId": "fxSvHearthstoneL13p2Sv",
+          "probe": "offset_-15m",
+          "probeRadiusM": 50,
+          "location": {
+            "latitude": 38.4014921,
+            "longitude": -79.3022721
+          },
+          "captureDate": "2025-10",
+          "captureGranularity": "month",
+          "copyright": "Fixture photo: Roger Starnes Sr / Unsplash License",
+          "isGoogleImagery": true,
+          "distanceM": 19.2,
+          "headingDeg": 51.3,
+          "photo": {
+            "photoId": "house-02-georgian-autumn",
+            "framing": 1.12,
+            "shiftX": -0.06
+          }
+        }
+      ]
+    },
+    {
+      "placeId": "ChIJfxBellflowerRowFarmho14",
+      "label": "Bellflower Row modern farmhouse",
+      "scenario": {
+        "match": "auto_start",
+        "reason": null,
+        "render": "pass",
+        "tags": ["showcase"]
+      },
+      "exercises": "Third showcase house: a modern two-story home with stone accents and porch columns, made for New Year's Eve gold and Christmas warm white.",
+      "formattedAddress": "88 Bellflower Row, Briar Glen, TN 37352, USA",
+      "primaryText": "88 Bellflower Row",
+      "secondaryText": "Briar Glen, TN, USA",
+      "addressComponents": [
+        {
+          "longText": "88",
+          "shortText": "88",
+          "types": ["street_number"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Bellflower Row",
+          "shortText": "Bellflower Row",
+          "types": ["route"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Briar Glen",
+          "shortText": "Briar Glen",
+          "types": ["locality", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Tennessee",
+          "shortText": "TN",
+          "types": ["administrative_area_level_1", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "United States",
+          "shortText": "US",
+          "types": ["country", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "37352",
+          "shortText": "37352",
+          "types": ["postal_code"],
+          "languageCode": "en"
+        }
+      ],
+      "countryCode": "US",
+      "location": {
+        "latitude": 35.4987,
+        "longitude": -84.0213
+      },
+      "viewport": {
+        "low": {
+          "latitude": 35.4974,
+          "longitude": -84.0226
+        },
+        "high": {
+          "latitude": 35.5,
+          "longitude": -84.02
+        }
+      },
+      "types": ["street_address"],
+      "geocode": {
+        "locationType": "ROOFTOP",
+        "partialMatch": false
+      },
+      "destinations": {
+        "structureType": "BUILDING",
+        "hasOutline": true,
+        "targetPoint": {
+          "latitude": 35.4987,
+          "longitude": -84.0213
+        },
+        "facadeWidthM": 15,
+        "roadBearingDeg": 0,
+        "facadeNormalDeg": 270,
+        "entranceOffsetM": 0.3,
+        "attachedFacade": false
+      },
+      "multiUnit": false,
+      "blocked": false,
+      "metadataStatus": "OK",
+      "manualEntry": {
+        "line1": "88 Bellflower Row",
+        "line2": "",
+        "city": "Briar Glen",
+        "state": "TN",
+        "postalCode": "37352"
+      },
+      "geocodeAliases": ["88 bellflower row"],
+      "panoramas": [
+        {
+          "panoId": "fxSvBellflowerRo14p1Sv",
+          "probe": "target",
+          "probeRadiusM": 50,
+          "location": {
+            "latitude": 35.4987,
+            "longitude": -84.0214547
+          },
+          "captureDate": "2025-08",
+          "captureGranularity": "month",
+          "copyright": "Fixture photo: Roger Starnes Sr / Unsplash License",
+          "isGoogleImagery": true,
+          "distanceM": 14,
+          "headingDeg": 90,
+          "photo": {
+            "photoId": "house-07-modern-summer"
+          }
+        }
+      ]
+    },
+    {
+      "placeId": "ChIJfxDriftwoodCoveCapeXX15",
+      "label": "Driftwood Cove cape (interpolated)",
+      "scenario": {
+        "match": "confirm",
+        "reason": null,
+        "render": "pass",
+        "tags": ["interpolated", "three_candidates"]
+      },
+      "exercises": "Confirm: interpolated geocode precision; three candidate views (primary plus two alternates with different capture dates) to compare before rendering.",
+      "formattedAddress": "4 Driftwood Cove Rd, Port Kestrel, ME 04462, USA",
+      "primaryText": "4 Driftwood Cove Rd",
+      "secondaryText": "Port Kestrel, ME, USA",
+      "addressComponents": [
+        {
+          "longText": "4",
+          "shortText": "4",
+          "types": ["street_number"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Driftwood Cove Road",
+          "shortText": "Driftwood Cove Rd",
+          "types": ["route"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Port Kestrel",
+          "shortText": "Port Kestrel",
+          "types": ["locality", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Maine",
+          "shortText": "ME",
+          "types": ["administrative_area_level_1", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "United States",
+          "shortText": "US",
+          "types": ["country", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "04462",
+          "shortText": "04462",
+          "types": ["postal_code"],
+          "languageCode": "en"
+        }
+      ],
+      "countryCode": "US",
+      "location": {
+        "latitude": 45.9512,
+        "longitude": -68.9534
+      },
+      "viewport": {
+        "low": {
+          "latitude": 45.9499,
+          "longitude": -68.9547
+        },
+        "high": {
+          "latitude": 45.9525,
+          "longitude": -68.9521
+        }
+      },
+      "types": ["street_address"],
+      "geocode": {
+        "locationType": "RANGE_INTERPOLATED",
+        "partialMatch": false
+      },
+      "destinations": {
+        "structureType": "BUILDING",
+        "hasOutline": true,
+        "targetPoint": {
+          "latitude": 45.9512,
+          "longitude": -68.9534
+        },
+        "facadeWidthM": 10,
+        "roadBearingDeg": 90,
+        "facadeNormalDeg": 180,
+        "entranceOffsetM": 0.4,
+        "attachedFacade": false
+      },
+      "multiUnit": false,
+      "blocked": false,
+      "metadataStatus": "OK",
+      "manualEntry": {
+        "line1": "4 Driftwood Cove Road",
+        "line2": "",
+        "city": "Port Kestrel",
+        "state": "ME",
+        "postalCode": "04462"
+      },
+      "geocodeAliases": ["4 driftwood cove road", "4 driftwood cove rd"],
+      "panoramas": [
+        {
+          "panoId": "fxSvDriftwoodCov15p1Sv",
+          "probe": "target",
+          "probeRadiusM": 50,
+          "location": {
+            "latitude": 45.9510021,
+            "longitude": -68.9534
+          },
+          "captureDate": "2025-10",
+          "captureGranularity": "month",
+          "copyright": "Fixture photo: Ian MacDonald / Unsplash License",
+          "isGoogleImagery": true,
+          "distanceM": 22,
+          "headingDeg": 0,
+          "photo": {
+            "photoId": "house-06-dutchcolonial-summer"
+          }
+        },
+        {
+          "panoId": "fxSvDriftwoodCov15p2Sv",
+          "probe": "offset_+15m",
+          "probeRadiusM": 50,
+          "location": {
+            "latitude": 45.9510021,
+            "longitude": -68.953206
+          },
+          "captureDate": "2024-06",
+          "captureGranularity": "month",
+          "copyright": "Fixture photo: Ian MacDonald / Unsplash License",
+          "isGoogleImagery": true,
+          "distanceM": 26.6,
+          "headingDeg": 325.7,
+          "photo": {
+            "photoId": "house-06-dutchcolonial-summer",
+            "framing": 1.12,
+            "shiftX": 0.06
+          }
+        },
+        {
+          "panoId": "fxSvDriftwoodCov15p3Sv",
+          "probe": "offset_-30m",
+          "probeRadiusM": 50,
+          "location": {
+            "latitude": 45.9510021,
+            "longitude": -68.953788
+          },
+          "captureDate": "2022-09",
+          "captureGranularity": "month",
+          "copyright": "Fixture photo: Ian MacDonald / Unsplash License",
+          "isGoogleImagery": true,
+          "distanceM": 37.2,
+          "headingDeg": 53.7,
+          "photo": {
+            "photoId": "house-06-dutchcolonial-summer",
+            "framing": 1.3,
+            "shiftX": -0.07
+          }
+        }
+      ]
+    },
+    {
+      "placeId": "ChIJfxTamarackLaneFarmhou16",
+      "label": "Tamarack Lane farmhouse (far, old capture)",
+      "scenario": {
+        "match": "confirm",
+        "reason": null,
+        "render": "pass",
+        "tags": ["far_panorama", "old_capture"]
+      },
+      "exercises": "Confirm: the nearest street photo is 41 m away and from 2018, so the screen shows the capture date and \"Looks different now? Upload a current photo.\"",
+      "formattedAddress": "880 Tamarack Ln, Silver Birch, WI 54552, USA",
+      "primaryText": "880 Tamarack Ln",
+      "secondaryText": "Silver Birch, WI, USA",
+      "addressComponents": [
+        {
+          "longText": "880",
+          "shortText": "880",
+          "types": ["street_number"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Tamarack Lane",
+          "shortText": "Tamarack Ln",
+          "types": ["route"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Silver Birch",
+          "shortText": "Silver Birch",
+          "types": ["locality", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Wisconsin",
+          "shortText": "WI",
+          "types": ["administrative_area_level_1", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "United States",
+          "shortText": "US",
+          "types": ["country", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "54552",
+          "shortText": "54552",
+          "types": ["postal_code"],
+          "languageCode": "en"
+        }
+      ],
+      "countryCode": "US",
+      "location": {
+        "latitude": 46.0021,
+        "longitude": -90.9012
+      },
+      "viewport": {
+        "low": {
+          "latitude": 46.0008,
+          "longitude": -90.9025
+        },
+        "high": {
+          "latitude": 46.0034,
+          "longitude": -90.8999
+        }
+      },
+      "types": ["street_address"],
+      "geocode": {
+        "locationType": "ROOFTOP",
+        "partialMatch": false
+      },
+      "destinations": {
+        "structureType": "BUILDING",
+        "hasOutline": true,
+        "targetPoint": {
+          "latitude": 46.0021,
+          "longitude": -90.9012
+        },
+        "facadeWidthM": 14,
+        "roadBearingDeg": 0,
+        "facadeNormalDeg": 90,
+        "entranceOffsetM": 1,
+        "attachedFacade": false
+      },
+      "multiUnit": false,
+      "blocked": false,
+      "metadataStatus": "OK",
+      "manualEntry": {
+        "line1": "880 Tamarack Lane",
+        "line2": "",
+        "city": "Silver Birch",
+        "state": "WI",
+        "postalCode": "54552"
+      },
+      "geocodeAliases": ["880 tamarack lane", "880 tamarack ln"],
+      "panoramas": [
+        {
+          "panoId": "fxSvTamarackLane16p1Sv",
+          "probe": "target",
+          "probeRadiusM": 50,
+          "location": {
+            "latitude": 46.0021,
+            "longitude": -90.9006692
+          },
+          "captureDate": "2018-06",
+          "captureGranularity": "month",
+          "copyright": "Fixture photo: Roger Starnes Sr / Unsplash License",
+          "isGoogleImagery": true,
+          "distanceM": 41,
+          "headingDeg": 270,
+          "photo": {
+            "photoId": "house-05-farmhouse-autumn",
+            "framing": 1.3
+          }
+        },
+        {
+          "panoId": "fxSvTamarackLane16p2Sv",
+          "probe": "offset_+30m",
+          "probeRadiusM": 50,
+          "location": {
+            "latitude": 46.0023698,
+            "longitude": -90.9006692
+          },
+          "captureDate": "2016-08",
+          "captureGranularity": "month",
+          "copyright": "Fixture photo: Roger Starnes Sr / Unsplash License",
+          "isGoogleImagery": true,
+          "distanceM": 50.8,
+          "headingDeg": 233.8,
+          "photo": {
+            "photoId": "house-05-farmhouse-autumn",
+            "framing": 1.45,
+            "shiftX": 0.05
+          }
+        }
+      ]
+    },
+    {
+      "placeId": "ChIJfxPinonMesaAdobeXXXXX17",
+      "label": "Piñon Mesa adobe (contributor imagery)",
+      "scenario": {
+        "match": "confirm",
+        "reason": null,
+        "render": "pass",
+        "tags": ["contributor_imagery", "display_only", "undated_alternate"]
+      },
+      "exercises": "Confirm with contributor imagery (not Google): the photo only confirms the place (display-only), then the app asks for your own photo. The alternate is undated.",
+      "formattedAddress": "31 Piñon Mesa Rd, Turquoise Flats, NM 87520, USA",
+      "primaryText": "31 Piñon Mesa Rd",
+      "secondaryText": "Turquoise Flats, NM, USA",
+      "addressComponents": [
+        {
+          "longText": "31",
+          "shortText": "31",
+          "types": ["street_number"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Piñon Mesa Road",
+          "shortText": "Piñon Mesa Rd",
+          "types": ["route"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Turquoise Flats",
+          "shortText": "Turquoise Flats",
+          "types": ["locality", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "New Mexico",
+          "shortText": "NM",
+          "types": ["administrative_area_level_1", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "United States",
+          "shortText": "US",
+          "types": ["country", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "87520",
+          "shortText": "87520",
+          "types": ["postal_code"],
+          "languageCode": "en"
+        }
+      ],
+      "countryCode": "US",
+      "location": {
+        "latitude": 36.0512,
+        "longitude": -106.2034
+      },
+      "viewport": {
+        "low": {
+          "latitude": 36.0499,
+          "longitude": -106.2047
+        },
+        "high": {
+          "latitude": 36.0525,
+          "longitude": -106.2021
+        }
+      },
+      "types": ["street_address"],
+      "geocode": {
+        "locationType": "ROOFTOP",
+        "partialMatch": false
+      },
+      "destinations": {
+        "structureType": "BUILDING",
+        "hasOutline": true,
+        "targetPoint": {
+          "latitude": 36.0512,
+          "longitude": -106.2034
+        },
+        "facadeWidthM": 12,
+        "roadBearingDeg": 90,
+        "facadeNormalDeg": 0,
+        "entranceOffsetM": 0.6,
+        "attachedFacade": false
+      },
+      "multiUnit": false,
+      "blocked": false,
+      "metadataStatus": "OK",
+      "manualEntry": {
+        "line1": "31 Piñon Mesa Road",
+        "line2": "",
+        "city": "Turquoise Flats",
+        "state": "NM",
+        "postalCode": "87520"
+      },
+      "geocodeAliases": ["31 pinon mesa road", "31 pinon mesa rd"],
+      "panoramas": [
+        {
+          "panoId": "fxSvPinonMesaAdo17p1Sv",
+          "probe": "target",
+          "probeRadiusM": 50,
+          "location": {
+            "latitude": 36.0513619,
+            "longitude": -106.2034
+          },
+          "captureDate": "2024-05",
+          "captureGranularity": "month",
+          "copyright": "Fixture photo: Roger Starnes Sr / Unsplash License (contributor imagery stand-in)",
+          "isGoogleImagery": false,
+          "distanceM": 18,
+          "headingDeg": 180,
+          "photo": {
+            "photoId": "house-01-colonial-spring",
+            "framing": 1.05
+          }
+        },
+        {
+          "panoId": "fxSvPinonMesaAdo17p2Sv",
+          "probe": "offset_+15m",
+          "probeRadiusM": 50,
+          "location": {
+            "latitude": 36.0513619,
+            "longitude": -106.2032331
+          },
+          "captureDate": null,
+          "captureGranularity": "none",
+          "copyright": "Fixture photo: Roger Starnes Sr / Unsplash License (contributor imagery stand-in)",
+          "isGoogleImagery": false,
+          "distanceM": 23.4,
+          "headingDeg": 219.8,
+          "photo": {
+            "photoId": "house-01-colonial-spring",
+            "framing": 1.15,
+            "shiftX": 0.05
+          }
+        }
+      ]
+    },
+    {
+      "placeId": "ChIJfxLarchStreetTownhous18",
+      "label": "Larch Street townhouse (attached)",
+      "scenario": {
+        "match": "confirm",
+        "reason": null,
+        "render": "pass",
+        "tags": ["attached_facade", "year_only_capture"]
+      },
+      "exercises": "Confirm: an attached row house whose frame necessarily includes neighbors; decorations must stay on the centered unit. Capture date is year-only.",
+      "formattedAddress": "1207 Larch St, Bellwether, PA 19137, USA",
+      "primaryText": "1207 Larch St",
+      "secondaryText": "Bellwether, PA, USA",
+      "addressComponents": [
+        {
+          "longText": "1207",
+          "shortText": "1207",
+          "types": ["street_number"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Larch Street",
+          "shortText": "Larch St",
+          "types": ["route"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Bellwether",
+          "shortText": "Bellwether",
+          "types": ["locality", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Pennsylvania",
+          "shortText": "PA",
+          "types": ["administrative_area_level_1", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "United States",
+          "shortText": "US",
+          "types": ["country", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "19137",
+          "shortText": "19137",
+          "types": ["postal_code"],
+          "languageCode": "en"
+        }
+      ],
+      "countryCode": "US",
+      "location": {
+        "latitude": 41.6512,
+        "longitude": -79.0034
+      },
+      "viewport": {
+        "low": {
+          "latitude": 41.6499,
+          "longitude": -79.0047
+        },
+        "high": {
+          "latitude": 41.6525,
+          "longitude": -79.0021
+        }
+      },
+      "types": ["street_address"],
+      "geocode": {
+        "locationType": "ROOFTOP",
+        "partialMatch": false
+      },
+      "destinations": {
+        "structureType": "BUILDING",
+        "hasOutline": true,
+        "targetPoint": {
+          "latitude": 41.6512,
+          "longitude": -79.0034
+        },
+        "facadeWidthM": 5.5,
+        "roadBearingDeg": 90,
+        "facadeNormalDeg": 180,
+        "entranceOffsetM": 0.2,
+        "attachedFacade": true
+      },
+      "multiUnit": false,
+      "blocked": false,
+      "metadataStatus": "OK",
+      "manualEntry": {
+        "line1": "1207 Larch Street",
+        "line2": "",
+        "city": "Bellwether",
+        "state": "PA",
+        "postalCode": "19137"
+      },
+      "geocodeAliases": ["1207 larch street", "1207 larch st"],
+      "panoramas": [
+        {
+          "panoId": "fxSvLarchStreetT18p1Sv",
+          "probe": "target",
+          "probeRadiusM": 50,
+          "location": {
+            "latitude": 41.6510921,
+            "longitude": -79.0034
+          },
+          "captureDate": "2024",
+          "captureGranularity": "year",
+          "copyright": "Fixture photo: Evan Tahler / Unsplash License",
+          "isGoogleImagery": true,
+          "distanceM": 12,
+          "headingDeg": 0,
+          "photo": {
+            "photoId": "house-08-rowhouses-summer"
+          }
+        },
+        {
+          "panoId": "fxSvLarchStreetT18p2Sv",
+          "probe": "offset_+15m",
+          "probeRadiusM": 50,
+          "location": {
+            "latitude": 41.6510921,
+            "longitude": -79.0032195
+          },
+          "captureDate": "2024",
+          "captureGranularity": "year",
+          "copyright": "Fixture photo: Evan Tahler / Unsplash License",
+          "isGoogleImagery": true,
+          "distanceM": 19.2,
+          "headingDeg": 308.7,
+          "photo": {
+            "photoId": "house-08-rowhouses-summer",
+            "framing": 1.1,
+            "shiftX": 0.05
+          }
+        }
+      ]
+    },
+    {
+      "placeId": "ChIJfxOldQuarryRoadColoni19",
+      "label": "Old Quarry Road colonial (partial match, deep setback)",
+      "scenario": {
+        "match": "confirm",
+        "reason": null,
+        "render": "pass",
+        "tags": ["partial_match", "deep_setback"]
+      },
+      "exercises": "Confirm: the geocoder only partly matched the address and the nearest street photo needed a wider search (55 m, deep setback).",
+      "formattedAddress": "250 Old Quarry Rd, Hartwell Corners, NY 12883, USA",
+      "primaryText": "250 Old Quarry Rd",
+      "secondaryText": "Hartwell Corners, NY, USA",
+      "addressComponents": [
+        {
+          "longText": "250",
+          "shortText": "250",
+          "types": ["street_number"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Old Quarry Road",
+          "shortText": "Old Quarry Rd",
+          "types": ["route"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Hartwell Corners",
+          "shortText": "Hartwell Corners",
+          "types": ["locality", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "New York",
+          "shortText": "NY",
+          "types": ["administrative_area_level_1", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "United States",
+          "shortText": "US",
+          "types": ["country", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "12883",
+          "shortText": "12883",
+          "types": ["postal_code"],
+          "languageCode": "en"
+        }
+      ],
+      "countryCode": "US",
+      "location": {
+        "latitude": 44.1012,
+        "longitude": -74.1023
+      },
+      "viewport": {
+        "low": {
+          "latitude": 44.0999,
+          "longitude": -74.1036
+        },
+        "high": {
+          "latitude": 44.1025,
+          "longitude": -74.101
+        }
+      },
+      "types": ["street_address"],
+      "geocode": {
+        "locationType": "ROOFTOP",
+        "partialMatch": true
+      },
+      "destinations": {
+        "structureType": "BUILDING",
+        "hasOutline": true,
+        "targetPoint": {
+          "latitude": 44.1012,
+          "longitude": -74.1023
+        },
+        "facadeWidthM": 17,
+        "roadBearingDeg": 0,
+        "facadeNormalDeg": 270,
+        "entranceOffsetM": 0.5,
+        "attachedFacade": false
+      },
+      "multiUnit": false,
+      "blocked": false,
+      "metadataStatus": "OK",
+      "manualEntry": {
+        "line1": "250 Old Quarry Road",
+        "line2": "",
+        "city": "Hartwell Corners",
+        "state": "NY",
+        "postalCode": "12883"
+      },
+      "geocodeAliases": ["250 old quarry road", "250 old quarry rd"],
+      "panoramas": [
+        {
+          "panoId": "fxSvOldQuarryRoa19p1Sv",
+          "probe": "target",
+          "probeRadiusM": 100,
+          "location": {
+            "latitude": 44.1012,
+            "longitude": -74.1029888
+          },
+          "captureDate": "2023-08",
+          "captureGranularity": "month",
+          "copyright": "Fixture photo: ARRHEN FEJOKWU / Unsplash License",
+          "isGoogleImagery": true,
+          "distanceM": 55,
+          "headingDeg": 90,
+          "photo": {
+            "photoId": "house-09-townhouses-summer",
+            "framing": 1.2
+          }
+        }
+      ]
+    },
+    {
+      "placeId": "ChIJfxBitterrootBenchRanc20",
+      "label": "Bitterroot Bench ranch (no imagery)",
+      "scenario": {
+        "match": "skip_to_upload",
+        "reason": "no_imagery",
+        "render": "pass",
+        "tags": ["rural"]
+      },
+      "exercises": "No street photo within 200 m: the app goes straight to \"upload your own photo\".",
+      "formattedAddress": "4120 Bitterroot Bench Rd, Elk Meadow, MT 59873, USA",
+      "primaryText": "4120 Bitterroot Bench Rd",
+      "secondaryText": "Elk Meadow, MT, USA",
+      "addressComponents": [
+        {
+          "longText": "4120",
+          "shortText": "4120",
+          "types": ["street_number"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Bitterroot Bench Road",
+          "shortText": "Bitterroot Bench Rd",
+          "types": ["route"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Elk Meadow",
+          "shortText": "Elk Meadow",
+          "types": ["locality", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Montana",
+          "shortText": "MT",
+          "types": ["administrative_area_level_1", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "United States",
+          "shortText": "US",
+          "types": ["country", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "59873",
+          "shortText": "59873",
+          "types": ["postal_code"],
+          "languageCode": "en"
+        }
+      ],
+      "countryCode": "US",
+      "location": {
+        "latitude": 47.6012,
+        "longitude": -113.2034
+      },
+      "viewport": {
+        "low": {
+          "latitude": 47.5999,
+          "longitude": -113.2047
+        },
+        "high": {
+          "latitude": 47.6025,
+          "longitude": -113.2021
+        }
+      },
+      "types": ["street_address"],
+      "geocode": {
+        "locationType": "ROOFTOP",
+        "partialMatch": false
+      },
+      "destinations": {
+        "structureType": "BUILDING",
+        "hasOutline": true,
+        "targetPoint": {
+          "latitude": 47.6012,
+          "longitude": -113.2034
+        },
+        "facadeWidthM": 15,
+        "roadBearingDeg": 0,
+        "facadeNormalDeg": 90,
+        "entranceOffsetM": 1,
+        "attachedFacade": false
+      },
+      "multiUnit": false,
+      "blocked": false,
+      "metadataStatus": "ZERO_RESULTS",
+      "manualEntry": {
+        "line1": "4120 Bitterroot Bench Road",
+        "line2": "",
+        "city": "Elk Meadow",
+        "state": "MT",
+        "postalCode": "59873"
+      },
+      "geocodeAliases": ["4120 bitterroot bench road", "4120 bitterroot bench rd"],
+      "panoramas": []
+    },
+    {
+      "placeId": "ChIJfxWickerLaneApartment21",
+      "label": "Wicker Lane apartments (multi-unit)",
+      "scenario": {
+        "match": "skip_to_upload",
+        "reason": "multi_unit",
+        "render": "pass",
+        "tags": ["subpremise"]
+      },
+      "exercises": "Multi-unit building (Apt 4B): the facade is never decorated as \"your home\"; the app asks for a photo of your door, balcony or room.",
+      "formattedAddress": "2150 Wicker Ln Apt 4B, Lindenport, IL 62939, USA",
+      "primaryText": "2150 Wicker Ln Apt 4B",
+      "secondaryText": "Lindenport, IL, USA",
+      "addressComponents": [
+        {
+          "longText": "4B",
+          "shortText": "4B",
+          "types": ["subpremise"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "2150",
+          "shortText": "2150",
+          "types": ["street_number"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Wicker Lane",
+          "shortText": "Wicker Ln",
+          "types": ["route"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Lindenport",
+          "shortText": "Lindenport",
+          "types": ["locality", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Illinois",
+          "shortText": "IL",
+          "types": ["administrative_area_level_1", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "United States",
+          "shortText": "US",
+          "types": ["country", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "62939",
+          "shortText": "62939",
+          "types": ["postal_code"],
+          "languageCode": "en"
+        }
+      ],
+      "countryCode": "US",
+      "location": {
+        "latitude": 37.5512,
+        "longitude": -88.7034
+      },
+      "viewport": {
+        "low": {
+          "latitude": 37.5499,
+          "longitude": -88.7047
+        },
+        "high": {
+          "latitude": 37.5525,
+          "longitude": -88.7021
+        }
+      },
+      "types": ["subpremise"],
+      "geocode": {
+        "locationType": "ROOFTOP",
+        "partialMatch": false
+      },
+      "destinations": {
+        "structureType": "BUILDING",
+        "hasOutline": true,
+        "targetPoint": {
+          "latitude": 37.5512,
+          "longitude": -88.7034
+        },
+        "facadeWidthM": 32,
+        "roadBearingDeg": 90,
+        "facadeNormalDeg": 180,
+        "entranceOffsetM": 0.5,
+        "attachedFacade": false
+      },
+      "multiUnit": true,
+      "blocked": false,
+      "metadataStatus": "OK",
+      "manualEntry": {
+        "line1": "2150 Wicker Lane",
+        "line2": "Apt 4B",
+        "city": "Lindenport",
+        "state": "IL",
+        "postalCode": "62939"
+      },
+      "geocodeAliases": [
+        "2150 wicker lane apt 4b",
+        "2150 wicker lane unit 4b",
+        "2150 wicker lane #4b",
+        "2150 wicker ln apt 4b",
+        "2150 wicker ln unit 4b",
+        "2150 wicker ln #4b"
+      ],
+      "panoramas": [
+        {
+          "panoId": "fxSvWickerLaneAp21p1Sv",
+          "probe": "target",
+          "probeRadiusM": 50,
+          "location": {
+            "latitude": 37.5510741,
+            "longitude": -88.7034
+          },
+          "captureDate": "2025-05",
+          "captureGranularity": "month",
+          "copyright": "Fixture photo: Jordan Heinz / Unsplash License",
+          "isGoogleImagery": true,
+          "distanceM": 14,
+          "headingDeg": 0,
+          "photo": {
+            "photoId": "house-12-apartments-summer"
+          }
+        },
+        {
+          "panoId": "fxSvWickerLaneAp21p2Sv",
+          "probe": "offset_+15m",
+          "probeRadiusM": 50,
+          "location": {
+            "latitude": 37.5510741,
+            "longitude": -88.7032298
+          },
+          "captureDate": "2024-10",
+          "captureGranularity": "month",
+          "copyright": "Fixture photo: Osmany M Leyva Aldana / Unsplash License",
+          "isGoogleImagery": true,
+          "distanceM": 20.5,
+          "headingDeg": 313,
+          "photo": {
+            "photoId": "house-13-apartments-dusk"
+          }
+        }
+      ]
+    },
+    {
+      "placeId": "ChIJfxSourwoodRidgeRoadXX22",
+      "label": "Sourwood Ridge Road (street only)",
+      "scenario": {
+        "match": "skip_to_upload",
+        "reason": "low_precision",
+        "render": "pass",
+        "tags": ["route_only"]
+      },
+      "exercises": "Low precision: only the road matched (no house number), so the app cannot pick a house and asks for a photo.",
+      "formattedAddress": "Sourwood Ridge Rd, Laurel Gap, NC 28768, USA",
+      "primaryText": "Sourwood Ridge Rd",
+      "secondaryText": "Laurel Gap, NC, USA",
+      "addressComponents": [
+        {
+          "longText": "Sourwood Ridge Road",
+          "shortText": "Sourwood Ridge Rd",
+          "types": ["route"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Laurel Gap",
+          "shortText": "Laurel Gap",
+          "types": ["locality", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "North Carolina",
+          "shortText": "NC",
+          "types": ["administrative_area_level_1", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "United States",
+          "shortText": "US",
+          "types": ["country", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "28768",
+          "shortText": "28768",
+          "types": ["postal_code"],
+          "languageCode": "en"
+        }
+      ],
+      "countryCode": "US",
+      "location": {
+        "latitude": 35.3512,
+        "longitude": -82.8034
+      },
+      "viewport": {
+        "low": {
+          "latitude": 35.3499,
+          "longitude": -82.8047
+        },
+        "high": {
+          "latitude": 35.3525,
+          "longitude": -82.8021
+        }
+      },
+      "types": ["route"],
+      "geocode": {
+        "locationType": "GEOMETRIC_CENTER",
+        "partialMatch": false
+      },
+      "destinations": {
+        "structureType": null,
+        "hasOutline": false,
+        "targetPoint": {
+          "latitude": 35.3512,
+          "longitude": -82.8034
+        },
+        "facadeWidthM": null,
+        "roadBearingDeg": null,
+        "facadeNormalDeg": null,
+        "entranceOffsetM": null,
+        "attachedFacade": false
+      },
+      "multiUnit": false,
+      "blocked": false,
+      "metadataStatus": "ZERO_RESULTS",
+      "manualEntry": {
+        "line1": "Sourwood Ridge Road",
+        "line2": "",
+        "city": "Laurel Gap",
+        "state": "NC",
+        "postalCode": "28768"
+      },
+      "geocodeAliases": ["sourwood ridge road", "sourwood ridge rd"],
+      "panoramas": []
+    },
+    {
+      "placeId": "ChIJfxWrenSongRoadColonia23",
+      "label": "Wren Song Road colonial (opted out)",
+      "scenario": {
+        "match": "skip_to_upload",
+        "reason": "blocked_address",
+        "render": "pass",
+        "tags": ["blocked"]
+      },
+      "exercises": "Homeowner opt-out: stored as blocked_address but shown to you only as \"a street photo isn't available\"; the app never claims there is no imagery.",
+      "formattedAddress": "63 Wren Song Rd, Pinewick, NJ 08088, USA",
+      "primaryText": "63 Wren Song Rd",
+      "secondaryText": "Pinewick, NJ, USA",
+      "addressComponents": [
+        {
+          "longText": "63",
+          "shortText": "63",
+          "types": ["street_number"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Wren Song Road",
+          "shortText": "Wren Song Rd",
+          "types": ["route"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Pinewick",
+          "shortText": "Pinewick",
+          "types": ["locality", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "New Jersey",
+          "shortText": "NJ",
+          "types": ["administrative_area_level_1", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "United States",
+          "shortText": "US",
+          "types": ["country", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "08088",
+          "shortText": "08088",
+          "types": ["postal_code"],
+          "languageCode": "en"
+        }
+      ],
+      "countryCode": "US",
+      "location": {
+        "latitude": 39.7012,
+        "longitude": -74.6534
+      },
+      "viewport": {
+        "low": {
+          "latitude": 39.6999,
+          "longitude": -74.6547
+        },
+        "high": {
+          "latitude": 39.7025,
+          "longitude": -74.6521
+        }
+      },
+      "types": ["street_address"],
+      "geocode": {
+        "locationType": "ROOFTOP",
+        "partialMatch": false
+      },
+      "destinations": {
+        "structureType": "BUILDING",
+        "hasOutline": true,
+        "targetPoint": {
+          "latitude": 39.7012,
+          "longitude": -74.6534
+        },
+        "facadeWidthM": 13,
+        "roadBearingDeg": 90,
+        "facadeNormalDeg": 180,
+        "entranceOffsetM": 0.5,
+        "attachedFacade": false
+      },
+      "multiUnit": false,
+      "blocked": true,
+      "metadataStatus": "OK",
+      "manualEntry": {
+        "line1": "63 Wren Song Road",
+        "line2": "",
+        "city": "Pinewick",
+        "state": "NJ",
+        "postalCode": "08088"
+      },
+      "geocodeAliases": ["63 wren song road", "63 wren song rd"],
+      "panoramas": [
+        {
+          "panoId": "fxSvWrenSongRoad23p1Sv",
+          "probe": "target",
+          "probeRadiusM": 50,
+          "location": {
+            "latitude": 39.7010921,
+            "longitude": -74.6534
+          },
+          "captureDate": "2025-06",
+          "captureGranularity": "month",
+          "copyright": "Fixture photo: Roger Starnes Sr / Unsplash License",
+          "isGoogleImagery": true,
+          "distanceM": 12,
+          "headingDeg": 0,
+          "photo": {
+            "photoId": "house-07-modern-summer",
+            "framing": 1.1
+          }
+        }
+      ]
+    },
+    {
+      "placeId": "ChIJfxAspenHollowErrorXXX24",
+      "label": "Aspen Hollow (street photo service error)",
+      "scenario": {
+        "match": "skip_to_upload",
+        "reason": "error",
+        "render": "pass",
+        "tags": ["retryable"]
+      },
+      "exercises": "Street photo lookup fails (provider error after one retry): skip to upload with a retry offer.",
+      "formattedAddress": "940 Aspen Hollow Dr, Silverlode, CO 81635, USA",
+      "primaryText": "940 Aspen Hollow Dr",
+      "secondaryText": "Silverlode, CO, USA",
+      "addressComponents": [
+        {
+          "longText": "940",
+          "shortText": "940",
+          "types": ["street_number"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Aspen Hollow Drive",
+          "shortText": "Aspen Hollow Dr",
+          "types": ["route"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Silverlode",
+          "shortText": "Silverlode",
+          "types": ["locality", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Colorado",
+          "shortText": "CO",
+          "types": ["administrative_area_level_1", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "United States",
+          "shortText": "US",
+          "types": ["country", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "81635",
+          "shortText": "81635",
+          "types": ["postal_code"],
+          "languageCode": "en"
+        }
+      ],
+      "countryCode": "US",
+      "location": {
+        "latitude": 39.5512,
+        "longitude": -107.3034
+      },
+      "viewport": {
+        "low": {
+          "latitude": 39.5499,
+          "longitude": -107.3047
+        },
+        "high": {
+          "latitude": 39.5525,
+          "longitude": -107.3021
+        }
+      },
+      "types": ["street_address"],
+      "geocode": {
+        "locationType": "ROOFTOP",
+        "partialMatch": false
+      },
+      "destinations": {
+        "structureType": "BUILDING",
+        "hasOutline": true,
+        "targetPoint": {
+          "latitude": 39.5512,
+          "longitude": -107.3034
+        },
+        "facadeWidthM": 13,
+        "roadBearingDeg": 0,
+        "facadeNormalDeg": 90,
+        "entranceOffsetM": 0.6,
+        "attachedFacade": false
+      },
+      "multiUnit": false,
+      "blocked": false,
+      "metadataStatus": "UNKNOWN_ERROR",
+      "manualEntry": {
+        "line1": "940 Aspen Hollow Drive",
+        "line2": "",
+        "city": "Silverlode",
+        "state": "CO",
+        "postalCode": "81635"
+      },
+      "geocodeAliases": ["940 aspen hollow drive", "940 aspen hollow dr"],
+      "panoramas": []
+    },
+    {
+      "placeId": "ChIJfxThornburyCrescentCA25",
+      "label": "Thornbury Crescent, Ontario (outside the US)",
+      "scenario": {
+        "match": "skip_to_upload",
+        "reason": "out_of_scope",
+        "render": "pass",
+        "tags": ["non_us"]
+      },
+      "exercises": "Outside the US: appears in suggestions, but resolving it returns ADDRESS_OUT_OF_SCOPE and no project is created.",
+      "formattedAddress": "18 Thornbury Cres, Kingsmere, ON K0J 1A0, Canada",
+      "primaryText": "18 Thornbury Cres",
+      "secondaryText": "Kingsmere, ON, Canada",
+      "addressComponents": [
+        {
+          "longText": "18",
+          "shortText": "18",
+          "types": ["street_number"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Thornbury Crescent",
+          "shortText": "Thornbury Cres",
+          "types": ["route"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Kingsmere",
+          "shortText": "Kingsmere",
+          "types": ["locality", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Ontario",
+          "shortText": "ON",
+          "types": ["administrative_area_level_1", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Canada",
+          "shortText": "CA",
+          "types": ["country", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "K0J 1A0",
+          "shortText": "K0J 1A0",
+          "types": ["postal_code"],
+          "languageCode": "en"
+        }
+      ],
+      "countryCode": "CA",
+      "location": {
+        "latitude": 45.5512,
+        "longitude": -78.4034
+      },
+      "viewport": {
+        "low": {
+          "latitude": 45.5499,
+          "longitude": -78.4047
+        },
+        "high": {
+          "latitude": 45.5525,
+          "longitude": -78.4021
+        }
+      },
+      "types": ["street_address"],
+      "geocode": {
+        "locationType": "ROOFTOP",
+        "partialMatch": false
+      },
+      "destinations": {
+        "structureType": "BUILDING",
+        "hasOutline": true,
+        "targetPoint": {
+          "latitude": 45.5512,
+          "longitude": -78.4034
+        },
+        "facadeWidthM": 12,
+        "roadBearingDeg": 90,
+        "facadeNormalDeg": 180,
+        "entranceOffsetM": 0.5,
+        "attachedFacade": false
+      },
+      "multiUnit": false,
+      "blocked": false,
+      "metadataStatus": "ZERO_RESULTS",
+      "manualEntry": {
+        "line1": "18 Thornbury Crescent",
+        "line2": "",
+        "city": "Kingsmere",
+        "state": "ON",
+        "postalCode": "K0J 1A0"
+      },
+      "geocodeAliases": ["18 thornbury crescent", "18 thornbury cres"],
+      "panoramas": []
+    }
+  ]
+}

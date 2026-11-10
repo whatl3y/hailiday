@@ -1,0 +1,276 @@
+# Style kits for new_years_eve.US (commerce side of Shop the look).
+# Specs: docs/specs/holidays-and-content.md "Style kits" and docs/specs/commerce.md "Style kits and products".
+# kitItemId, anchors, specText, quantity and required mirror ../packs/new_years_eve.yaml exactly; the loader
+# cross-checks them. anchorCategory is the primary anchor; sortOrder is placement prominence
+# (door, porch, roofline, then accents). specAttributes are our own words, never merchant text.
+# currentProductId points into ../commerce/products.json.
+
+holidayId: new_years_eve
+packId: new_years_eve.US
+packVersion: 1.0.1
+kits:
+  - kitId: new_years_eve.house_exterior
+    holidayId: new_years_eve
+    sceneType: house_exterior
+    version: 1.0.0
+    status: published
+    items:
+      - kitItemId: new_years_eve.house_exterior.door_wreath_ornament
+        sortOrder: 1
+        anchorCategory: front_door
+        anchors: [front_door]
+        specText: a 20 to 24 inch wreath made of shiny and matte gold, silver and white round ornaments, centered on the existing front door
+        specAttributes:
+          category: wreath
+          sizeRange: 20-24 in
+          material: shatterproof ornaments on a wire frame
+          colorFamily: gold, silver, white
+          lit: false
+          indoorOutdoor: outdoor
+          countRange: '1'
+        quantity: { subtle: [1, 1], classic: [1, 1], abundant: [1, 1] }
+        required: [subtle, classic, abundant]
+        currentProductId: prod_ornament_wreath_gold_silver_22in
+      - kitItemId: new_years_eve.house_exterior.garland_metallic
+        sortOrder: 2
+        anchorCategory: door_frame
+        anchors: [door_frame, porch_rail, column]
+        specText: a full garland of gold and silver metallic tinsel with small round gold and silver ornaments following the door frame or rail
+        specAttributes:
+          category: garland
+          sizeRange: 6-9 ft
+          material: metallic tinsel, shatterproof ornaments
+          colorFamily: gold, silver
+          lit: false
+          indoorOutdoor: outdoor
+          countRange: 1-2
+        quantity: { subtle: [0, 1], classic: [1, 1], abundant: [1, 2] }
+        required: [classic]
+        currentProductId: prod_tinsel_garland_gold_silver_9ft
+      - kitItemId: new_years_eve.house_exterior.lantern_pair_gold
+        sortOrder: 3
+        anchorCategory: porch_steps
+        anchors: [porch_steps, planter]
+        specText: a pair of brushed-gold metal and glass lanterns with flameless pillar candles beside the entry, not on a step tread
+        specAttributes:
+          category: lantern
+          sizeRange: 12-18 in
+          material: brushed-gold metal, glass, flameless pillar
+          colorFamily: gold, warm white
+          lit: true
+          lightColor: warm white (flameless)
+          indoorOutdoor: outdoor
+          countRange: '2'
+        quantity: { subtle: [0, 0], classic: [0, 1], abundant: [1, 1] }
+        required: []
+        currentProductId: prod_lantern_pair_brushed_gold
+      - kitItemId: new_years_eve.house_exterior.planter_ornament_fill
+        sortOrder: 4
+        anchorCategory: planter
+        anchors: [planter]
+        specText: clusters of gold, silver and white shatterproof ornaments nestled on top of the existing planters without changing the plants
+        specAttributes:
+          category: ornaments
+          sizeRange: 2-4 in each, 24-36 pieces
+          material: shatterproof plastic
+          colorFamily: gold, silver, white
+          lit: false
+          indoorOutdoor: indoor_or_outdoor
+          countRange: 24-36
+        quantity: { subtle: [0, 0], classic: [0, 1], abundant: [1, 2] }
+        required: []
+        currentProductId: prod_shatterproof_ornaments_gold_silver
+      - kitItemId: new_years_eve.house_exterior.string_lights_warm_white
+        sortOrder: 5
+        anchorCategory: eaves
+        anchors: [eaves, roofline, porch_rail]
+        specText: outdoor warm-white LED string lights with evenly spaced bulbs following the eave line or rail
+        specAttributes:
+          category: string lights
+          sizeRange: 25-100 ft run
+          material: LED on green wire
+          colorFamily: warm white
+          lit: true
+          lightColor: warm white
+          indoorOutdoor: outdoor
+          countRange: 1-3 runs
+        quantity: { subtle: [1, 1], classic: [1, 2], abundant: [2, 3] }
+        required: [subtle, classic, abundant]
+        currentProductId: prod_led_string_warm_white_50ft
+  - kitId: new_years_eve.balcony
+    holidayId: new_years_eve
+    sceneType: balcony
+    version: 1.0.0
+    status: published
+    items:
+      - kitItemId: new_years_eve.balcony.railing_lights_warm_white
+        sortOrder: 1
+        anchorCategory: balcony_railing
+        anchors: [balcony_railing]
+        specText: battery warm-white LED string lights woven along the inside face of the user's own railing, below the top edge and ending at the balcony's own edge
+        specAttributes:
+          category: string lights
+          sizeRange: 10-25 ft
+          material: battery LED on clear wire
+          colorFamily: warm white
+          lit: true
+          lightColor: warm white
+          indoorOutdoor: outdoor
+          countRange: 1 run
+        quantity: { subtle: [1, 1], classic: [1, 1], abundant: [1, 1] }
+        required: [subtle, classic, abundant]
+        currentProductId: prod_battery_string_warm_white_20ft
+      - kitItemId: new_years_eve.balcony.lantern_cluster_gold
+        sortOrder: 2
+        anchorCategory: balcony_floor
+        anchors: [balcony_floor, planter]
+        specText: two or three brushed-gold lanterns of different heights with flameless candles grouped in a corner of the balcony floor
+        specAttributes:
+          category: lantern
+          sizeRange: 10-18 in
+          material: brushed-gold metal, glass, flameless pillar
+          colorFamily: gold, warm white
+          lit: true
+          lightColor: warm white (flameless)
+          indoorOutdoor: outdoor
+          countRange: 2-3
+        quantity: { subtle: [0, 1], classic: [1, 1], abundant: [1, 1] }
+        required: [classic, abundant]
+        currentProductId: prod_lantern_pair_brushed_gold
+      - kitItemId: new_years_eve.balcony.door_frame_garland_metallic
+        sortOrder: 3
+        anchorCategory: door_frame
+        anchors: [door_frame]
+        specText: gold and silver metallic tinsel garland along the top of the balcony door frame, leaving the opening clear
+        specAttributes:
+          category: garland
+          sizeRange: 6-9 ft
+          material: metallic tinsel, shatterproof ornaments
+          colorFamily: gold, silver
+          lit: false
+          indoorOutdoor: outdoor
+          countRange: '1'
+        quantity: { subtle: [0, 0], classic: [0, 1], abundant: [1, 1] }
+        required: []
+        currentProductId: prod_tinsel_garland_gold_silver_9ft
+      - kitItemId: new_years_eve.balcony.ornament_planter
+        sortOrder: 4
+        anchorCategory: planter
+        anchors: [planter, balcony_floor]
+        specText: a low bowl or existing planter topped with gold, silver and white shatterproof ornaments
+        specAttributes:
+          category: ornaments
+          sizeRange: 2-4 in each, 24-36 pieces
+          material: shatterproof plastic
+          colorFamily: gold, silver, white
+          lit: false
+          indoorOutdoor: indoor_or_outdoor
+          countRange: 24-36
+        quantity: { subtle: [0, 0], classic: [0, 1], abundant: [1, 1] }
+        required: []
+        currentProductId: prod_shatterproof_ornaments_gold_silver
+  - kitId: new_years_eve.interior
+    holidayId: new_years_eve
+    sceneType: interior
+    version: 1.0.0
+    status: published
+    items:
+      - kitItemId: new_years_eve.interior.table_runner_metallic
+        sortOrder: 1
+        anchorCategory: dining_table
+        anchors: [dining_table]
+        specText: a narrow table runner of soft champagne-gold woven fabric with a subtle sheen along the center of the existing table
+        specAttributes:
+          category: table linen
+          sizeRange: 72-108 in
+          material: woven polyester with metallic thread
+          colorFamily: champagne, gold
+          lit: false
+          indoorOutdoor: indoor
+          countRange: '1'
+        quantity: { subtle: [1, 1], classic: [1, 1], abundant: [1, 1] }
+        required: [subtle, classic, abundant]
+        currentProductId: prod_runner_champagne_sheen
+      - kitItemId: new_years_eve.interior.candles_flameless
+        sortOrder: 2
+        anchorCategory: dining_table
+        anchors: [dining_table, sideboard, mantel]
+        specText: a set of flameless taper and pillar candles in brass or glass holders with a warm glow
+        specAttributes:
+          category: candles
+          sizeRange: tapers 10-12 in, pillars 4-8 in
+          material: flameless LED, brass or glass holders
+          colorFamily: ivory, brass
+          lit: true
+          lightColor: warm white (flameless)
+          indoorOutdoor: indoor
+          countRange: 1-8
+        quantity: { subtle: [1, 2], classic: [2, 4], abundant: [4, 8] }
+        required: [subtle, classic, abundant]
+        currentProductId: prod_flameless_taper_pillar_set
+      - kitItemId: new_years_eve.interior.garland_metallic_lit
+        sortOrder: 3
+        anchorCategory: mantel
+        anchors: [mantel, interior_window]
+        specText: a garland of silver and gold tinsel with warm-white micro LED lights along the mantel or window top
+        specAttributes:
+          category: garland
+          sizeRange: 6-9 ft
+          material: metallic tinsel, micro LED lights
+          colorFamily: gold, silver, warm white
+          lit: true
+          lightColor: warm white
+          indoorOutdoor: indoor
+          countRange: 1-2
+        quantity: { subtle: [0, 1], classic: [1, 1], abundant: [1, 2] }
+        required: [classic, abundant]
+        currentProductId: prod_tinsel_garland_lit_micro
+      - kitItemId: new_years_eve.interior.ornament_bowl
+        sortOrder: 4
+        anchorCategory: dining_table
+        anchors: [dining_table, sideboard, shelf]
+        specText: a low clear glass bowl filled with shiny and matte gold, silver and white ornaments
+        specAttributes:
+          category: ornaments
+          sizeRange: bowl 10-14 in, ornaments 2-3 in
+          material: glass bowl, shatterproof ornaments
+          colorFamily: gold, silver, white
+          lit: false
+          indoorOutdoor: indoor
+          countRange: 1-2
+        quantity: { subtle: [0, 1], classic: [1, 1], abundant: [1, 2] }
+        required: []
+        currentProductId: prod_shatterproof_ornaments_gold_silver
+      - kitItemId: new_years_eve.interior.place_accents_gold
+        sortOrder: 5
+        anchorCategory: dining_table
+        anchors: [dining_table]
+        specText: ivory cloth napkins with simple gold rings at each existing place setting
+        specAttributes:
+          category: napkins
+          sizeRange: 20 in napkins with rings
+          material: cotton, metal rings
+          colorFamily: ivory, gold
+          lit: false
+          indoorOutdoor: indoor
+          countRange: 4-8
+        quantity: { subtle: [0, 0], classic: [1, 1], abundant: [1, 1] }
+        required: []
+        currentProductId: prod_napkins_ivory_gold_rings
+      - kitItemId: new_years_eve.interior.curtain_lights_window
+        sortOrder: 6
+        anchorCategory: interior_window
+        anchors: [interior_window]
+        specText: a curtain of warm-white micro LED fairy lights hanging in front of the window glass, inside the window frame
+        specAttributes:
+          category: string lights
+          sizeRange: about 6 x 6 ft curtain
+          material: micro LED on copper wire
+          colorFamily: warm white
+          lit: true
+          lightColor: warm white
+          indoorOutdoor: indoor
+          countRange: '1'
+        quantity: { subtle: [0, 0], classic: [0, 0], abundant: [1, 1] }
+        required: []
+        currentProductId: prod_curtain_fairy_lights_warm_white

@@ -1,0 +1,159 @@
+{
+  "version": 1,
+  "providerMode": "fixture",
+  "description": "File-name triggers for fixture uploads. Matching is case-insensitive on the original file name; hyphens, underscores, spaces and dots are treated alike. Screening triggers are checked first, then render triggers, then scene hints. The first matching entry in each list wins.",
+  "screening": [
+    {
+      "token": "decline",
+      "outcome": "declined",
+      "reasonClass": "guidance",
+      "reason": "not_a_living_space",
+      "note": "UPLOAD_DECLINED with guidance copy."
+    },
+    {
+      "token": "people",
+      "outcome": "admitted",
+      "peopleDetected": true,
+      "peopleBoxes": [[0.62, 0.38, 0.78, 0.96]],
+      "suggestedCropBox": [0, 0, 0.58, 1],
+      "note": "Ready with peopleDetected; attaching without a resolution returns PEOPLE_DETECTED."
+    },
+    {
+      "token": "hold",
+      "outcome": "held",
+      "note": "Stays screening with holdForReview until a reviewer decides or the hold window ends."
+    }
+  ],
+  "screeningDefault": {
+    "outcome": "admitted",
+    "peopleDetected": false
+  },
+  "render": [
+    {
+      "token": "repair",
+      "scenario": "repair_then_pass"
+    },
+    {
+      "token": "reject",
+      "scenario": "reject"
+    },
+    {
+      "token": "provider error",
+      "scenario": "provider_error"
+    },
+    {
+      "token": "slow",
+      "scenario": "slow"
+    },
+    {
+      "token": "no anchors",
+      "scenario": "no_anchors"
+    },
+    {
+      "token": "moderation",
+      "scenario": "moderation"
+    }
+  ],
+  "renderDefault": "pass",
+  "sceneHints": [
+    {
+      "token": "dining",
+      "sceneType": "interior",
+      "roomType": "dining_room",
+      "confidence": 0.94
+    },
+    {
+      "token": "living",
+      "sceneType": "interior",
+      "roomType": "living_room",
+      "confidence": 0.93
+    },
+    {
+      "token": "kitchen",
+      "sceneType": "interior",
+      "roomType": "kitchen",
+      "confidence": 0.92
+    },
+    {
+      "token": "bedroom",
+      "sceneType": "interior",
+      "roomType": "bedroom",
+      "confidence": 0.91
+    },
+    {
+      "token": "entryway",
+      "sceneType": "interior",
+      "roomType": "entryway",
+      "confidence": 0.9
+    },
+    {
+      "token": "foyer",
+      "sceneType": "interior",
+      "roomType": "entryway",
+      "confidence": 0.9
+    },
+    {
+      "token": "balcony",
+      "sceneType": "balcony",
+      "confidence": 0.93
+    },
+    {
+      "token": "patio",
+      "sceneType": "balcony",
+      "confidence": 0.9
+    },
+    {
+      "token": "terrace",
+      "sceneType": "balcony",
+      "confidence": 0.9
+    },
+    {
+      "token": "apartment",
+      "sceneType": "apartment_entry",
+      "confidence": 0.92
+    },
+    {
+      "token": "hallway",
+      "sceneType": "apartment_entry",
+      "confidence": 0.9
+    },
+    {
+      "token": "door",
+      "sceneType": "apartment_entry",
+      "confidence": 0.88
+    },
+    {
+      "token": "townhouse",
+      "sceneType": "house_exterior",
+      "buildingForm": "attached",
+      "confidence": 0.9
+    },
+    {
+      "token": "house",
+      "sceneType": "house_exterior",
+      "buildingForm": "detached",
+      "confidence": 0.93
+    },
+    {
+      "token": "porch",
+      "sceneType": "house_exterior",
+      "buildingForm": "detached",
+      "confidence": 0.9
+    },
+    {
+      "token": "front",
+      "sceneType": "house_exterior",
+      "buildingForm": "detached",
+      "confidence": 0.88
+    }
+  ],
+  "examples": [
+    "thanksgiving-dining.jpg: admitted, interior / dining_room, render passes",
+    "my-house-slow.jpg: admitted, house_exterior, render takes about 20 seconds",
+    "balcony_repair.png: admitted, balcony, attempt 1 fails QA and attempt 2 passes",
+    "kids-people-porch.jpg: admitted with people detected; crop or keep before rendering",
+    "receipt-decline.jpg: declined (not_a_living_space)",
+    "hold-living.jpg: held for review",
+    "IMG_2041.HEIC: admitted, scene type must be chosen (no hint)"
+  ]
+}

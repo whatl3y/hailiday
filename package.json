@@ -1,0 +1,50 @@
+{
+  "name": "holiday",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.34.9",
+  "engines": {
+    "node": ">=26"
+  },
+  "scripts": {
+    "dev": "pnpm build:packages && pnpm -r --parallel dev",
+    "build:packages": "pnpm -r --filter './packages/*' --workspace-concurrency=1 build",
+    "build": "pnpm -r --workspace-concurrency=1 build",
+    "typecheck": "pnpm build:packages && pnpm -r --workspace-concurrency=1 typecheck",
+    "test": "pnpm build:packages && pnpm -r --workspace-concurrency=1 --no-bail test",
+    "test:e2e": "pnpm --filter @holiday/web test:e2e",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write \"**/*.{ts,tsx,json,md,yml}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,json,md,yml}\"",
+    "db:migrate": "pnpm --filter @holiday/server migrate",
+    "db:seed": "pnpm --filter @holiday/server seed",
+    "db:storage-init": "pnpm --filter @holiday/server exec node --import ./dist/config/load-env/index.js dist/storage-init.js",
+    "models:bakeoff": "pnpm --filter @holiday/server models:bakeoff",
+    "tombstones:replay": "pnpm --filter @holiday/server tombstones:replay",
+    "web:dev": "pnpm --filter @holiday/web dev",
+    "api:dev": "pnpm --filter @holiday/api dev",
+    "workers:dev": "pnpm --filter @holiday/workers dev",
+    "docker:up": "docker compose up --build -d",
+    "docker:infra": "docker compose up -d postgres storage mailpit",
+    "docker:e2e": "docker compose -p holiday-e2e -f docker-compose.yml -f docker-compose.e2e.yml up --build -d",
+    "docker:e2e:down": "docker compose -p holiday-e2e -f docker-compose.yml -f docker-compose.e2e.yml down",
+    "docker:e2e:reset": "docker compose -p holiday-e2e -f docker-compose.yml -f docker-compose.e2e.yml down -v",
+    "docker:e2e:logs": "docker compose -p holiday-e2e -f docker-compose.yml -f docker-compose.e2e.yml logs -f",
+    "docker:down": "docker compose down",
+    "docker:reset": "docker compose down -v",
+    "docker:logs": "docker compose logs -f"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "26.6.6",
+    "eslint": "10.14.0",
+    "eslint-config-prettier": "10.1.8",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "eslint-plugin-react-refresh": "0.5.7",
+    "globals": "17.14.0",
+    "prettier": "3.9.10",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.72.1"
+  }
+}

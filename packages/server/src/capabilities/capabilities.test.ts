@@ -1,0 +1,80 @@
+import { describe, expect, it } from 'vitest';
+import { parseConfig } from '../config/index.js';
+import {
+  capabilityKeysFor,
+  capabilityMode,
+  defaultCapabilityState,
+  projectPublicCapabilities,
+} from './index.js';
+
+describe('capability audience projection', () => {
+  it('serves live_public to everyone and live_private only to pilot roles', () => {
+    expect(capabilityMode('live_public', { roles: [] }, 'production')).toBe('live');
+    expect(capabilityMode('live_private', { roles: [] }, 'production')).toBe('unavailable');
+    expect(capabilityMode('live_private', { roles: ['user'] }, 'staging')).toBe('unavailable');
+    expect(capabilityMode('live_private', { roles: ['user', 'pilot'] }, 'staging')).toBe('live');
+    expect(capabilityMode('live_private', { roles: ['operator'] }, 'production')).toBe('live');
+  });
+
+  it('serves fixture only outside production', () => {
+    expect(capabilityMode('fixture', { roles: [] }, 'development')).toBe('fixture');
+    expect(capabilityMode('fixture', { roles: ['operator'] }, 'production')).toBe('unavailable');
+    expect(capabilityMode(null, { roles: [] }, 'development')).toBe('unavailable');
+  });
+
+  it('projects the public flags, with commerce on when any program is available', () => {
+    const rows = [
+      { capability: 'address_lookup', state: 'fixture' as const },
+      { capability: 'street_view_ai', state: 'live_private' as const },
+      { capability: 'uploads', state: 'live_public' as const },
+      { capability: 'commerce:fixture_decor_us', state: 'fixture' as const },
+    ];
+    expect(projectPublicCapabilities(rows, { roles: [] }, 'development')).toEqual({
+      addressLookup: true,
+      streetViewAi: false,
+      uploads: true,
+      sharing: false,
+      commerce: true,
+    });
+    expect(projectPublicCapabilities(rows, { roles: [] }, 'production').commerce).toBe(false);
+  });
+
+  it('lists base keys plus one commerce key per program', () => {
+    const keys = capabilityKeysFor(['fixture_decor_us']);
+    expect(keys).toContain('street_view_ai');
+    expect(keys).toContain('commerce:fixture_decor_us');
+    expect(keys).toHaveLength(9);
+  });
+});
+
+describe('capability defaults', () => {
+  const keys = {
+    GOOGLE_MAPS_SERVER_KEY: 'maps-server-key',
+    GOOGLE_STREET_VIEW_BROWSER_KEY: 'maps-browser-key',
+    GOOGLE_STREET_VIEW_SIGNING_SECRET: 'signing-secret',
+    OPENAI_API_KEY: 'sk-test-123456',
+    ANTHROPIC_API_KEY: 'sk-ant-test-123456',
+  };
+
+  it('follows the resolved live providers in development, never for Street View AI', () => {
+    const config = parseConfig(keys);
+    expect(defaultCapabilityState(config, 'image_editing')).toBe('live_public');
+    expect(defaultCapabilityState(config, 'vision_analysis')).toBe('live_public');
+    expect(defaultCapabilityState(config, 'address_lookup')).toBe('live_public');
+    expect(defaultCapabilityState(config, 'street_view_display')).toBe('live_public');
+    expect(defaultCapabilityState(config, 'street_view_ai')).toBe('fixture');
+    expect(defaultCapabilityState(config, 'uploads')).toBe('fixture');
+    expect(defaultCapabilityState(config, 'commerce:fixture_decor_us')).toBe('fixture');
+  });
+
+  it('stays fixture without keys and outside development', () => {
+    const fixture = parseConfig({});
+    for (const key of capabilityKeysFor([])) {
+      expect(defaultCapabilityState(fixture, key)).toBe('fixture');
+    }
+    const staging = { ...parseConfig(keys), appEnv: 'staging' as const };
+    expect(defaultCapabilityState(staging, 'image_editing')).toBe('fixture');
+    const production = { ...parseConfig(keys), appEnv: 'production' as const };
+    expect(defaultCapabilityState(production, 'vision_analysis')).toBe('fixture');
+  });
+});

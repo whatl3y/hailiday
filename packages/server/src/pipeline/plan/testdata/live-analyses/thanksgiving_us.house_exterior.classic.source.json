@@ -1,0 +1,231 @@
+{
+  "exampleId": "example.thanksgiving_us.house_exterior.classic.source.v1",
+  "photoId": "house-02-georgian-autumn",
+  "working": {
+    "width": 1536,
+    "height": 1024
+  },
+  "usd": 0.042468,
+  "analysis": {
+    "schemaVersion": "1.0",
+    "sourceAssetId": "example.thanksgiving_us.house_exterior.classic.source.v1",
+    "workingImage": {
+      "width": 1536,
+      "height": 1024,
+      "checksum": "f3e94e8d8bfc3cec8068bd914ca1c64326da4c94a9a609aacb0d5257e610bc8a"
+    },
+    "sceneType": "house_exterior",
+    "sceneTypeConfidence": 0.96,
+    "sceneTypeMismatch": false,
+    "buildingForm": "detached",
+    "targetFacade": [0.2, 0.14, 0.87, 0.99],
+    "targetFacadeAmbiguous": false,
+    "anchors": [
+      {
+        "id": "front_door",
+        "category": "front_door",
+        "box": [0.465, 0.775, 0.51, 0.925],
+        "confidence": 0.9,
+        "occluded": false,
+        "note": "White door with oval glass panel"
+      },
+      {
+        "id": "entry_portico_frame",
+        "category": "door_frame",
+        "box": [0.44, 0.725, 0.52, 0.935],
+        "confidence": 0.8,
+        "occluded": false,
+        "note": "White frame with sidelight and transom"
+      },
+      {
+        "id": "col_left",
+        "category": "column",
+        "box": [0.38, 0.7, 0.41, 0.935],
+        "confidence": 0.85,
+        "occluded": false,
+        "note": "White square portico pillar"
+      },
+      {
+        "id": "col_right",
+        "category": "column",
+        "box": [0.515, 0.7, 0.56, 0.94],
+        "confidence": 0.85,
+        "occluded": false,
+        "note": "White square portico pillar"
+      },
+      {
+        "id": "steps",
+        "category": "porch_steps",
+        "box": [0.375, 0.915, 0.545, 0.985],
+        "confidence": 0.75,
+        "occluded": true,
+        "occlusionFraction": 0.2,
+        "note": "Stone steps partly hidden by mums"
+      },
+      {
+        "id": "roofline",
+        "category": "roofline",
+        "box": [0.2, 0.235, 0.835, 0.37],
+        "confidence": 0.85,
+        "occluded": false,
+        "note": "Dentiled white cornice"
+      },
+      {
+        "id": "eaves",
+        "category": "eaves",
+        "box": [0.2, 0.315, 0.79, 0.37],
+        "confidence": 0.8,
+        "occluded": false
+      },
+      {
+        "id": "win_up1",
+        "category": "window_frame",
+        "box": [0.257, 0.47, 0.305, 0.625],
+        "confidence": 0.9,
+        "occluded": false
+      },
+      {
+        "id": "win_up2",
+        "category": "window_frame",
+        "box": [0.358, 0.465, 0.41, 0.62],
+        "confidence": 0.9,
+        "occluded": false
+      },
+      {
+        "id": "win_up3",
+        "category": "window_frame",
+        "box": [0.465, 0.455, 0.517, 0.65],
+        "confidence": 0.9,
+        "occluded": false
+      },
+      {
+        "id": "win_up4",
+        "category": "window_frame",
+        "box": [0.575, 0.45, 0.632, 0.615],
+        "confidence": 0.9,
+        "occluded": false
+      },
+      {
+        "id": "win_up5",
+        "category": "window_frame",
+        "box": [0.695, 0.44, 0.758, 0.61],
+        "confidence": 0.9,
+        "occluded": false
+      },
+      {
+        "id": "win_lo1",
+        "category": "window_frame",
+        "box": [0.248, 0.71, 0.298, 0.88],
+        "confidence": 0.9,
+        "occluded": false
+      },
+      {
+        "id": "win_lo2",
+        "category": "window_frame",
+        "box": [0.35, 0.715, 0.385, 0.88],
+        "confidence": 0.85,
+        "occluded": false
+      },
+      {
+        "id": "win_lo3",
+        "category": "window_frame",
+        "box": [0.573, 0.705, 0.633, 0.87],
+        "confidence": 0.9,
+        "occluded": false
+      },
+      {
+        "id": "win_lo4",
+        "category": "window_frame",
+        "box": [0.695, 0.705, 0.76, 0.9],
+        "confidence": 0.9,
+        "occluded": true,
+        "occlusionFraction": 0.1,
+        "note": "Bottom partly behind car"
+      },
+      {
+        "id": "planter_l",
+        "category": "planter",
+        "box": [0.366, 0.88, 0.392, 0.915],
+        "confidence": 0.8,
+        "occluded": false,
+        "note": "Urn with red mums"
+      },
+      {
+        "id": "planter_r",
+        "category": "planter",
+        "box": [0.505, 0.885, 0.532, 0.925],
+        "confidence": 0.8,
+        "occluded": false,
+        "note": "Urn with red mums"
+      },
+      {
+        "id": "lawn",
+        "category": "lawn",
+        "box": [0, 0.93, 0.28, 1],
+        "confidence": 0.75,
+        "occluded": false
+      }
+    ],
+    "preserveRegions": [
+      {
+        "kind": "vehicle",
+        "box": [0.545, 0.865, 0.825, 1]
+      },
+      {
+        "kind": "existing_decor",
+        "box": [0.355, 0.88, 0.395, 0.97]
+      },
+      {
+        "kind": "existing_decor",
+        "box": [0.485, 0.88, 0.535, 0.99]
+      }
+    ],
+    "accessRegions": [
+      {
+        "kind": "door",
+        "box": [0.465, 0.775, 0.51, 0.925]
+      },
+      {
+        "kind": "steps",
+        "box": [0.375, 0.915, 0.545, 0.985]
+      }
+    ],
+    "hazards": [],
+    "existingDecorations": {
+      "present": true,
+      "holidayGuess": "autumn",
+      "density": "low",
+      "boxes": [
+        [0.366, 0.88, 0.392, 0.915],
+        [0.505, 0.885, 0.532, 0.925],
+        [0.353, 0.925, 0.39, 0.965],
+        [0.485, 0.935, 0.525, 0.99]
+      ]
+    },
+    "peopleBoxes": [],
+    "protectedBlurRegions": [],
+    "lighting": {
+      "timeOfDay": "day",
+      "isDaylight": true,
+      "exposure": "normal"
+    },
+    "seasonCues": {
+      "snowVisible": false,
+      "foliage": "mixed"
+    },
+    "qualityFlags": {
+      "blur": false,
+      "lowLight": false,
+      "heavyOcclusion": false,
+      "multipleBuildings": false,
+      "embeddedPhoto": false,
+      "tooClose": false,
+      "tooFar": false
+    },
+    "model": {
+      "analysisModel": "claude-opus-5-5",
+      "analysisPromptVersion": "analysis-2026.11.0"
+    },
+    "elapsedMs": 15725
+  }
+}

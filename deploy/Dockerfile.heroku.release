@@ -1,0 +1,35 @@
+# Release-phase image: runs database migrations, prepares object storage and seeds
+# reference content before any dyno boots. The build stage is identical across the web,
+# worker and release images so Docker reuses one cached build for all three.
+FROM node:26-slim AS build
+
+# Corepack is no longer bundled with Node >= 25, so install the pinned pnpm (the
+# version in package.json "packageManager") with the bundled npm instead.
+RUN npm install -g pnpm@10.34.9
+
+# Fonts let sharp render text (share cards, the "AI preview" mark) inside SVG overlays;
+# fontconfig-config supplies /etc/fonts/fonts.conf, without which every text render logs
+# "Fontconfig error: Cannot load default config file".
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends fonts-dejavu-core fontconfig-config ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml tsconfig.base.json ./
+COPY packages/core/package.json ./packages/core/
+COPY packages/server/package.json ./packages/server/
+COPY apps/api/package.json ./apps/api/
+COPY apps/workers/package.json ./apps/workers/
+COPY apps/web/package.json ./apps/web/
+
+RUN pnpm install --frozen-lockfile
+
+COPY packages/ ./packages/
+COPY apps/ ./apps/
+
+RUN pnpm build
+
+ENV NODE_ENV=production
+
+CMD ["sh", "-c", "node packages/server/dist/migrate.js && node packages/server/dist/storage-init.js && node packages/server/dist/seed.js"]

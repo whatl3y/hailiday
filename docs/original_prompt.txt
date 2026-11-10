@@ -1,0 +1,11 @@
+I want to explore planning the build out of a new web app that allows people to explore what their home/apartment/place of living might look like with holiday decorations, lights, etc.
+
+A bit technical but I want it documented that I want the app repo structure to fit a pnpm monorepo similar to how we do in ~/nodejs/pulse and ~/moontography/dynamic-liquidity. I like this structure and it supports reusability of code easily and adding new functionality, apps, etc. easily as well to support the platform.
+
+In terms of usability and how the app should function, I envision a user hopping in and seeing a beautiful, simple, plain landing page that shows a beautiful picture/background to celebrate the most popular upcoming holiday coming up. In the middle of November I envision a beautiful thanksgiving portrait, maybe a table with full Thanksigiving dinner in a candlelit big dinging room or similar. In the middle of December, should show a Christmas scene. The tone of the pictures should be bright, beautiful, professional, and give the viewer the ability to truly take in the holiday in question.
+
+On this page they should also see a single input where they can enter their address (or any address). Autocomplete will show up with addresses from google (or another provider with every address available) they can select. When they select an address a lot of the magic happens. I'd like to go fetch any/all information about the address, but particularly any/all real pictures of the address. We effectively want the clearest picture(s) we can of the property that will then run through a very strong image AI library that we will very explicitly, specifically, and in fine, clear detail decorate the elements of the picture with the upcoming holiday. The user should be able to toggle and easily change both the address and holiday they want to see.
+
+Ultimately it should be a dead simple app to use, but I envision the business model to support using elements/decorations/lights/etc. from popular vendors/stores that we could ultimately use affiliate links to advertise and send the user to in order for them to go off and buy decorations from our website where we'll get a cut.
+
+Can you take this information and derive a very explicit and details plan to work through, refine, and ultimately build out our app to build this app?

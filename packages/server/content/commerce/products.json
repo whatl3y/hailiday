@@ -1,0 +1,986 @@
+{
+  "version": 1,
+  "providerMode": "fixture",
+  "description": "Products described in our own words (never merchant titles, copy or images). kitItemIds lists the kit items the product backs or backed; a kit item names its current product in kits/<holidayId>.yaml.",
+  "products": [
+    {
+      "productId": "prod_foam_jack_o_lanterns_lit",
+      "ourTitle": "Carved foam jack-o'-lanterns, 8–14 in., flameless glow, set of 3",
+      "ourDescription": "Lightweight carved pumpkins with friendly faces and battery flameless candles inside.",
+      "category": "carved pumpkins",
+      "specAttributes": {
+        "category": "carved pumpkins",
+        "sizeRange": "8-14 in",
+        "material": "foam pumpkins with flameless LED candles",
+        "colorFamily": "orange, warm glow",
+        "lit": true,
+        "lightColor": "warm amber flicker (flameless)",
+        "indoorOutdoor": "outdoor",
+        "countRange": "2-4"
+      },
+      "kitItemIds": ["halloween.house_exterior.jack_o_lanterns"],
+      "archivedAt": null,
+      "notes": null
+    },
+    {
+      "productId": "prod_faux_pumpkin_gourd_set",
+      "ourTitle": "Faux pumpkin and gourd set, orange and white, 5 pieces",
+      "ourDescription": "Uncarved pumpkins and striped gourds in mixed sizes for steps and tables.",
+      "category": "pumpkins",
+      "specAttributes": {
+        "category": "pumpkins",
+        "sizeRange": "6-14 in each",
+        "material": "faux pumpkins and gourds",
+        "colorFamily": "orange, white",
+        "lit": false,
+        "indoorOutdoor": "outdoor",
+        "countRange": "3-5"
+      },
+      "kitItemIds": [
+        "halloween.house_exterior.pumpkin_group",
+        "thanksgiving_us.house_exterior.pumpkin_group",
+        "thanksgiving_us.balcony.pumpkin_gourd_group"
+      ],
+      "archivedAt": null,
+      "notes": null
+    },
+    {
+      "productId": "prod_stretch_cobweb_pack",
+      "ourTitle": "Stretchable white cobweb, 2 packs",
+      "ourDescription": "Synthetic white web for railing corners and frames.",
+      "category": "cobweb",
+      "specAttributes": {
+        "category": "cobweb",
+        "sizeRange": "1-2 stretched packs",
+        "material": "synthetic fiber",
+        "colorFamily": "white",
+        "lit": false,
+        "indoorOutdoor": "outdoor",
+        "countRange": "1-2"
+      },
+      "kitItemIds": [
+        "halloween.house_exterior.cobwebs",
+        "halloween.apartment_entry.cobweb_frame",
+        "halloween.balcony.cobwebs",
+        "halloween.interior.cobweb_shelf"
+      ],
+      "archivedAt": null,
+      "notes": null
+    },
+    {
+      "productId": "prod_led_lights_orange_purple",
+      "ourTitle": "Orange and purple LED string lights, 33 ft, black wire",
+      "ourDescription": "Outdoor-rated LED string with alternating orange and purple bulbs.",
+      "category": "string lights",
+      "specAttributes": {
+        "category": "string lights",
+        "sizeRange": "25-50 ft run",
+        "material": "LED on black wire",
+        "colorFamily": "orange, purple",
+        "lit": true,
+        "lightColor": "orange and purple",
+        "indoorOutdoor": "outdoor",
+        "countRange": "1-2 runs"
+      },
+      "kitItemIds": ["halloween.house_exterior.string_lights_orange_purple"],
+      "archivedAt": null,
+      "notes": null
+    },
+    {
+      "productId": "prod_mum_and_cornstalk_bundle",
+      "ourTitle": "Potted mum and dried corn stalk bundle",
+      "ourDescription": "A rust-and-gold chrysanthemum paired with a tied bundle of tan corn stalks.",
+      "category": "potted plant and stalks",
+      "specAttributes": {
+        "category": "potted plant and stalks",
+        "sizeRange": "10-14 in pot, 5-7 ft stalks",
+        "material": "chrysanthemum, dried corn stalks, twine",
+        "colorFamily": "rust, gold, tan",
+        "lit": false,
+        "indoorOutdoor": "outdoor",
+        "countRange": "1-2"
+      },
+      "kitItemIds": ["halloween.house_exterior.mums_and_corn"],
+      "archivedAt": null,
+      "notes": null
+    },
+    {
+      "productId": "prod_posable_skeleton_5ft",
+      "ourTitle": "Stylized bone-white skeleton, about 5 ft",
+      "ourDescription": "Clean, posable plastic skeleton with no blood or damage effects.",
+      "category": "figure",
+      "specAttributes": {
+        "category": "figure",
+        "sizeRange": "about 5 ft",
+        "material": "plastic",
+        "colorFamily": "bone white",
+        "lit": false,
+        "indoorOutdoor": "outdoor",
+        "countRange": "1"
+      },
+      "kitItemIds": ["halloween.house_exterior.skeleton_stylized"],
+      "archivedAt": null,
+      "notes": null
+    },
+    {
+      "productId": "prod_wreath_black_orange_18in",
+      "ourTitle": "Black and orange leaf wreath with mini pumpkins, 16–18 in.",
+      "ourDescription": "Faux leaf wreath in matte black and deep orange with small pumpkins.",
+      "category": "wreath",
+      "specAttributes": {
+        "category": "wreath",
+        "sizeRange": "16-20 in",
+        "material": "artificial leaves, foam mini pumpkins",
+        "colorFamily": "black, orange",
+        "lit": false,
+        "indoorOutdoor": "indoor_or_outdoor",
+        "countRange": "1"
+      },
+      "kitItemIds": ["halloween.apartment_entry.door_wreath", "halloween.balcony.door_wreath"],
+      "archivedAt": null,
+      "notes": null
+    },
+    {
+      "productId": "prod_mini_jack_o_lanterns_lit",
+      "ourTitle": "Mini carved jack-o'-lanterns, 5–8 in., flameless, set of 3",
+      "ourDescription": "Small foam pumpkins with friendly faces and flameless tea lights.",
+      "category": "carved pumpkins",
+      "specAttributes": {
+        "category": "carved pumpkins",
+        "sizeRange": "5-8 in",
+        "material": "foam pumpkins with flameless tea lights",
+        "colorFamily": "orange, warm glow",
+        "lit": true,
+        "lightColor": "warm amber flicker (flameless)",
+        "indoorOutdoor": "indoor_or_outdoor",
+        "countRange": "2"
+      },
+      "kitItemIds": [
+        "halloween.apartment_entry.jack_o_lantern_pair",
+        "halloween.balcony.jack_o_lanterns_small"
+      ],
+      "archivedAt": null,
+      "notes": null
+    },
+    {
+      "productId": "prod_bat_silhouette_decals",
+      "ourTitle": "Black paper bat silhouettes, 3–6 in., 16 pieces",
+      "ourDescription": "Flat matte-black bat shapes with removable adhesive.",
+      "category": "wall decal",
+      "specAttributes": {
+        "category": "wall decal",
+        "sizeRange": "3-6 in each, 12-20 pieces",
+        "material": "paper or vinyl",
+        "colorFamily": "black",
+        "lit": false,
+        "indoorOutdoor": "indoor_or_outdoor",
+        "countRange": "8-12"
+      },
+      "kitItemIds": [
+        "halloween.apartment_entry.bat_silhouettes",
+        "halloween.balcony.bat_silhouettes",
+        "halloween.interior.bat_silhouettes_wall"
+      ],
+      "archivedAt": null,
+      "notes": null
+    },
+    {
+      "productId": "prod_battery_lights_orange_20ft",
+      "ourTitle": "Battery orange LED string lights, 20 ft",
+      "ourDescription": "Battery-powered orange LED string on clear wire for railings.",
+      "category": "string lights",
+      "specAttributes": {
+        "category": "string lights",
+        "sizeRange": "10-25 ft",
+        "material": "battery LED on clear wire",
+        "colorFamily": "orange or warm white",
+        "lit": true,
+        "lightColor": "orange or warm white",
+        "indoorOutdoor": "outdoor",
+        "countRange": "1 run"
+      },
+      "kitItemIds": ["halloween.balcony.railing_lights"],
+      "archivedAt": null,
+      "notes": null
+    },
+    {
+      "productId": "prod_mum_potted",
+      "ourTitle": "Potted chrysanthemum, 10–12 in. pot, rust or gold",
+      "ourDescription": "A live fall mum in a plain pot.",
+      "category": "potted plant",
+      "specAttributes": {
+        "category": "potted plant",
+        "sizeRange": "10-12 in pot",
+        "material": "chrysanthemum",
+        "colorFamily": "rust, gold",
+        "lit": false,
+        "indoorOutdoor": "outdoor",
+        "countRange": "1-2"
+      },
+      "kitItemIds": [
+        "halloween.balcony.mums_potted",
+        "thanksgiving_us.house_exterior.mums_potted",
+        "thanksgiving_us.apartment_entry.mum_potted",
+        "thanksgiving_us.balcony.mums_potted"
+      ],
+      "archivedAt": null,
+      "notes": null
+    },
+    {
+      "productId": "prod_garland_black_orange_leaf",
+      "ourTitle": "Black and burnt-orange leaf garland, 6 ft",
+      "ourDescription": "Faux leaf garland with small black berries for mantels and windows.",
+      "category": "garland",
+      "specAttributes": {
+        "category": "garland",
+        "sizeRange": "6-9 ft",
+        "material": "artificial leaves and berries",
+        "colorFamily": "black, orange",
+        "lit": false,
+        "indoorOutdoor": "indoor",
+        "countRange": "1-2"
+      },
+      "kitItemIds": ["halloween.interior.garland_black_orange"],
+      "archivedAt": null,
+      "notes": null
+    },
+    {
+      "productId": "prod_mini_pumpkin_gourd_tabletop",
+      "ourTitle": "Small tabletop pumpkins and gourds, 5 pieces",
+      "ourDescription": "Orange, cream and deep-green faux pumpkins and gourds for tables and shelves.",
+      "category": "pumpkins",
+      "specAttributes": {
+        "category": "pumpkins",
+        "sizeRange": "3-7 in each",
+        "material": "faux pumpkins and gourds, dried leaves",
+        "colorFamily": "orange, cream, green",
+        "lit": false,
+        "indoorOutdoor": "indoor",
+        "countRange": "3-5"
+      },
+      "kitItemIds": ["halloween.interior.pumpkin_gourd_grouping"],
+      "archivedAt": null,
+      "notes": null
+    },
+    {
+      "productId": "prod_flameless_pillars_black_holders",
+      "ourTitle": "Flameless pillar candles in black metal holders, set of 3",
+      "ourDescription": "Warm amber LED pillars of varied heights with matte black holders.",
+      "category": "candles",
+      "specAttributes": {
+        "category": "candles",
+        "sizeRange": "pillars 4-8 in",
+        "material": "flameless LED, black metal holders",
+        "colorFamily": "ivory, black",
+        "lit": true,
+        "lightColor": "warm amber (flameless)",
+        "indoorOutdoor": "indoor",
+        "countRange": "3"
+      },
+      "kitItemIds": ["halloween.interior.candles_flameless_dark"],
+      "archivedAt": null,
+      "notes": null
+    },
+    {
+      "productId": "prod_wreath_autumn_maple_24in",
+      "ourTitle": "Autumn maple-leaf wreath with pinecones and wheat, 24 in.",
+      "ourDescription": "Orange and russet faux maple leaves with small pinecones and wheat stems.",
+      "category": "wreath",
+      "specAttributes": {
+        "category": "wreath",
+        "sizeRange": "22-26 in",
+        "material": "artificial maple leaves, pinecones, wheat",
+        "colorFamily": "orange, russet",
+        "lit": false,
+        "indoorOutdoor": "outdoor",
+        "countRange": "1"
+      },
+      "kitItemIds": ["thanksgiving_us.house_exterior.wreath_autumn"],
+      "archivedAt": null,
+      "notes": null
+    },
+    {
+      "productId": "prod_garland_harvest_leaf_gourd",
+      "ourTitle": "Harvest leaf garland with small gourds, 6–9 ft",
+      "ourDescription": "Amber and rust faux leaves with tiny gourds along the strand.",
+      "category": "garland",
+      "specAttributes": {
+        "category": "garland",
+        "sizeRange": "6-9 ft",
+        "material": "artificial leaves, small gourds",
+        "colorFamily": "amber, rust",
+        "lit": false,
+        "indoorOutdoor": "outdoor",
+        "countRange": "1-3"
+      },
+      "kitItemIds": [
+        "thanksgiving_us.house_exterior.garland_harvest",
+        "thanksgiving_us.apartment_entry.frame_garland_harvest",
+        "thanksgiving_us.balcony.railing_garland_harvest"
+      ],
+      "archivedAt": null,
+      "notes": null
+    },
+    {
+      "productId": "prod_corn_stalk_bundle",
+      "ourTitle": "Dried corn stalk bundle, 5–7 ft",
+      "ourDescription": "Natural tan corn stalks tied with twine.",
+      "category": "stalk bundle",
+      "specAttributes": {
+        "category": "stalk bundle",
+        "sizeRange": "5-7 ft",
+        "material": "dried corn stalks, twine",
+        "colorFamily": "tan",
+        "lit": false,
+        "indoorOutdoor": "outdoor",
+        "countRange": "1-2"
+      },
+      "kitItemIds": ["thanksgiving_us.house_exterior.corn_stalks"],
+      "archivedAt": null,
+      "notes": null
+    },
+    {
+      "productId": "prod_wreath_autumn_small_20in",
+      "ourTitle": "Autumn maple-leaf wreath, 18–20 in.",
+      "ourDescription": "A smaller orange, russet and gold leaf wreath with wheat stems.",
+      "category": "wreath",
+      "specAttributes": {
+        "category": "wreath",
+        "sizeRange": "18-22 in",
+        "material": "artificial maple leaves, pinecones, wheat",
+        "colorFamily": "orange, russet, gold",
+        "lit": false,
+        "indoorOutdoor": "indoor_or_outdoor",
+        "countRange": "1"
+      },
+      "kitItemIds": [
+        "thanksgiving_us.apartment_entry.wreath_autumn",
+        "thanksgiving_us.balcony.door_wreath_autumn"
+      ],
+      "archivedAt": null,
+      "notes": null
+    },
+    {
+      "productId": "prod_faux_pumpkin_trio_small",
+      "ourTitle": "Small faux pumpkin trio, orange and white",
+      "ourDescription": "Three uncarved pumpkins, 5–9 in., for an entry alcove.",
+      "category": "pumpkins",
+      "specAttributes": {
+        "category": "pumpkins",
+        "sizeRange": "5-9 in each",
+        "material": "faux pumpkins",
+        "colorFamily": "orange, white",
+        "lit": false,
+        "indoorOutdoor": "indoor_or_outdoor",
+        "countRange": "2-3"
+      },
+      "kitItemIds": ["thanksgiving_us.apartment_entry.pumpkin_group_alcove"],
+      "archivedAt": null,
+      "notes": null
+    },
+    {
+      "productId": "prod_linen_runner_rust",
+      "ourTitle": "Woven linen table runner, rust, 90 in.",
+      "ourDescription": "A rust-toned woven linen runner for the table center.",
+      "category": "table linen",
+      "specAttributes": {
+        "category": "table linen",
+        "sizeRange": "72-108 in",
+        "material": "woven linen or cotton",
+        "colorFamily": "rust, mustard",
+        "lit": false,
+        "indoorOutdoor": "indoor",
+        "countRange": "1"
+      },
+      "kitItemIds": ["thanksgiving_us.interior.table_runner"],
+      "archivedAt": null,
+      "notes": null
+    },
+    {
+      "productId": "prod_harvest_centerpiece_low",
+      "ourTitle": "Low harvest centerpiece with pumpkins and eucalyptus, 30 in.",
+      "ourDescription": "Small pumpkins, gourds, eucalyptus and leaves under 10 in. tall.",
+      "category": "centerpiece",
+      "specAttributes": {
+        "category": "centerpiece",
+        "sizeRange": "24-36 in long, under 10 in tall",
+        "material": "small pumpkins, gourds, eucalyptus, leaves",
+        "colorFamily": "orange, green, cream",
+        "lit": false,
+        "indoorOutdoor": "indoor",
+        "countRange": "1"
+      },
+      "kitItemIds": ["thanksgiving_us.interior.centerpiece_low"],
+      "archivedAt": null,
+      "notes": null
+    },
+    {
+      "productId": "prod_flameless_taper_pillar_set",
+      "ourTitle": "Flameless taper and pillar candle set with brass holders",
+      "ourDescription": "Warm-white LED tapers and pillars with brass and glass holders.",
+      "category": "candles",
+      "specAttributes": {
+        "category": "candles",
+        "sizeRange": "tapers 10-12 in, pillars 4-8 in",
+        "material": "flameless LED, brass or glass holders",
+        "colorFamily": "ivory, brass",
+        "lit": true,
+        "lightColor": "warm white (flameless)",
+        "indoorOutdoor": "indoor",
+        "countRange": "2-8"
+      },
+      "kitItemIds": [
+        "thanksgiving_us.interior.candles_flameless",
+        "new_years_eve.interior.candles_flameless"
+      ],
+      "archivedAt": null,
+      "notes": null
+    },
+    {
+      "productId": "prod_napkins_autumn_rings",
+      "ourTitle": "Cloth napkins in autumn tones with wood rings, set of 8",
+      "ourDescription": "Rust, olive and mustard cotton napkins with simple rings.",
+      "category": "napkins",
+      "specAttributes": {
+        "category": "napkins",
+        "sizeRange": "20 in napkins with rings",
+        "material": "cloth, wood rings",
+        "colorFamily": "rust, olive, mustard",
+        "lit": false,
+        "indoorOutdoor": "indoor",
+        "countRange": "4-8"
+      },
+      "kitItemIds": ["thanksgiving_us.interior.place_accents"],
+      "archivedAt": null,
+      "notes": null
+    },
+    {
+      "productId": "prod_harvest_arrangement_wheat",
+      "ourTitle": "Harvest arrangement with leaves, pumpkins and wheat, 18 in.",
+      "ourDescription": "A sideboard arrangement in orange and tan.",
+      "category": "arrangement",
+      "specAttributes": {
+        "category": "arrangement",
+        "sizeRange": "12-24 in",
+        "material": "artificial leaves, small pumpkins, wheat",
+        "colorFamily": "orange, tan",
+        "lit": false,
+        "indoorOutdoor": "indoor",
+        "countRange": "1-2"
+      },
+      "kitItemIds": ["thanksgiving_us.interior.sideboard_harvest"],
+      "archivedAt": null,
+      "notes": null
+    },
+    {
+      "productId": "prod_garland_autumn_leaf_6ft",
+      "ourTitle": "Autumn leaf garland, 6 ft",
+      "ourDescription": "Orange and russet faux leaves for a window top.",
+      "category": "garland",
+      "specAttributes": {
+        "category": "garland",
+        "sizeRange": "about 6 ft",
+        "material": "artificial autumn leaves",
+        "colorFamily": "orange, russet",
+        "lit": false,
+        "indoorOutdoor": "indoor",
+        "countRange": "1-2"
+      },
+      "kitItemIds": ["thanksgiving_us.interior.window_garland"],
+      "archivedAt": null,
+      "notes": null
+    },
+    {
+      "productId": "prod_led_string_warm_white_50ft",
+      "ourTitle": "Warm-white LED string lights, 50 ft, green wire",
+      "ourDescription": "Outdoor-rated warm-white LED string with evenly spaced bulbs.",
+      "category": "string lights",
+      "specAttributes": {
+        "category": "string lights",
+        "sizeRange": "25-100 ft run",
+        "material": "LED on green wire",
+        "colorFamily": "warm white",
+        "lit": true,
+        "lightColor": "warm white",
+        "indoorOutdoor": "outdoor",
+        "countRange": "1-3 runs"
+      },
+      "kitItemIds": [
+        "christmas.house_exterior.string_lights_warm_white",
+        "new_years_eve.house_exterior.string_lights_warm_white"
+      ],
+      "archivedAt": null,
+      "notes": null
+    },
+    {
+      "productId": "prod_wreath_evergreen_30in_velvet_bow",
+      "ourTitle": "Mixed evergreen wreath with red velvet bow, 30 in.",
+      "ourDescription": "Full artificial mixed evergreen with a red velvet bow.",
+      "category": "wreath",
+      "specAttributes": {
+        "category": "wreath",
+        "sizeRange": "24-30 in",
+        "material": "artificial mixed evergreen, velvet bow",
+        "colorFamily": "green, red",
+        "lit": false,
+        "indoorOutdoor": "outdoor",
+        "countRange": "1"
+      },
+      "kitItemIds": ["christmas.house_exterior.wreath_evergreen"],
+      "archivedAt": null,
+      "notes": null
+    },
+    {
+      "productId": "prod_garland_evergreen_pinecone_9ft",
+      "ourTitle": "Mixed evergreen garland with pinecones, 9 ft",
+      "ourDescription": "Artificial evergreen garland with natural-look pinecones.",
+      "category": "garland",
+      "specAttributes": {
+        "category": "garland",
+        "sizeRange": "6-9 ft",
+        "material": "artificial evergreen, pinecones",
+        "colorFamily": "green, brown",
+        "lit": false,
+        "indoorOutdoor": "outdoor",
+        "countRange": "1-3"
+      },
+      "kitItemIds": [
+        "christmas.house_exterior.garland_evergreen",
+        "christmas.apartment_entry.banister_garland",
+        "christmas.balcony.door_frame_garland"
+      ],
+      "archivedAt": null,
+      "notes": null
+    },
+    {
+      "productId": "prod_potted_evergreen_lit_pair_4ft",
+      "ourTitle": "Pre-lit potted evergreens, 4 ft, pair",
+      "ourDescription": "Two artificial evergreens in pots with warm-white lights.",
+      "category": "potted tree",
+      "specAttributes": {
+        "category": "potted tree",
+        "sizeRange": "3-4 ft",
+        "material": "artificial evergreen in pot, lights",
+        "colorFamily": "green, warm white",
+        "lit": true,
+        "lightColor": "warm white",
+        "indoorOutdoor": "outdoor",
+        "countRange": "2"
+      },
+      "kitItemIds": ["christmas.house_exterior.potted_evergreen_pair"],
+      "archivedAt": null,
+      "notes": null
+    },
+    {
+      "productId": "prod_lantern_black_flameless_16in",
+      "ourTitle": "Black metal lantern with flameless pillar, 16 in.",
+      "ourDescription": "Black metal and glass lantern with a warm-white LED pillar.",
+      "category": "lantern",
+      "specAttributes": {
+        "category": "lantern",
+        "sizeRange": "12-20 in",
+        "material": "black metal, glass, flameless pillar",
+        "colorFamily": "black, warm white",
+        "lit": true,
+        "lightColor": "warm white (flameless)",
+        "indoorOutdoor": "outdoor",
+        "countRange": "1-2"
+      },
+      "kitItemIds": [
+        "christmas.house_exterior.lantern_flameless",
+        "christmas.balcony.lantern_flameless"
+      ],
+      "archivedAt": null,
+      "notes": null
+    },
+    {
+      "productId": "prod_window_wreath_14in_set",
+      "ourTitle": "Evergreen window wreaths with red bows, 14 in., set of 4",
+      "ourDescription": "Small artificial evergreen wreaths for front windows.",
+      "category": "wreath",
+      "specAttributes": {
+        "category": "wreath",
+        "sizeRange": "12-16 in",
+        "material": "artificial evergreen, bow",
+        "colorFamily": "green, red",
+        "lit": false,
+        "indoorOutdoor": "outdoor",
+        "countRange": "1-4"
+      },
+      "kitItemIds": ["christmas.house_exterior.window_wreath"],
+      "archivedAt": null,
+      "notes": null
+    },
+    {
+      "productId": "prod_wreath_evergreen_22in_bow",
+      "ourTitle": "Evergreen door wreath with red bow, 22 in.",
+      "ourDescription": "Artificial evergreen wreath sized for a unit or balcony door.",
+      "category": "wreath",
+      "specAttributes": {
+        "category": "wreath",
+        "sizeRange": "18-24 in",
+        "material": "artificial evergreen, bow",
+        "colorFamily": "green, red",
+        "lit": false,
+        "indoorOutdoor": "indoor_or_outdoor",
+        "countRange": "1"
+      },
+      "kitItemIds": ["christmas.apartment_entry.door_wreath", "christmas.balcony.door_wreath"],
+      "archivedAt": null,
+      "notes": null
+    },
+    {
+      "productId": "prod_garland_evergreen_battery_lit_9ft",
+      "ourTitle": "Battery pre-lit evergreen garland with pinecones, 9 ft",
+      "ourDescription": "Artificial evergreen garland with warm-white battery lights.",
+      "category": "garland",
+      "specAttributes": {
+        "category": "garland",
+        "sizeRange": "about 9 ft",
+        "material": "artificial evergreen, battery lights",
+        "colorFamily": "green, warm white",
+        "lit": true,
+        "lightColor": "warm white",
+        "indoorOutdoor": "indoor_or_outdoor",
+        "countRange": "1"
+      },
+      "kitItemIds": [
+        "christmas.apartment_entry.frame_garland_lit",
+        "christmas.interior.mantel_garland_lit"
+      ],
+      "archivedAt": null,
+      "notes": null
+    },
+    {
+      "productId": "prod_lantern_pair_small_black",
+      "ourTitle": "Small black lanterns with flameless candles, 12 in., pair",
+      "ourDescription": "Two compact metal and glass lanterns with LED candles.",
+      "category": "lantern",
+      "specAttributes": {
+        "category": "lantern",
+        "sizeRange": "10-14 in",
+        "material": "metal, glass, flameless candle",
+        "colorFamily": "black, warm white",
+        "lit": true,
+        "lightColor": "warm white (flameless)",
+        "indoorOutdoor": "indoor_or_outdoor",
+        "countRange": "2"
+      },
+      "kitItemIds": ["christmas.apartment_entry.lantern_pair"],
+      "archivedAt": null,
+      "notes": null
+    },
+    {
+      "productId": "prod_potted_evergreen_small_lit",
+      "ourTitle": "Small pre-lit potted evergreen, 2–3 ft",
+      "ourDescription": "Artificial evergreen in a pot with warm-white battery lights.",
+      "category": "potted tree",
+      "specAttributes": {
+        "category": "potted tree",
+        "sizeRange": "2-3 ft",
+        "material": "artificial evergreen, battery lights",
+        "colorFamily": "green, warm white",
+        "lit": true,
+        "lightColor": "warm white",
+        "indoorOutdoor": "indoor_or_outdoor",
+        "countRange": "1"
+      },
+      "kitItemIds": [
+        "christmas.apartment_entry.potted_evergreen_small",
+        "christmas.balcony.potted_evergreen_small"
+      ],
+      "archivedAt": null,
+      "notes": null
+    },
+    {
+      "productId": "prod_battery_string_warm_white_20ft",
+      "ourTitle": "Battery warm-white LED string lights, 20 ft",
+      "ourDescription": "Battery-powered warm-white micro LED string on clear wire.",
+      "category": "string lights",
+      "specAttributes": {
+        "category": "string lights",
+        "sizeRange": "10-25 ft",
+        "material": "battery LED on clear wire",
+        "colorFamily": "warm white",
+        "lit": true,
+        "lightColor": "warm white",
+        "indoorOutdoor": "outdoor",
+        "countRange": "1 run"
+      },
+      "kitItemIds": [
+        "christmas.balcony.railing_lights_warm_white",
+        "new_years_eve.balcony.railing_lights_warm_white"
+      ],
+      "archivedAt": null,
+      "notes": null
+    },
+    {
+      "productId": "prod_tree_prelit_7ft",
+      "ourTitle": "Pre-lit artificial evergreen tree, 7 ft, warm white",
+      "ourDescription": "Full artificial tree with warm-white lights (ornaments not included).",
+      "category": "tree",
+      "specAttributes": {
+        "category": "tree",
+        "sizeRange": "6-7.5 ft",
+        "material": "artificial evergreen, pre-lit",
+        "colorFamily": "green, warm white, red, gold",
+        "lit": true,
+        "lightColor": "warm white",
+        "indoorOutdoor": "indoor",
+        "countRange": "1"
+      },
+      "kitItemIds": ["christmas.interior.tree_prelit"],
+      "archivedAt": null,
+      "notes": null
+    },
+    {
+      "productId": "prod_knit_stockings_set",
+      "ourTitle": "Knit stockings in red, cream and green, set of 4",
+      "ourDescription": "Cable-knit stockings, 18–20 in.",
+      "category": "stocking",
+      "specAttributes": {
+        "category": "stocking",
+        "sizeRange": "18-20 in",
+        "material": "knit",
+        "colorFamily": "red, cream, green",
+        "lit": false,
+        "indoorOutdoor": "indoor",
+        "countRange": "3-4"
+      },
+      "kitItemIds": ["christmas.interior.stockings"],
+      "archivedAt": null,
+      "notes": null
+    },
+    {
+      "productId": "prod_evergreen_centerpiece_candles",
+      "ourTitle": "Low evergreen centerpiece with berries and flameless pillars",
+      "ourDescription": "Artificial evergreen, pinecones and red berries around LED pillars.",
+      "category": "centerpiece",
+      "specAttributes": {
+        "category": "centerpiece",
+        "sizeRange": "24-36 in",
+        "material": "artificial evergreen, berries, flameless candles",
+        "colorFamily": "green, red, white",
+        "lit": true,
+        "lightColor": "warm white (flameless)",
+        "indoorOutdoor": "indoor",
+        "countRange": "1"
+      },
+      "kitItemIds": ["christmas.interior.table_centerpiece"],
+      "archivedAt": null,
+      "notes": null
+    },
+    {
+      "productId": "prod_evergreen_arrangement_gold",
+      "ourTitle": "Evergreen arrangement with gold ornaments and flameless candle",
+      "ourDescription": "A small sideboard arrangement in green and gold.",
+      "category": "arrangement",
+      "specAttributes": {
+        "category": "arrangement",
+        "sizeRange": "12-18 in",
+        "material": "artificial evergreen, ornaments, flameless candle",
+        "colorFamily": "green, gold",
+        "lit": true,
+        "lightColor": "warm white (flameless)",
+        "indoorOutdoor": "indoor",
+        "countRange": "1-2"
+      },
+      "kitItemIds": ["christmas.interior.sideboard_arrangement"],
+      "archivedAt": null,
+      "notes": null
+    },
+    {
+      "productId": "prod_decorative_gift_boxes",
+      "ourTitle": "Decorative wrapped gift boxes, red, gold and cream, set of 5",
+      "ourDescription": "Empty nesting boxes wrapped with ribbon for display.",
+      "category": "gift wrap",
+      "specAttributes": {
+        "category": "gift wrap",
+        "sizeRange": "boxes 6-14 in",
+        "material": "paper, ribbon",
+        "colorFamily": "red, gold, cream",
+        "lit": false,
+        "indoorOutdoor": "indoor",
+        "countRange": "3-6"
+      },
+      "kitItemIds": ["christmas.interior.wrapped_gifts"],
+      "archivedAt": null,
+      "notes": null
+    },
+    {
+      "productId": "prod_ornament_wreath_gold_silver_22in",
+      "ourTitle": "Gold, silver and white ornament wreath, 22 in.",
+      "ourDescription": "Shatterproof round ornaments on a wire frame.",
+      "category": "wreath",
+      "specAttributes": {
+        "category": "wreath",
+        "sizeRange": "20-24 in",
+        "material": "shatterproof ornaments on a wire frame",
+        "colorFamily": "gold, silver, white",
+        "lit": false,
+        "indoorOutdoor": "outdoor",
+        "countRange": "1"
+      },
+      "kitItemIds": ["new_years_eve.house_exterior.door_wreath_ornament"],
+      "archivedAt": null,
+      "notes": null
+    },
+    {
+      "productId": "prod_tinsel_garland_gold_silver_9ft",
+      "ourTitle": "Gold and silver tinsel garland with ornaments, 9 ft",
+      "ourDescription": "Metallic tinsel garland with small round ornaments.",
+      "category": "garland",
+      "specAttributes": {
+        "category": "garland",
+        "sizeRange": "6-9 ft",
+        "material": "metallic tinsel, shatterproof ornaments",
+        "colorFamily": "gold, silver",
+        "lit": false,
+        "indoorOutdoor": "outdoor",
+        "countRange": "1-2"
+      },
+      "kitItemIds": [
+        "new_years_eve.house_exterior.garland_metallic",
+        "new_years_eve.balcony.door_frame_garland_metallic"
+      ],
+      "archivedAt": null,
+      "notes": null
+    },
+    {
+      "productId": "prod_lantern_pair_brushed_gold",
+      "ourTitle": "Brushed-gold lanterns with flameless pillars, pair",
+      "ourDescription": "Two gold-tone metal and glass lanterns with LED pillars.",
+      "category": "lantern",
+      "specAttributes": {
+        "category": "lantern",
+        "sizeRange": "12-18 in",
+        "material": "brushed-gold metal, glass, flameless pillar",
+        "colorFamily": "gold, warm white",
+        "lit": true,
+        "lightColor": "warm white (flameless)",
+        "indoorOutdoor": "outdoor",
+        "countRange": "2"
+      },
+      "kitItemIds": [
+        "new_years_eve.house_exterior.lantern_pair_gold",
+        "new_years_eve.balcony.lantern_cluster_gold"
+      ],
+      "archivedAt": null,
+      "notes": null
+    },
+    {
+      "productId": "prod_shatterproof_ornaments_gold_silver",
+      "ourTitle": "Shatterproof ornaments in gold, silver and white, 30 pieces",
+      "ourDescription": "Shiny and matte round ornaments, 2–4 in.",
+      "category": "ornaments",
+      "specAttributes": {
+        "category": "ornaments",
+        "sizeRange": "2-4 in each, 24-36 pieces",
+        "material": "shatterproof plastic",
+        "colorFamily": "gold, silver, white",
+        "lit": false,
+        "indoorOutdoor": "indoor_or_outdoor",
+        "countRange": "24-36"
+      },
+      "kitItemIds": [
+        "new_years_eve.house_exterior.planter_ornament_fill",
+        "new_years_eve.balcony.ornament_planter",
+        "new_years_eve.interior.ornament_bowl"
+      ],
+      "archivedAt": null,
+      "notes": null
+    },
+    {
+      "productId": "prod_runner_champagne_sheen",
+      "ourTitle": "Champagne-gold table runner with subtle sheen, 90 in.",
+      "ourDescription": "Woven runner with metallic thread.",
+      "category": "table linen",
+      "specAttributes": {
+        "category": "table linen",
+        "sizeRange": "72-108 in",
+        "material": "woven polyester with metallic thread",
+        "colorFamily": "champagne, gold",
+        "lit": false,
+        "indoorOutdoor": "indoor",
+        "countRange": "1"
+      },
+      "kitItemIds": ["new_years_eve.interior.table_runner_metallic"],
+      "archivedAt": null,
+      "notes": null
+    },
+    {
+      "productId": "prod_tinsel_garland_lit_micro",
+      "ourTitle": "Lit tinsel garland, gold and silver, warm-white micro LEDs, 9 ft",
+      "ourDescription": "Metallic garland with battery micro lights.",
+      "category": "garland",
+      "specAttributes": {
+        "category": "garland",
+        "sizeRange": "6-9 ft",
+        "material": "metallic tinsel, micro LED lights",
+        "colorFamily": "gold, silver, warm white",
+        "lit": true,
+        "lightColor": "warm white",
+        "indoorOutdoor": "indoor",
+        "countRange": "1-2"
+      },
+      "kitItemIds": ["new_years_eve.interior.garland_metallic_lit"],
+      "archivedAt": null,
+      "notes": null
+    },
+    {
+      "productId": "prod_napkins_ivory_gold_rings",
+      "ourTitle": "Ivory cloth napkins with gold rings, set of 8",
+      "ourDescription": "Cotton napkins with simple metal rings.",
+      "category": "napkins",
+      "specAttributes": {
+        "category": "napkins",
+        "sizeRange": "20 in napkins with rings",
+        "material": "cotton, metal rings",
+        "colorFamily": "ivory, gold",
+        "lit": false,
+        "indoorOutdoor": "indoor",
+        "countRange": "4-8"
+      },
+      "kitItemIds": ["new_years_eve.interior.place_accents_gold"],
+      "archivedAt": null,
+      "notes": null
+    },
+    {
+      "productId": "prod_curtain_fairy_lights_warm_white",
+      "ourTitle": "Warm-white fairy light curtain, about 6 × 6 ft",
+      "ourDescription": "Micro LED strands on copper wire for a window.",
+      "category": "string lights",
+      "specAttributes": {
+        "category": "string lights",
+        "sizeRange": "about 6 x 6 ft curtain",
+        "material": "micro LED on copper wire",
+        "colorFamily": "warm white",
+        "lit": true,
+        "lightColor": "warm white",
+        "indoorOutdoor": "indoor",
+        "countRange": "1"
+      },
+      "kitItemIds": ["new_years_eve.interior.curtain_lights_window"],
+      "archivedAt": null,
+      "notes": null
+    },
+    {
+      "productId": "prod_wreath_evergreen_24in_classic_2025",
+      "ourTitle": "Classic evergreen wreath with red bow, 24 in. (2025 model)",
+      "ourDescription": "Previous season wreath; discontinued by the merchant.",
+      "category": "wreath",
+      "specAttributes": {
+        "category": "wreath",
+        "sizeRange": "24 in",
+        "material": "artificial evergreen, satin bow",
+        "colorFamily": "green, red",
+        "lit": false,
+        "indoorOutdoor": "outdoor",
+        "countRange": "1"
+      },
+      "kitItemIds": ["christmas.house_exterior.wreath_evergreen"],
+      "archivedAt": "2026-09-15T00:00:00.000Z",
+      "notes": "Discontinued; kept for the retired offer and the kit item product history."
+    }
+  ]
+}

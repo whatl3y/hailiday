@@ -1,0 +1,139 @@
+{
+  "exampleId": "example.christmas.apartment_entry.classic.source.v1",
+  "photoId": "sample-apartment-hallway",
+  "working": {
+    "width": 1536,
+    "height": 1024
+  },
+  "usd": 0.028132,
+  "analysis": {
+    "schemaVersion": "1.0",
+    "sourceAssetId": "example.christmas.apartment_entry.classic.source.v1",
+    "workingImage": {
+      "width": 1536,
+      "height": 1024,
+      "checksum": "59a1e675416110bf43465c6315b020969af0d400c6dd6552f269db662462f5a8"
+    },
+    "sceneType": "apartment_entry",
+    "sceneTypeConfidence": 0.8,
+    "sceneTypeMismatch": false,
+    "targetFacadeAmbiguous": false,
+    "anchors": [
+      {
+        "id": "door_frame_left_near",
+        "category": "door_frame",
+        "box": [0.303, 0.115, 0.333, 0.92],
+        "confidence": 0.8,
+        "occluded": false,
+        "note": "Light wood door frame on left wall near camera"
+      },
+      {
+        "id": "unit_door_left_near",
+        "category": "unit_door",
+        "box": [0.307, 0.145, 0.333, 0.92],
+        "confidence": 0.65,
+        "occluded": false,
+        "note": "Door edge with handle visible at left, seen at steep angle"
+      },
+      {
+        "id": "unit_door_left_mid",
+        "category": "unit_door",
+        "box": [0.383, 0.215, 0.398, 0.75],
+        "confidence": 0.55,
+        "occluded": false,
+        "note": "Recessed doorway along left wall"
+      },
+      {
+        "id": "unit_door_right_mid",
+        "category": "unit_door",
+        "box": [0.633, 0.215, 0.645, 0.76],
+        "confidence": 0.55,
+        "occluded": false,
+        "note": "Recessed doorway along right wall"
+      },
+      {
+        "id": "wall_left",
+        "category": "wall",
+        "box": [0.035, 0.08, 0.303, 0.92],
+        "confidence": 0.85,
+        "occluded": false,
+        "note": "Large plain wall on left foreground"
+      },
+      {
+        "id": "wall_right",
+        "category": "wall",
+        "box": [0.645, 0.08, 0.735, 0.92],
+        "confidence": 0.8,
+        "occluded": false,
+        "note": "Plain wall on right side of corridor"
+      },
+      {
+        "id": "floor_corridor",
+        "category": "floor_area",
+        "box": [0.33, 0.53, 0.69, 0.92],
+        "confidence": 0.85,
+        "occluded": false,
+        "note": "Tiled corridor floor"
+      }
+    ],
+    "preserveRegions": [
+      {
+        "kind": "sign",
+        "box": [0.186, 0.09, 0.2, 0.26]
+      },
+      {
+        "kind": "sign",
+        "box": [0.329, 0.3, 0.337, 0.355]
+      },
+      {
+        "kind": "sign",
+        "box": [0.612, 0.39, 0.625, 0.435]
+      }
+    ],
+    "accessRegions": [
+      {
+        "kind": "hallway",
+        "box": [0.33, 0.53, 0.69, 0.92]
+      },
+      {
+        "kind": "door",
+        "box": [0.307, 0.145, 0.333, 0.92]
+      },
+      {
+        "kind": "door",
+        "box": [0.488, 0.31, 0.555, 0.53]
+      }
+    ],
+    "hazards": [],
+    "existingDecorations": {
+      "present": false,
+      "density": "none",
+      "boxes": []
+    },
+    "peopleBoxes": [],
+    "protectedBlurRegions": [],
+    "lighting": {
+      "timeOfDay": "night",
+      "isDaylight": false,
+      "exposure": "normal"
+    },
+    "seasonCues": {
+      "snowVisible": false,
+      "foliage": "unknown"
+    },
+    "qualityFlags": {
+      "blur": false,
+      "lowLight": true,
+      "heavyOcclusion": false,
+      "multipleBuildings": false,
+      "embeddedPhoto": true,
+      "tooClose": false,
+      "tooFar": false
+    },
+    "model": {
+      "analysisModel": "claude-opus-5-5",
+      "analysisPromptVersion": "analysis-2026.11.0"
+    },
+    "elapsedMs": 11134
+  }
+}

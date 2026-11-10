@@ -1,0 +1,138 @@
+{
+  "exampleId": "example.thanksgiving_us.interior.classic.source.v1",
+  "photoId": "sample-dining-room",
+  "working": {
+    "width": 1536,
+    "height": 1024
+  },
+  "usd": 0.028376,
+  "analysis": {
+    "schemaVersion": "1.0",
+    "sourceAssetId": "example.thanksgiving_us.interior.classic.source.v1",
+    "workingImage": {
+      "width": 1536,
+      "height": 1024,
+      "checksum": "f708b84828e690529f1d22b443a0ba9dfa1cfe7fa0a0cea96d869d9d841aa58d"
+    },
+    "sceneType": "interior",
+    "sceneTypeConfidence": 0.97,
+    "sceneTypeMismatch": false,
+    "roomType": "dining_room",
+    "targetFacadeAmbiguous": false,
+    "anchors": [
+      {
+        "id": "dining_table_1",
+        "category": "dining_table",
+        "box": [0.2, 0.63, 0.75, 0.99],
+        "confidence": 0.95,
+        "occluded": true,
+        "occlusionFraction": 0.35,
+        "note": "Rustic wood farmhouse table partly hidden by bentwood chairs"
+      },
+      {
+        "id": "window_1",
+        "category": "interior_window",
+        "box": [0.12, 0.22, 0.4, 0.66],
+        "confidence": 0.95,
+        "occluded": true,
+        "occlusionFraction": 0.15,
+        "note": "Large sliding window with landscape view, framed by curtains; vase and chair backs in front"
+      },
+      {
+        "id": "wall_left",
+        "category": "wall",
+        "box": [0, 0.06, 0.12, 0.92],
+        "confidence": 0.8,
+        "occluded": true,
+        "occlusionFraction": 0.3,
+        "note": "White wall left of window, partly covered by curtain"
+      },
+      {
+        "id": "wall_center",
+        "category": "wall",
+        "box": [0.46, 0.17, 0.58, 0.64],
+        "confidence": 0.8,
+        "occluded": true,
+        "occlusionFraction": 0.2,
+        "note": "White wall between window and French doors, partly behind pendant and chairs"
+      },
+      {
+        "id": "wall_right",
+        "category": "wall",
+        "box": [0.92, 0.1, 1, 0.95],
+        "confidence": 0.8,
+        "occluded": false,
+        "note": "White wall right of French doors"
+      },
+      {
+        "id": "floor_1",
+        "category": "floor_area",
+        "box": [0, 0.84, 1, 1],
+        "confidence": 0.75,
+        "occluded": true,
+        "occlusionFraction": 0.5,
+        "note": "Woven jute rug and wood floor under table and chairs"
+      }
+    ],
+    "preserveRegions": [
+      {
+        "kind": "existing_decor",
+        "box": [0.32, 0.41, 0.49, 0.67]
+      },
+      {
+        "kind": "existing_decor",
+        "box": [0.54, 0.65, 0.66, 0.71]
+      },
+      {
+        "kind": "existing_decor",
+        "box": [0.44, 0, 0.53, 0.38]
+      }
+    ],
+    "accessRegions": [
+      {
+        "kind": "door",
+        "box": [0.58, 0.18, 0.89, 0.92]
+      }
+    ],
+    "hazards": [
+      {
+        "kind": "fragile",
+        "box": [0.36, 0.56, 0.43, 0.67]
+      },
+      {
+        "kind": "fragile",
+        "box": [0.63, 0.65, 0.66, 0.71]
+      }
+    ],
+    "existingDecorations": {
+      "present": false,
+      "density": "none",
+      "boxes": []
+    },
+    "peopleBoxes": [],
+    "protectedBlurRegions": [],
+    "lighting": {
+      "timeOfDay": "day",
+      "isDaylight": true,
+      "exposure": "normal"
+    },
+    "seasonCues": {
+      "snowVisible": false,
+      "foliage": "mixed"
+    },
+    "qualityFlags": {
+      "blur": false,
+      "lowLight": false,
+      "heavyOcclusion": false,
+      "multipleBuildings": false,
+      "embeddedPhoto": false,
+      "tooClose": false,
+      "tooFar": false
+    },
+    "model": {
+      "analysisModel": "claude-opus-5-5",
+      "analysisPromptVersion": "analysis-2026.11.0"
+    },
+    "elapsedMs": 14809
+  }
+}

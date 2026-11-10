@@ -1,0 +1,97 @@
+{
+  "exampleId": "example.christmas.balcony.classic.source.v1",
+  "photoId": "sample-balcony",
+  "working": {
+    "width": 1536,
+    "height": 1024
+  },
+  "usd": 0.021584,
+  "analysis": {
+    "schemaVersion": "1.0",
+    "sourceAssetId": "example.christmas.balcony.classic.source.v1",
+    "workingImage": {
+      "width": 1536,
+      "height": 1024,
+      "checksum": "67f7919e0570fcd670fc329db13aefe25f7dc7d8524f94208f62352d96d5ce44"
+    },
+    "sceneType": "balcony",
+    "sceneTypeConfidence": 0.95,
+    "sceneTypeMismatch": false,
+    "targetFacadeAmbiguous": false,
+    "anchors": [
+      {
+        "id": "railing_front",
+        "category": "balcony_railing",
+        "box": [0.37, 0.52, 1, 1],
+        "confidence": 0.95,
+        "occluded": false,
+        "note": "Tan wooden railing with vertical balusters running toward right"
+      },
+      {
+        "id": "railing_left",
+        "category": "balcony_railing",
+        "box": [0, 0.53, 0.37, 0.86],
+        "confidence": 0.93,
+        "occluded": false,
+        "note": "Tan wooden railing on left side of balcony"
+      },
+      {
+        "id": "floor",
+        "category": "balcony_floor",
+        "box": [0, 0.7, 0.85, 1],
+        "confidence": 0.95,
+        "occluded": false,
+        "note": "Dark outdoor carpet floor with railing shadows"
+      },
+      {
+        "id": "wall_left",
+        "category": "wall",
+        "box": [0, 0.1, 0.03, 0.85],
+        "confidence": 0.6,
+        "occluded": false,
+        "note": "Sliver of light siding at left edge"
+      },
+      {
+        "id": "wall_right",
+        "category": "wall",
+        "box": [0.93, 0, 1, 0.6],
+        "confidence": 0.55,
+        "occluded": false,
+        "note": "Wooden privacy panel/post at right edge"
+      }
+    ],
+    "preserveRegions": [],
+    "accessRegions": [],
+    "hazards": [],
+    "existingDecorations": {
+      "present": false,
+      "density": "none",
+      "boxes": []
+    },
+    "peopleBoxes": [],
+    "protectedBlurRegions": [],
+    "lighting": {
+      "timeOfDay": "day",
+      "isDaylight": true,
+      "exposure": "normal"
+    },
+    "seasonCues": {
+      "snowVisible": false,
+      "foliage": "mixed"
+    },
+    "qualityFlags": {
+      "blur": false,
+      "lowLight": false,
+      "heavyOcclusion": false,
+      "multipleBuildings": true,
+      "embeddedPhoto": false,
+      "tooClose": false,
+      "tooFar": false
+    },
+    "model": {
+      "analysisModel": "claude-opus-5-5",
+      "analysisPromptVersion": "analysis-2026.11.0"
+    },
+    "elapsedMs": 8204
+  }
+}

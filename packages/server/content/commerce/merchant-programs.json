@@ -1,0 +1,273 @@
+{
+  "version": 1,
+  "providerMode": "fixture",
+  "description": "Clearly fictional fixture merchant programs. Link mode follows status: planned, applied, declined, withdrawn and suspended give plain links (or hidden by configuration); provisional and approved give tracking links with the paid-links disclosure. programType amazon_associates marks the Amazon Associates-type program whose disclosureText must appear whenever its tracking links are on screen. Tracking templates use {destinationUrl} and {subId}; a program without per-click SubIds uses {trackingId}, filled from trackingIds for the (holiday, channel) cell.",
+  "programs": [
+    {
+      "merchantProgramId": "fixture_decor_us",
+      "merchantName": "Fixture Decor Co.",
+      "programType": "direct",
+      "network": "direct",
+      "status": "planned",
+      "statusHistory": [
+        {
+          "status": "planned",
+          "at": "2026-08-01T00:00:00.000Z",
+          "evidenceRef": "fixture:program-record/fixture_decor_us"
+        }
+      ],
+      "appliedAt": null,
+      "approvedAt": null,
+      "endedAt": null,
+      "requiredDisclosureKey": null,
+      "disclosureText": null,
+      "redirectPermitted": false,
+      "linkMethod": "manual_links",
+      "subIdCapability": false,
+      "subIdParam": null,
+      "apiAccess": "none",
+      "attributionWindowHours": null,
+      "commissionSchedule": [],
+      "trackingIds": [],
+      "policyVersion": "fixture-terms-1",
+      "reviewedAt": "2026-11-01T00:00:00.000Z",
+      "activation": "fixture",
+      "logoPermitted": false,
+      "notes": "The fixture program named in the commerce spec. Planned status: plain destination links, no commission, no Ad chip."
+    },
+    {
+      "merchantProgramId": "fixture_home_garden_us",
+      "merchantName": "Fixture Home & Garden",
+      "programType": "network",
+      "network": "fixture_affiliate_network",
+      "status": "approved",
+      "statusHistory": [
+        {
+          "status": "applied",
+          "at": "2026-07-10T00:00:00.000Z",
+          "evidenceRef": "fixture:application-confirmation/fhg"
+        },
+        {
+          "status": "approved",
+          "at": "2026-07-24T00:00:00.000Z",
+          "evidenceRef": "fixture:approval-email/fhg"
+        }
+      ],
+      "appliedAt": "2026-07-10T00:00:00.000Z",
+      "approvedAt": "2026-07-24T00:00:00.000Z",
+      "endedAt": null,
+      "requiredDisclosureKey": null,
+      "disclosureText": null,
+      "redirectPermitted": false,
+      "linkMethod": "api",
+      "subIdCapability": true,
+      "subIdParam": "subId1",
+      "apiAccess": "granted",
+      "attributionWindowHours": 720,
+      "commissionSchedule": [
+        {
+          "category": "seasonal decor",
+          "ratePercent": 4,
+          "effectiveFrom": "2026-07-24"
+        }
+      ],
+      "trackingIds": [],
+      "policyVersion": "fixture-terms-3",
+      "reviewedAt": "2026-11-01T00:00:00.000Z",
+      "activation": "fixture",
+      "logoPermitted": false,
+      "notes": "Approved network program: tracking links with the paid-links disclosure; prices come from the network product feed."
+    },
+    {
+      "merchantProgramId": "fixture_marketplace_us",
+      "merchantName": "Fixture Marketplace",
+      "programType": "amazon_associates",
+      "network": "direct",
+      "status": "provisional",
+      "statusHistory": [
+        {
+          "status": "applied",
+          "at": "2026-10-01T00:00:00.000Z",
+          "evidenceRef": "fixture:associates-application"
+        },
+        {
+          "status": "provisional",
+          "at": "2026-10-01T00:00:00.000Z",
+          "evidenceRef": "fixture:associates-dashboard-screenshot"
+        }
+      ],
+      "appliedAt": "2026-10-01T00:00:00.000Z",
+      "approvedAt": null,
+      "endedAt": null,
+      "requiredDisclosureKey": "commerce.disclosure.amazon",
+      "disclosureText": "As an Amazon Associate I earn from qualifying purchases.",
+      "redirectPermitted": false,
+      "linkMethod": "manual_links",
+      "subIdCapability": false,
+      "subIdParam": null,
+      "apiAccess": "none",
+      "attributionWindowHours": 24,
+      "commissionSchedule": [
+        {
+          "category": "home",
+          "ratePercent": 3,
+          "effectiveFrom": "2026-10-01"
+        }
+      ],
+      "qualifyingSales": {
+        "count": 1,
+        "deadline": "2027-03-30"
+      },
+      "trackingIds": [
+        {
+          "holidayId": "halloween",
+          "channel": "direct",
+          "trackingId": "fxmkt-hal-direct-20"
+        },
+        {
+          "holidayId": "thanksgiving_us",
+          "channel": "direct",
+          "trackingId": "fxmkt-thx-direct-20"
+        },
+        {
+          "holidayId": "christmas",
+          "channel": "direct",
+          "trackingId": "fxmkt-xms-direct-20"
+        },
+        {
+          "holidayId": "new_years_eve",
+          "channel": "direct",
+          "trackingId": "fxmkt-nye-direct-20"
+        },
+        {
+          "holidayId": "christmas",
+          "channel": "social",
+          "trackingId": "fxmkt-xms-social-20"
+        }
+      ],
+      "policyVersion": "fixture-associates-policies-2026-10",
+      "reviewedAt": "2026-11-01T00:00:00.000Z",
+      "activation": "fixture",
+      "logoPermitted": false,
+      "notes": "Amazon Associates-type program (fictional): no per-click SubId, static tracking IDs per holiday and channel, the required Amazon statement whenever its tracking links are on screen, no stored product images or text, hand-entered prices never displayed."
+    },
+    {
+      "merchantProgramId": "fixture_lights_lanterns_us",
+      "merchantName": "Fixture Lights & Lanterns",
+      "programType": "network",
+      "network": "fixture_affiliate_network",
+      "status": "approved",
+      "statusHistory": [
+        {
+          "status": "applied",
+          "at": "2026-06-02T00:00:00.000Z",
+          "evidenceRef": "fixture:application-confirmation/fll"
+        },
+        {
+          "status": "approved",
+          "at": "2026-06-20T00:00:00.000Z",
+          "evidenceRef": "fixture:approval-email/fll"
+        }
+      ],
+      "appliedAt": "2026-06-02T00:00:00.000Z",
+      "approvedAt": "2026-06-20T00:00:00.000Z",
+      "endedAt": null,
+      "requiredDisclosureKey": null,
+      "disclosureText": null,
+      "redirectPermitted": false,
+      "linkMethod": "api",
+      "subIdCapability": true,
+      "subIdParam": "subId1",
+      "apiAccess": "granted",
+      "attributionWindowHours": 168,
+      "commissionSchedule": [
+        {
+          "category": "lighting",
+          "ratePercent": 6,
+          "effectiveFrom": "2026-06-20"
+        }
+      ],
+      "trackingIds": [],
+      "policyVersion": "fixture-terms-2",
+      "reviewedAt": "2026-11-01T00:00:00.000Z",
+      "activation": "fixture",
+      "logoPermitted": false,
+      "notes": "Approved network program with API access: prices come from the merchant API."
+    },
+    {
+      "merchantProgramId": "fixture_harvest_market_us",
+      "merchantName": "Fixture Harvest Market",
+      "programType": "network",
+      "network": "fixture_affiliate_network",
+      "status": "applied",
+      "statusHistory": [
+        {
+          "status": "applied",
+          "at": "2026-10-20T00:00:00.000Z",
+          "evidenceRef": "fixture:application-confirmation/fhm"
+        }
+      ],
+      "appliedAt": "2026-10-20T00:00:00.000Z",
+      "approvedAt": null,
+      "endedAt": null,
+      "requiredDisclosureKey": null,
+      "disclosureText": null,
+      "redirectPermitted": false,
+      "linkMethod": "manual_links",
+      "subIdCapability": true,
+      "subIdParam": "u1",
+      "apiAccess": "none",
+      "attributionWindowHours": 720,
+      "commissionSchedule": [],
+      "trackingIds": [],
+      "policyVersion": "fixture-terms-1",
+      "reviewedAt": "2026-11-01T00:00:00.000Z",
+      "activation": "fixture",
+      "logoPermitted": false,
+      "notes": "Application pending: plain links only. The program permits manually recorded prices, shown with an \"as of\" time."
+    },
+    {
+      "merchantProgramId": "fixture_holiday_outlet_us",
+      "merchantName": "Fixture Holiday Outlet",
+      "programType": "network",
+      "network": "fixture_affiliate_network",
+      "status": "suspended",
+      "statusHistory": [
+        {
+          "status": "approved",
+          "at": "2026-05-01T00:00:00.000Z",
+          "evidenceRef": "fixture:approval-email/fho"
+        },
+        {
+          "status": "suspended",
+          "at": "2026-11-02T00:00:00.000Z",
+          "evidenceRef": "fixture:policy-incident/fho"
+        }
+      ],
+      "appliedAt": "2026-04-15T00:00:00.000Z",
+      "approvedAt": "2026-05-01T00:00:00.000Z",
+      "endedAt": null,
+      "requiredDisclosureKey": null,
+      "disclosureText": null,
+      "redirectPermitted": false,
+      "linkMethod": "manual_links",
+      "subIdCapability": true,
+      "subIdParam": "subId1",
+      "apiAccess": "none",
+      "attributionWindowHours": 168,
+      "commissionSchedule": [
+        {
+          "category": "seasonal decor",
+          "ratePercent": 8,
+          "effectiveFrom": "2026-05-01"
+        }
+      ],
+      "trackingIds": [],
+      "policyVersion": "fixture-terms-1",
+      "reviewedAt": "2026-11-02T00:00:00.000Z",
+      "activation": "fixture",
+      "logoPermitted": false,
+      "notes": "Suspended after a policy problem: tracking links removed; its offers are paused."
+    }
+  ]
+}

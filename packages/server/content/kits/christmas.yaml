@@ -1,0 +1,400 @@
+# Style kits for christmas.US (commerce side of Shop the look).
+# Specs: docs/specs/holidays-and-content.md "Style kits" and docs/specs/commerce.md "Style kits and products".
+# kitItemId, anchors, specText, quantity and required mirror ../packs/christmas.yaml exactly; the loader
+# cross-checks them. anchorCategory is the primary anchor; sortOrder is placement prominence
+# (door, porch, roofline, then accents). specAttributes are our own words, never merchant text.
+# currentProductId points into ../commerce/products.json.
+
+holidayId: christmas
+packId: christmas.US
+packVersion: 1.0.1
+kits:
+  - kitId: christmas.house_exterior
+    holidayId: christmas
+    sceneType: house_exterior
+    version: 1.0.0
+    status: published
+    items:
+      - kitItemId: christmas.house_exterior.wreath_evergreen
+        sortOrder: 1
+        anchorCategory: front_door
+        anchors: [front_door]
+        specText: a 24 to 30 inch mixed evergreen wreath with a red velvet bow, centered on the existing front door
+        specAttributes:
+          category: wreath
+          sizeRange: 24-30 in
+          material: artificial mixed evergreen, velvet bow
+          colorFamily: green, red
+          lit: false
+          indoorOutdoor: outdoor
+          countRange: '1'
+        quantity: { subtle: [1, 1], classic: [1, 1], abundant: [1, 1] }
+        required: [subtle, classic, abundant]
+        currentProductId: prod_wreath_evergreen_30in_velvet_bow
+      - kitItemId: christmas.house_exterior.garland_evergreen
+        sortOrder: 2
+        anchorCategory: door_frame
+        anchors: [door_frame, porch_rail, column]
+        specText: mixed evergreen garland with pinecones following the door frame or rail
+        specAttributes:
+          category: garland
+          sizeRange: 6-9 ft
+          material: artificial evergreen, pinecones
+          colorFamily: green, brown
+          lit: false
+          indoorOutdoor: outdoor
+          countRange: 1-3
+        quantity: { subtle: [0, 1], classic: [1, 2], abundant: [2, 3] }
+        required: [classic]
+        currentProductId: prod_garland_evergreen_pinecone_9ft
+      - kitItemId: christmas.house_exterior.potted_evergreen_pair
+        sortOrder: 3
+        anchorCategory: porch_steps
+        anchors: [porch_steps, planter]
+        specText: a pair of potted evergreens three to four feet tall with warm-white lights flanking the entry beside the steps
+        specAttributes:
+          category: potted tree
+          sizeRange: 3-4 ft
+          material: artificial evergreen in pot, lights
+          colorFamily: green, warm white
+          lit: true
+          lightColor: warm white
+          indoorOutdoor: outdoor
+          countRange: '2'
+        quantity: { subtle: [0, 0], classic: [0, 1], abundant: [1, 1] }
+        required: []
+        currentProductId: prod_potted_evergreen_lit_pair_4ft
+      - kitItemId: christmas.house_exterior.lantern_flameless
+        sortOrder: 4
+        anchorCategory: porch_steps
+        anchors: [porch_steps, planter]
+        specText: a black metal lantern with a flameless pillar candle beside the entry, not on a step tread
+        specAttributes:
+          category: lantern
+          sizeRange: 12-20 in
+          material: black metal, glass, flameless pillar
+          colorFamily: black, warm white
+          lit: true
+          lightColor: warm white (flameless)
+          indoorOutdoor: outdoor
+          countRange: 1-2
+        quantity: { subtle: [0, 1], classic: [0, 2], abundant: [1, 2] }
+        required: []
+        currentProductId: prod_lantern_black_flameless_16in
+      - kitItemId: christmas.house_exterior.string_lights_warm_white
+        sortOrder: 5
+        anchorCategory: eaves
+        anchors: [eaves, roofline, porch_rail]
+        specText: outdoor warm-white LED string lights with evenly spaced bulbs following the eave line or rail
+        specAttributes:
+          category: string lights
+          sizeRange: 25-100 ft run
+          material: LED on green wire
+          colorFamily: warm white
+          lit: true
+          lightColor: warm white
+          indoorOutdoor: outdoor
+          countRange: 1-3 runs
+        quantity: { subtle: [0, 1], classic: [1, 2], abundant: [2, 3] }
+        required: [classic, abundant]
+        currentProductId: prod_led_string_warm_white_50ft
+      - kitItemId: christmas.house_exterior.window_wreath
+        sortOrder: 6
+        anchorCategory: window_frame
+        anchors: [window_frame]
+        specText: a small evergreen wreath with a red bow centered on each front window
+        specAttributes:
+          category: wreath
+          sizeRange: 12-16 in
+          material: artificial evergreen, bow
+          colorFamily: green, red
+          lit: false
+          indoorOutdoor: outdoor
+          countRange: 1-4
+        quantity: { subtle: [0, 0], classic: [0, 0], abundant: [1, 4] }
+        required: []
+        currentProductId: prod_window_wreath_14in_set
+  - kitId: christmas.apartment_entry
+    holidayId: christmas
+    sceneType: apartment_entry
+    version: 1.0.0
+    status: published
+    items:
+      - kitItemId: christmas.apartment_entry.door_wreath
+        sortOrder: 1
+        anchorCategory: unit_door
+        anchors: [unit_door]
+        specText: an 18 to 24 inch evergreen wreath with a red bow centered on the unit door below any number plate
+        specAttributes:
+          category: wreath
+          sizeRange: 18-24 in
+          material: artificial evergreen, bow
+          colorFamily: green, red
+          lit: false
+          indoorOutdoor: indoor_or_outdoor
+          countRange: '1'
+        quantity: { subtle: [1, 1], classic: [1, 1], abundant: [1, 1] }
+        required: [subtle, classic, abundant]
+        currentProductId: prod_wreath_evergreen_22in_bow
+      - kitItemId: christmas.apartment_entry.frame_garland_lit
+        sortOrder: 2
+        anchorCategory: door_frame
+        anchors: [door_frame]
+        specText: evergreen garland with battery warm-white lights along the top and sides of the door frame
+        specAttributes:
+          category: garland
+          sizeRange: about 9 ft
+          material: artificial evergreen, battery lights
+          colorFamily: green, warm white
+          lit: true
+          lightColor: warm white
+          indoorOutdoor: indoor_or_outdoor
+          countRange: '1'
+        quantity: { subtle: [0, 1], classic: [1, 1], abundant: [1, 1] }
+        required: [classic, abundant]
+        currentProductId: prod_garland_evergreen_battery_lit_9ft
+      - kitItemId: christmas.apartment_entry.lantern_pair
+        sortOrder: 3
+        anchorCategory: floor_area
+        anchors: [floor_area]
+        specText: a pair of small lanterns with flameless candles on the floor in the door's own alcove, clear of the corridor
+        specAttributes:
+          category: lantern
+          sizeRange: 10-14 in
+          material: metal, glass, flameless candle
+          colorFamily: black, warm white
+          lit: true
+          lightColor: warm white (flameless)
+          indoorOutdoor: indoor_or_outdoor
+          countRange: '2'
+        quantity: { subtle: [0, 0], classic: [0, 1], abundant: [1, 1] }
+        required: []
+        currentProductId: prod_lantern_pair_small_black
+      - kitItemId: christmas.apartment_entry.potted_evergreen_small
+        sortOrder: 4
+        anchorCategory: floor_area
+        anchors: [floor_area, planter]
+        specText: a small potted evergreen with warm-white lights beside the door, clear of the corridor
+        specAttributes:
+          category: potted tree
+          sizeRange: 2-3 ft
+          material: artificial evergreen, battery lights
+          colorFamily: green, warm white
+          lit: true
+          lightColor: warm white
+          indoorOutdoor: indoor_or_outdoor
+          countRange: '1'
+        quantity: { subtle: [0, 0], classic: [0, 1], abundant: [1, 1] }
+        required: []
+        currentProductId: prod_potted_evergreen_small_lit
+      - kitItemId: christmas.apartment_entry.banister_garland
+        sortOrder: 5
+        anchorCategory: banister
+        anchors: [banister]
+        specText: evergreen garland wrapped along the stair handrail of the user's stoop or entry stairs
+        specAttributes:
+          category: garland
+          sizeRange: about 9 ft
+          material: artificial evergreen
+          colorFamily: green
+          lit: false
+          indoorOutdoor: indoor_or_outdoor
+          countRange: '1'
+        quantity: { subtle: [0, 0], classic: [0, 1], abundant: [1, 1] }
+        required: []
+        currentProductId: prod_garland_evergreen_pinecone_9ft
+  - kitId: christmas.balcony
+    holidayId: christmas
+    sceneType: balcony
+    version: 1.0.0
+    status: published
+    items:
+      - kitItemId: christmas.balcony.railing_lights_warm_white
+        sortOrder: 1
+        anchorCategory: balcony_railing
+        anchors: [balcony_railing]
+        specText: battery warm-white LED string lights woven along the inside face of the user's own railing, below the top edge and ending at the balcony's own edge
+        specAttributes:
+          category: string lights
+          sizeRange: 10-25 ft
+          material: battery LED on clear wire
+          colorFamily: warm white
+          lit: true
+          lightColor: warm white
+          indoorOutdoor: outdoor
+          countRange: 1 run
+        quantity: { subtle: [0, 1], classic: [1, 1], abundant: [1, 1] }
+        required: [classic, abundant]
+        currentProductId: prod_battery_string_warm_white_20ft
+      - kitItemId: christmas.balcony.door_frame_garland
+        sortOrder: 2
+        anchorCategory: door_frame
+        anchors: [door_frame]
+        specText: mixed evergreen garland with small pinecones along the top and sides of the balcony door frame, leaving the opening clear
+        specAttributes:
+          category: garland
+          sizeRange: 6-9 ft
+          material: artificial evergreen, pinecones
+          colorFamily: green, brown
+          lit: false
+          indoorOutdoor: outdoor
+          countRange: '1'
+        quantity: { subtle: [0, 1], classic: [1, 1], abundant: [1, 1] }
+        required: []
+        currentProductId: prod_garland_evergreen_pinecone_9ft
+      - kitItemId: christmas.balcony.potted_evergreen_small
+        sortOrder: 3
+        anchorCategory: balcony_floor
+        anchors: [balcony_floor, planter]
+        specText: a 2 to 3 foot potted evergreen with warm-white battery lights in a corner of the balcony floor, clear of the door path
+        specAttributes:
+          category: potted tree
+          sizeRange: 2-3 ft
+          material: artificial evergreen, battery lights
+          colorFamily: green, warm white
+          lit: true
+          lightColor: warm white
+          indoorOutdoor: outdoor
+          countRange: 1-2
+        quantity: { subtle: [1, 1], classic: [1, 1], abundant: [1, 2] }
+        required: [subtle, classic, abundant]
+        currentProductId: prod_potted_evergreen_small_lit
+      - kitItemId: christmas.balcony.lantern_flameless
+        sortOrder: 4
+        anchorCategory: balcony_floor
+        anchors: [balcony_floor]
+        specText: one or two black metal lanterns with flameless pillar candles on the floor near the potted evergreen
+        specAttributes:
+          category: lantern
+          sizeRange: 12-20 in
+          material: black metal, glass, flameless pillar
+          colorFamily: black, warm white
+          lit: true
+          lightColor: warm white (flameless)
+          indoorOutdoor: outdoor
+          countRange: 1-2
+        quantity: { subtle: [0, 0], classic: [0, 1], abundant: [1, 1] }
+        required: []
+        currentProductId: prod_lantern_black_flameless_16in
+      - kitItemId: christmas.balcony.door_wreath
+        sortOrder: 5
+        anchorCategory: door_frame
+        anchors: [door_frame]
+        specText: a 16 to 20 inch evergreen wreath with a red bow hung at the top of the balcony door frame without covering the glass
+        specAttributes:
+          category: wreath
+          sizeRange: 16-20 in
+          material: artificial evergreen, bow
+          colorFamily: green, red
+          lit: false
+          indoorOutdoor: outdoor
+          countRange: '1'
+        quantity: { subtle: [0, 0], classic: [0, 1], abundant: [1, 1] }
+        required: []
+        currentProductId: prod_wreath_evergreen_22in_bow
+  - kitId: christmas.interior
+    holidayId: christmas
+    sceneType: interior
+    version: 1.0.0
+    status: published
+    items:
+      - kitItemId: christmas.interior.tree_prelit
+        sortOrder: 1
+        anchorCategory: floor_area
+        anchors: [floor_area]
+        specText: a pre-lit artificial evergreen tree with warm-white lights, red and gold ornaments and a simple topper, scaled to the visible ceiling height, standing on open floor beside a wall or window with circulation clear
+        specAttributes:
+          category: tree
+          sizeRange: 6-7.5 ft
+          material: artificial evergreen, pre-lit
+          colorFamily: green, warm white, red, gold
+          lit: true
+          lightColor: warm white
+          indoorOutdoor: indoor
+          countRange: '1'
+        quantity: { subtle: [0, 1], classic: [1, 1], abundant: [1, 1] }
+        required: [classic, abundant]
+        currentProductId: prod_tree_prelit_7ft
+      - kitItemId: christmas.interior.mantel_garland_lit
+        sortOrder: 2
+        anchorCategory: mantel
+        anchors: [mantel, interior_window]
+        specText: mixed evergreen garland with warm-white lights and pinecones along the mantel or window top
+        specAttributes:
+          category: garland
+          sizeRange: 6-9 ft
+          material: artificial evergreen, pinecones, lights
+          colorFamily: green, warm white
+          lit: true
+          lightColor: warm white
+          indoorOutdoor: indoor
+          countRange: 1-3
+        quantity: { subtle: [1, 1], classic: [1, 2], abundant: [2, 3] }
+        required: [subtle, classic, abundant]
+        currentProductId: prod_garland_evergreen_battery_lit_9ft
+      - kitItemId: christmas.interior.stockings
+        sortOrder: 3
+        anchorCategory: mantel
+        anchors: [mantel]
+        specText: three to four knit stockings in red, cream and green hung from the mantel edge
+        specAttributes:
+          category: stocking
+          sizeRange: 18-20 in
+          material: knit
+          colorFamily: red, cream, green
+          lit: false
+          indoorOutdoor: indoor
+          countRange: 3-4
+        quantity: { subtle: [0, 0], classic: [1, 1], abundant: [1, 1] }
+        required: []
+        currentProductId: prod_knit_stockings_set
+      - kitItemId: christmas.interior.table_centerpiece
+        sortOrder: 4
+        anchorCategory: dining_table
+        anchors: [dining_table]
+        specText: a low evergreen centerpiece with pinecones, red berries and flameless pillar candles along the table center
+        specAttributes:
+          category: centerpiece
+          sizeRange: 24-36 in
+          material: artificial evergreen, berries, flameless candles
+          colorFamily: green, red, white
+          lit: true
+          lightColor: warm white (flameless)
+          indoorOutdoor: indoor
+          countRange: '1'
+        quantity: { subtle: [1, 1], classic: [1, 1], abundant: [1, 2] }
+        required: [subtle, classic, abundant]
+        currentProductId: prod_evergreen_centerpiece_candles
+      - kitItemId: christmas.interior.sideboard_arrangement
+        sortOrder: 5
+        anchorCategory: sideboard
+        anchors: [sideboard, shelf]
+        specText: a small evergreen arrangement with gold ornaments and a flameless candle on the sideboard
+        specAttributes:
+          category: arrangement
+          sizeRange: 12-18 in
+          material: artificial evergreen, ornaments, flameless candle
+          colorFamily: green, gold
+          lit: true
+          lightColor: warm white (flameless)
+          indoorOutdoor: indoor
+          countRange: 1-2
+        quantity: { subtle: [0, 1], classic: [1, 1], abundant: [1, 2] }
+        required: []
+        currentProductId: prod_evergreen_arrangement_gold
+      - kitItemId: christmas.interior.wrapped_gifts
+        sortOrder: 6
+        anchorCategory: floor_area
+        anchors: [floor_area]
+        specText: a few wrapped gifts in red, gold and cream paper under the tree
+        specAttributes:
+          category: gift wrap
+          sizeRange: boxes 6-14 in
+          material: paper, ribbon
+          colorFamily: red, gold, cream
+          lit: false
+          indoorOutdoor: indoor
+          countRange: 3-6
+        quantity: { subtle: [0, 0], classic: [0, 3], abundant: [3, 6] }
+        required: []
+        currentProductId: prod_decorative_gift_boxes

@@ -1,0 +1,17 @@
+packages:
+  - 'apps/*'
+  - 'packages/*'
+
+onlyBuiltDependencies:
+  - esbuild
+  - sharp
+
+# Security floors. Playwright below 1.55.1 downloads browsers without verifying TLS
+# certificates (GHSA-7mvr-c777-76hp); every copy in the workspace is pinned to the
+# current patched release. minimatch below 11.0.1 allows a denial of service through
+# glob-part amplification (GHSA-g3hv-75wg-m249).
+overrides:
+  '@playwright/test': 1.65.0
+  playwright: 1.65.0
+  playwright-core: 1.65.0
+  minimatch@>=7.0.0 <11.0.1: '>=11.0.1'

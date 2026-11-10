@@ -1,0 +1,364 @@
+# Holiday pack thanksgiving_us.US (Thanksgiving).
+# Normative schema: docs/specs/holidays-and-content.md, "Pack schema". Validated by HolidayPackSchema in @holiday/core.
+# quantity: { <style>: [min, max] } counts instances (runs for lights and garland) per style;
+# required lists the styles in which the archetype must appear whenever one of its anchors is eligible.
+# priority is omitted: list order is the placement priority (1 = first).
+# Spec attributes and product mapping for each kit item live in ../kits/thanksgiving_us.yaml.
+# Any change that can alter a decoration plan or compiled instruction is at least a MINOR version bump.
+
+id: thanksgiving_us.US
+version: 1.0.1
+holidayId: thanksgiving_us
+region: US
+displayName: Thanksgiving
+journeyEmphasis: interior
+traditionNotes: 'Harvest and gathering: autumn-leaf wreaths and garland, pumpkins and gourds, chrysanthemums, wheat and corn stalks outdoors, and a set table with flameless candlelight indoors. No Pilgrim, Native American or other costume or caricature imagery; no electric lights outdoors; no Christmas or Halloween items.'
+lightingPolicy:
+  bySceneType:
+    house_exterior: { default: source, offered: [source] }
+    apartment_entry: { default: source, offered: [source] }
+    balcony: { default: source, offered: [source] }
+    interior: { default: source, offered: [source, evening] }
+  eveningGuidance: 'Interiors only. Daylight at the windows falls to dusk; flameless candles and existing lamps carry the room with warm, low light across the table and soft contact light on the runner and centerpiece; no other light source.'
+climateRule:
+  sourcePrecedence: [scene_analysis, address_region, neutral]
+  snow: only_if_visible_in_source
+  coldClimateOnlyItems: []
+existingDecorPolicy: preserve_and_complement
+forbidden:
+  - people
+  - pets
+  - text_or_signage
+  - house_number_changes
+  - new_structures
+  - structural_changes
+  - landscaping_changes
+  - neighbor_decor
+  - blocked_access
+  - brand_logos
+  - cartoon_or_licensed_characters
+  - mascots_and_inflatables
+  - snow_or_frost_unless_visible
+  - sky_effects
+  - religious_symbols
+  - open_flame_indoors
+  - costume_caricature
+sceneSections:
+  house_exterior:
+    buildingForms: [detached, attached, other]
+    formRules:
+      attached:
+        excludeAnchors: [lawn]
+        note: placements stay within the target unit's facade span
+      other: { excludeAnchors: [roofline, eaves, lawn] }
+    anchors:
+      - front_door
+      - door_frame
+      - porch_rail
+      - porch_steps
+      - roofline
+      - eaves
+      - window_frame
+      - column
+      - walkway_edge
+      - planter
+      - lawn
+    preserve:
+      - roofline shape
+      - window and door positions
+      - siding and trim color
+      - steps
+      - landscaping
+      - sky
+      - neighbors
+      - house numbers
+      - existing blur regions
+    keepClear:
+      - door swing
+      - step treads
+      - walkway surface
+      - driveway
+      - mailbox face
+    limits:
+      maxPlacements: { subtle: 3, classic: 6, abundant: 10 }
+      overlapTolerance: 0.1
+      groundMarginFraction: 0.03
+      edgeMarginFraction: 0.02
+    kitId: thanksgiving_us.house_exterior
+    kit:
+      - kitItemId: thanksgiving_us.house_exterior.wreath_autumn
+        archetype: wreath
+        anchors: [front_door]
+        attachment: hung
+        placementRule: centered_on
+        specText: a 22 to 26 inch wreath of orange and russet maple leaves with small pinecones and wheat, centered on the existing front door
+        quantity: { subtle: [1, 1], classic: [1, 1], abundant: [1, 1] }
+        required: [subtle, classic, abundant]
+      - kitItemId: thanksgiving_us.house_exterior.garland_harvest
+        archetype: garland
+        anchors: [porch_rail, door_frame, column]
+        attachment: draped
+        placementRule: along
+        specText: amber and rust leaf garland with small gourds following the visible rail or door frame
+        quantity: { subtle: [0, 1], classic: [1, 1], abundant: [1, 3] }
+        required: [classic]
+      - kitItemId: thanksgiving_us.house_exterior.pumpkin_group
+        archetype: pumpkins
+        anchors: [porch_steps, planter]
+        attachment: placed
+        placementRule: beside
+        specText: a group of two to four uncarved orange and white pumpkins and gourds beside the entry, not on a step tread
+        quantity: { subtle: [1, 1], classic: [1, 2], abundant: [2, 3] }
+        required: [classic, abundant]
+      - kitItemId: thanksgiving_us.house_exterior.mums_potted
+        archetype: potted_plant
+        anchors: [porch_steps, planter, walkway_edge]
+        attachment: standing
+        placementRule: beside
+        specText: potted chrysanthemums in rust, gold and burgundy beside the steps or in existing planters
+        quantity: { subtle: [0, 1], classic: [1, 2], abundant: [2, 4] }
+        required: []
+      - kitItemId: thanksgiving_us.house_exterior.corn_stalks
+        archetype: stalk_bundle
+        anchors: [column, porch_rail]
+        attachment: wrapped
+        placementRule: beside
+        specText: a bundle of dried corn stalks tied to a porch post
+        quantity: { subtle: [0, 0], classic: [0, 0], abundant: [1, 2] }
+        required: []
+    promptFragments:
+      scene: a tasteful US Thanksgiving harvest display added to the confirmed target home in its existing daylight
+      preserve: keep the same camera position, crop, perspective and lens, the roof outline, doors, windows, siding color and texture, trim, steps, railings, landscaping, sky, time of day, parked vehicles and every neighboring building exactly as photographed
+      negative: no electric lights, no Christmas or Halloween items, no Pilgrim or Native American figures or costume imagery, no text, no people, no snow unless present, no new structures, nothing on neighboring homes
+  apartment_entry:
+    anchors: [unit_door, door_frame, floor_area, planter, banister, wall]
+    preserve:
+      - the door and its hardware
+      - unit numbers and nameplates
+      - corridor walls and floor
+      - neighboring doors
+      - lighting fixtures
+      - signage
+    keepClear:
+      - the door swing
+      - the corridor or stair path
+      - neighboring doors
+      - fire equipment
+    limits:
+      maxPlacements: { subtle: 2, classic: 4, abundant: 5 }
+      overlapTolerance: 0.1
+    kitId: thanksgiving_us.apartment_entry
+    kit:
+      - kitItemId: thanksgiving_us.apartment_entry.wreath_autumn
+        archetype: wreath
+        anchors: [unit_door]
+        attachment: hung
+        placementRule: centered_on
+        specText: an 18 to 22 inch wreath of orange, russet and gold faux maple leaves with small pinecones and wheat stems, centered on the unit door below any number plate
+        quantity: { subtle: [1, 1], classic: [1, 1], abundant: [1, 1] }
+        required: [subtle, classic, abundant]
+      - kitItemId: thanksgiving_us.apartment_entry.frame_garland_harvest
+        archetype: garland
+        anchors: [door_frame]
+        attachment: draped
+        placementRule: along
+        specText: a slim garland of amber and rust faux leaves with small gourds along the top of the door frame, never across the opening
+        quantity: { subtle: [0, 1], classic: [1, 1], abundant: [1, 1] }
+        required: [classic, abundant]
+      - kitItemId: thanksgiving_us.apartment_entry.pumpkin_group_alcove
+        archetype: pumpkins
+        anchors: [floor_area, planter]
+        attachment: placed
+        placementRule: cluster_at
+        specText: a compact group of two or three small uncarved orange and white pumpkins at one side of the door's own alcove, clear of the corridor
+        quantity: { subtle: [0, 1], classic: [1, 1], abundant: [1, 1] }
+        required: []
+      - kitItemId: thanksgiving_us.apartment_entry.mum_potted
+        archetype: potted_plant
+        anchors: [floor_area, planter]
+        attachment: standing
+        placementRule: cluster_at
+        specText: one potted chrysanthemum in rust or gold in a plain terracotta pot beside the door, clear of the corridor
+        quantity: { subtle: [0, 0], classic: [0, 1], abundant: [1, 1] }
+        required: []
+    promptFragments:
+      scene: a warm Thanksgiving harvest welcome at the user's own apartment door
+      preserve: keep the camera position and crop, the door, its number plate, peephole and hardware, the corridor walls and floor, neighboring doors, light fixtures, signage and fire equipment exactly as photographed
+      negative: no electric lights, nothing on neighboring doors, nothing in the corridor path, no Christmas or Halloween items, no Pilgrim or Native American figures or costume imagery, no text, no people
+  balcony:
+    anchors: [balcony_railing, balcony_floor, door_frame, planter, wall]
+    preserve:
+      - railing structure
+      - floor
+      - balcony door
+      - exterior wall
+      - neighboring balconies and units
+      - view beyond the railing
+    keepClear:
+      - balcony door swing
+      - the path from the door to the railing
+      - the railing top edge
+    limits:
+      maxPlacements: { subtle: 3, classic: 5, abundant: 7 }
+      overlapTolerance: 0.1
+    kitId: thanksgiving_us.balcony
+    kit:
+      - kitItemId: thanksgiving_us.balcony.door_wreath_autumn
+        archetype: wreath
+        anchors: [door_frame]
+        attachment: hung
+        placementRule: centered_on
+        specText: a 16 to 20 inch wreath of orange and russet faux maple leaves with wheat stems hung on the balcony door frame without blocking the door
+        quantity: { subtle: [0, 1], classic: [1, 1], abundant: [1, 1] }
+        required: []
+      - kitItemId: thanksgiving_us.balcony.pumpkin_gourd_group
+        archetype: pumpkins
+        anchors: [balcony_floor, planter]
+        attachment: placed
+        placementRule: cluster_at
+        specText: a group of three to five uncarved orange, white and green pumpkins and gourds on the floor near a railing corner, clear of the door path
+        quantity: { subtle: [1, 1], classic: [1, 1], abundant: [1, 2] }
+        required: [subtle, classic, abundant]
+      - kitItemId: thanksgiving_us.balcony.mums_potted
+        archetype: potted_plant
+        anchors: [balcony_floor, planter]
+        attachment: standing
+        placementRule: cluster_at
+        specText: one or two potted chrysanthemums in rust, gold or burgundy on the floor or in an existing planter
+        quantity: { subtle: [0, 1], classic: [1, 1], abundant: [1, 2] }
+        required: []
+      - kitItemId: thanksgiving_us.balcony.railing_garland_harvest
+        archetype: garland
+        anchors: [balcony_railing]
+        attachment: draped
+        placementRule: along
+        specText: a garland of amber and rust faux leaves woven along the inside face of the user's own railing, below the top edge and ending at the balcony's own edge
+        quantity: { subtle: [0, 0], classic: [0, 1], abundant: [1, 1] }
+        required: []
+    promptFragments:
+      scene: a tasteful US Thanksgiving harvest display on the user's own balcony in its existing daylight
+      preserve: keep the camera position and crop, the railing structure, floor, balcony door and glass, exterior wall, the view beyond the railing and every neighboring balcony and unit exactly as photographed
+      negative: no electric lights, no items on the railing top edge, nothing on neighboring balconies or railings, no Christmas or Halloween items, no costume imagery, no text, no people
+  interior:
+    roomTypes: [dining_room, living_room, entryway, kitchen, bedroom, other]
+    anchors:
+      - mantel
+      - dining_table
+      - sideboard
+      - interior_window
+      - wall
+      - floor_area
+      - shelf
+      - banister
+    roomRules:
+      dining_room:
+        anchors: [dining_table, sideboard, interior_window, wall, shelf]
+      living_room: { anchors: [mantel, interior_window, shelf] }
+      entryway: { anchors: [banister, wall, shelf] }
+      kitchen: { anchors: [dining_table, interior_window, shelf] }
+      bedroom: { anchors: [interior_window, shelf] }
+      other: { anchors: [interior_window, shelf] }
+    preserve:
+      - walls
+      - windows
+      - doors
+      - flooring
+      - ceiling
+      - furniture positions
+      - existing light fixtures
+      - artwork and photographs
+      - existing blur regions
+    keepClear:
+      - doorways
+      - circulation paths
+      - stair treads
+      - stove and sink
+      - seating surfaces
+    limits:
+      maxPlacements: { subtle: 3, classic: 6, abundant: 10 }
+      overlapTolerance: 0.1
+    kitId: thanksgiving_us.interior
+    kit:
+      - kitItemId: thanksgiving_us.interior.table_runner
+        archetype: table_linen
+        anchors: [dining_table]
+        attachment: draped
+        placementRule: on_surface
+        specText: a woven linen table runner in rust or mustard along the center of the existing table
+        quantity: { subtle: [1, 1], classic: [1, 1], abundant: [1, 1] }
+        required: [subtle, classic, abundant]
+      - kitItemId: thanksgiving_us.interior.centerpiece_low
+        archetype: centerpiece
+        anchors: [dining_table]
+        attachment: placed
+        placementRule: on_surface
+        specText: a low centerpiece of small pumpkins, gourds, eucalyptus and autumn leaves that keeps sightlines across the table
+        quantity: { subtle: [1, 1], classic: [1, 1], abundant: [1, 2] }
+        required: [subtle, classic, abundant]
+      - kitItemId: thanksgiving_us.interior.candles_flameless
+        archetype: candles
+        anchors: [dining_table, sideboard, mantel]
+        attachment: placed
+        placementRule: on_surface
+        specText: a set of flameless taper and pillar candles in brass or glass holders with a warm glow
+        quantity: { subtle: [0, 2], classic: [2, 4], abundant: [4, 8] }
+        required: [classic, abundant]
+      - kitItemId: thanksgiving_us.interior.place_accents
+        archetype: napkins
+        anchors: [dining_table]
+        attachment: placed
+        placementRule: on_surface
+        specText: cloth napkins in autumn tones with simple rings at each existing place setting
+        quantity: { subtle: [0, 0], classic: [1, 1], abundant: [1, 1] }
+        required: []
+      - kitItemId: thanksgiving_us.interior.sideboard_harvest
+        archetype: arrangement
+        anchors: [sideboard, shelf, mantel]
+        attachment: placed
+        placementRule: on_surface
+        specText: a harvest arrangement of leaves, small pumpkins and wheat on the sideboard
+        quantity: { subtle: [0, 1], classic: [1, 1], abundant: [1, 2] }
+        required: []
+      - kitItemId: thanksgiving_us.interior.window_garland
+        archetype: garland
+        anchors: [interior_window]
+        attachment: draped
+        placementRule: along
+        specText: autumn leaf garland along the window top
+        quantity: { subtle: [0, 0], classic: [0, 1], abundant: [1, 2] }
+        required: []
+    promptFragments:
+      scene: a warm US Thanksgiving table and room added to the existing dining room
+      preserve: keep the camera position and crop, walls and wall color, windows, doors, flooring, ceiling, furniture and its positions, chairs, rugs, artwork, photographs and existing light fixtures exactly as photographed
+      negative: no open flames, no Christmas or Halloween items, no Pilgrim or Native American figures or costume imagery, no text, no people or pets, no new furniture, no food unless already on the table
+heroRefs:
+  - heroAssetId: hero.thanksgiving_us.dining_room.v1
+    orientation: landscape
+  - heroAssetId: hero.thanksgiving_us.dining_room.v1
+    orientation: portrait
+exampleRefs:
+  - exampleAssetId: example.thanksgiving_us.house_exterior.classic.source.v1
+    sceneType: house_exterior
+    style: classic
+    lightingMode: source
+  - exampleAssetId: example.thanksgiving_us.apartment_entry.classic.source.v1
+    sceneType: apartment_entry
+    style: classic
+    lightingMode: source
+  - exampleAssetId: example.thanksgiving_us.balcony.classic.source.v1
+    sceneType: balcony
+    style: classic
+    lightingMode: source
+  - exampleAssetId: example.thanksgiving_us.interior.classic.source.v1
+    sceneType: interior
+    style: classic
+    lightingMode: source
+  - exampleAssetId: example.thanksgiving_us.interior.classic.evening.v1
+    sceneType: interior
+    style: classic
+    lightingMode: evening
+review:
+  checklistVersion: 1
+  approvedBy: [editorial_lead, second_approver]
+  approvedAt: null
+  goldenRunId: null

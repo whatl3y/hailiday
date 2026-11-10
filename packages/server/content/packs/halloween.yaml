@@ -1,0 +1,379 @@
+# Holiday pack halloween.US (Halloween).
+# Normative schema: docs/specs/holidays-and-content.md, "Pack schema". Validated by HolidayPackSchema in @holiday/core.
+# quantity: { <style>: [min, max] } counts instances (runs for lights and garland) per style;
+# required lists the styles in which the archetype must appear whenever one of its anchors is eligible.
+# priority is omitted: list order is the placement priority (1 = first).
+# Spec attributes and product mapping for each kit item live in ../kits/halloween.yaml.
+# Any change that can alter a decoration plan or compiled instruction is at least a MINOR version bump.
+
+id: halloween.US
+version: 1.0.1
+holidayId: halloween
+region: US
+displayName: Halloween
+journeyEmphasis: exterior
+traditionNotes: "Playful and autumnal: jack-o'-lanterns with friendly or classic faces, pumpkins and gourds, restrained cobwebs, bat silhouettes, lanterns, harvest plants, orange and purple light. No gore, no realistic weapons or corpses, no cartoon or licensed characters, no Día de los Muertos motifs, no religious imagery."
+lightingPolicy:
+  bySceneType:
+    house_exterior: { default: source, offered: [source, evening] }
+    apartment_entry: { default: source, offered: [source] }
+    balcony: { default: source, offered: [source, evening] }
+    interior: { default: source, offered: [source, evening] }
+  eveningGuidance: "Jack-o'-lanterns glow from inside with a warm amber flicker; orange and purple string lights cast a restrained colored glow on the rails and walls they touch; the ambient tone is cooler than a Christmas dusk; no fog and nothing added to the sky."
+climateRule:
+  sourcePrecedence: [scene_analysis, address_region, neutral]
+  snow: only_if_visible_in_source
+  coldClimateOnlyItems: []
+existingDecorPolicy: preserve_and_complement
+forbidden:
+  - people
+  - pets
+  - text_or_signage
+  - house_number_changes
+  - new_structures
+  - structural_changes
+  - landscaping_changes
+  - neighbor_decor
+  - blocked_access
+  - brand_logos
+  - cartoon_or_licensed_characters
+  - mascots_and_inflatables
+  - snow_or_frost_unless_visible
+  - sky_effects
+  - religious_symbols
+  - open_flame_indoors
+  - gore
+  - realistic_weapons
+sceneSections:
+  house_exterior:
+    buildingForms: [detached, attached, other]
+    formRules:
+      attached:
+        excludeAnchors: [lawn]
+        note: placements stay within the target unit's facade span
+      other: { excludeAnchors: [roofline, eaves, lawn] }
+    anchors:
+      - front_door
+      - door_frame
+      - porch_rail
+      - porch_steps
+      - roofline
+      - eaves
+      - window_frame
+      - column
+      - walkway_edge
+      - planter
+      - lawn
+    preserve:
+      - roofline shape
+      - window and door positions
+      - siding and trim color
+      - steps
+      - landscaping
+      - sky
+      - neighbors
+      - house numbers
+      - existing blur regions
+    keepClear:
+      - door swing
+      - step treads
+      - walkway surface
+      - driveway
+      - mailbox face
+    limits:
+      maxPlacements: { subtle: 3, classic: 6, abundant: 10 }
+      overlapTolerance: 0.1
+      groundMarginFraction: 0.03
+      edgeMarginFraction: 0.02
+    kitId: halloween.house_exterior
+    kit:
+      - kitItemId: halloween.house_exterior.jack_o_lanterns
+        archetype: carved_pumpkins
+        anchors: [porch_steps, planter, walkway_edge]
+        attachment: placed
+        placementRule: beside
+        specText: two to four carved orange pumpkins with simple friendly or classic triangle-eye faces, lit from inside by flameless candles, beside the steps or path, not on a tread
+        quantity: { subtle: [1, 1], classic: [1, 2], abundant: [2, 3] }
+        required: [subtle, classic, abundant]
+      - kitItemId: halloween.house_exterior.pumpkin_group
+        archetype: pumpkins
+        anchors: [porch_steps, planter]
+        attachment: placed
+        placementRule: beside
+        specText: a group of three to five uncarved orange and white pumpkins of mixed sizes with a few green-striped gourds beside the entry
+        quantity: { subtle: [0, 1], classic: [1, 1], abundant: [1, 2] }
+        required: []
+      - kitItemId: halloween.house_exterior.cobwebs
+        archetype: cobweb
+        anchors: [porch_rail, column, door_frame]
+        attachment: stretched
+        placementRule: along
+        specText: thin stretched white synthetic cobweb across one railing corner or wrapped loosely around the top of a porch post, never across the door opening
+        quantity: { subtle: [0, 0], classic: [1, 2], abundant: [2, 3] }
+        required: []
+      - kitItemId: halloween.house_exterior.string_lights_orange_purple
+        archetype: string_lights
+        anchors: [eaves, porch_rail, door_frame]
+        attachment: strung
+        placementRule: along
+        specText: outdoor LED string lights alternating orange and purple bulbs on black wire, evenly spaced along the eave line or porch rail
+        quantity: { subtle: [0, 0], classic: [0, 1], abundant: [1, 2] }
+        required: []
+      - kitItemId: halloween.house_exterior.mums_and_corn
+        archetype: potted_plant_and_stalks
+        anchors: [porch_steps, planter, column]
+        attachment: standing
+        placementRule: beside
+        specText: a potted chrysanthemum in rust and gold beside a tied bundle of tan dried corn stalks standing against a post or beside the steps
+        quantity: { subtle: [0, 1], classic: [1, 1], abundant: [1, 2] }
+        required: []
+      - kitItemId: halloween.house_exterior.skeleton_stylized
+        archetype: figure
+        anchors: [lawn, porch_steps]
+        attachment: standing
+        placementRule: beside
+        specText: one stylized bone-white plastic skeleton about five feet tall, seated or standing beside the steps or on the lawn, clean with no blood or damage
+        quantity: { subtle: [0, 0], classic: [0, 0], abundant: [0, 1] }
+        required: []
+    promptFragments:
+      scene: a playful, tasteful US Halloween display added to the confirmed target home
+      preserve: keep the same camera position, crop, perspective and lens, the roof outline, doors, windows, siding color and texture, trim, steps, railings, landscaping, sky, time of day, parked vehicles and every neighboring building exactly as photographed
+      negative: no gore, blood, weapons, corpses or tombstones, no cartoon or licensed characters, no inflatables, no sugar skulls, no text, no people, no fog or sky effects, no snow unless present, no new structures, nothing on neighboring homes
+  apartment_entry:
+    anchors: [unit_door, door_frame, floor_area, planter, banister, wall]
+    preserve:
+      - the door and its hardware
+      - unit numbers and nameplates
+      - corridor walls and floor
+      - neighboring doors
+      - lighting fixtures
+      - signage
+    keepClear:
+      - the door swing
+      - the corridor or stair path
+      - neighboring doors
+      - fire equipment
+    limits:
+      maxPlacements: { subtle: 2, classic: 4, abundant: 5 }
+      overlapTolerance: 0.1
+    kitId: halloween.apartment_entry
+    kit:
+      - kitItemId: halloween.apartment_entry.door_wreath
+        archetype: wreath
+        anchors: [unit_door]
+        attachment: hung
+        placementRule: centered_on
+        specText: a 16 to 20 inch wreath of matte black and deep orange faux leaves with a few mini orange and white pumpkins, centered on the unit door below any number plate
+        quantity: { subtle: [1, 1], classic: [1, 1], abundant: [1, 1] }
+        required: [subtle, classic, abundant]
+      - kitItemId: halloween.apartment_entry.jack_o_lantern_pair
+        archetype: carved_pumpkins
+        anchors: [floor_area, planter]
+        attachment: placed
+        placementRule: cluster_at
+        specText: two small carved foam pumpkins with friendly faces lit by flameless tea lights, set together at one side of the door's own alcove, clear of the corridor
+        quantity: { subtle: [0, 1], classic: [1, 1], abundant: [1, 1] }
+        required: [classic, abundant]
+      - kitItemId: halloween.apartment_entry.cobweb_frame
+        archetype: cobweb
+        anchors: [door_frame]
+        attachment: stretched
+        placementRule: along
+        specText: a thin stretch of white synthetic cobweb across one upper corner of the door frame, never across the door opening or the number plate
+        quantity: { subtle: [0, 0], classic: [0, 1], abundant: [1, 1] }
+        required: []
+      - kitItemId: halloween.apartment_entry.bat_silhouettes
+        archetype: wall_decal
+        anchors: [wall]
+        attachment: hung
+        placementRule: cluster_at
+        specText: eight to twelve flat matte-black paper bat silhouettes in a loose rising cluster on the wall beside the door, clear of the number plate and fixtures
+        quantity: { subtle: [0, 0], classic: [0, 1], abundant: [1, 1] }
+        required: []
+    promptFragments:
+      scene: a playful, tasteful Halloween welcome at the user's own apartment door
+      preserve: keep the camera position and crop, the door, its number plate, peephole and hardware, the corridor walls and floor, neighboring doors, light fixtures, signage and fire equipment exactly as photographed
+      negative: nothing on neighboring doors, nothing in the corridor path, no gore, blood or weapons, no cartoon or licensed characters, no inflatables, no text, no people
+  balcony:
+    anchors: [balcony_railing, balcony_floor, door_frame, planter, wall]
+    preserve:
+      - railing structure
+      - floor
+      - balcony door
+      - exterior wall
+      - neighboring balconies and units
+      - view beyond the railing
+    keepClear:
+      - balcony door swing
+      - the path from the door to the railing
+      - the railing top edge
+    limits:
+      maxPlacements: { subtle: 3, classic: 5, abundant: 7 }
+      overlapTolerance: 0.1
+    kitId: halloween.balcony
+    kit:
+      - kitItemId: halloween.balcony.railing_lights
+        archetype: string_lights
+        anchors: [balcony_railing]
+        attachment: strung
+        placementRule: along
+        specText: battery LED string lights in orange or warm white woven along the inside of the railing, ending at the balcony's own edge
+        quantity: { subtle: [0, 1], classic: [1, 1], abundant: [1, 1] }
+        required: [classic, abundant]
+      - kitItemId: halloween.balcony.jack_o_lanterns_small
+        archetype: carved_pumpkins
+        anchors: [balcony_floor, planter]
+        attachment: placed
+        placementRule: cluster_at
+        specText: one to three small carved pumpkins with friendly faces lit by flameless candles on the floor near a railing corner
+        quantity: { subtle: [1, 1], classic: [1, 2], abundant: [2, 3] }
+        required: [subtle, classic, abundant]
+      - kitItemId: halloween.balcony.cobwebs
+        archetype: cobweb
+        anchors: [balcony_railing, door_frame]
+        attachment: stretched
+        placementRule: along
+        specText: stretched white synthetic cobweb across one railing corner or the top of the door frame
+        quantity: { subtle: [0, 0], classic: [0, 1], abundant: [1, 2] }
+        required: []
+      - kitItemId: halloween.balcony.door_wreath
+        archetype: wreath
+        anchors: [door_frame]
+        attachment: hung
+        placementRule: centered_on
+        specText: a small wreath of black and orange leaves with mini pumpkins hung on the balcony door frame
+        quantity: { subtle: [0, 1], classic: [1, 1], abundant: [1, 1] }
+        required: []
+      - kitItemId: halloween.balcony.mums_potted
+        archetype: potted_plant
+        anchors: [balcony_floor, planter]
+        attachment: standing
+        placementRule: cluster_at
+        specText: a potted chrysanthemum in rust or gold on the floor or in an existing planter
+        quantity: { subtle: [0, 1], classic: [1, 1], abundant: [1, 2] }
+        required: []
+      - kitItemId: halloween.balcony.bat_silhouettes
+        archetype: wall_decal
+        anchors: [wall]
+        attachment: hung
+        placementRule: cluster_at
+        specText: a small cluster of flat black paper bat silhouettes on the wall beside the door
+        quantity: { subtle: [0, 0], classic: [0, 0], abundant: [1, 1] }
+        required: []
+    promptFragments:
+      scene: a playful, tasteful US Halloween display on the user's own balcony
+      preserve: keep the camera position and crop, the railing structure, floor, balcony door and glass, exterior wall, the view beyond the railing and every neighboring balcony and unit exactly as photographed
+      negative: no items on the railing top edge, nothing on neighboring balconies or railings, no gore or weapons, no cartoon characters, no inflatables, no text, no people, no sky effects
+  interior:
+    roomTypes: [dining_room, living_room, entryway, kitchen, bedroom, other]
+    anchors:
+      - mantel
+      - dining_table
+      - sideboard
+      - interior_window
+      - wall
+      - floor_area
+      - shelf
+      - banister
+    roomRules:
+      dining_room:
+        anchors: [dining_table, sideboard, interior_window, wall, shelf]
+      living_room: { anchors: [mantel, floor_area, interior_window, wall, shelf] }
+      entryway: { anchors: [banister, floor_area, wall, shelf] }
+      kitchen: { anchors: [dining_table, interior_window, shelf] }
+      bedroom: { anchors: [interior_window, wall, shelf] }
+      other: { anchors: [interior_window, wall, shelf] }
+    preserve:
+      - walls
+      - windows
+      - doors
+      - flooring
+      - ceiling
+      - furniture positions
+      - existing light fixtures
+      - artwork and photographs
+      - existing blur regions
+    keepClear:
+      - doorways
+      - circulation paths
+      - stair treads
+      - stove and sink
+      - seating surfaces
+    limits:
+      maxPlacements: { subtle: 3, classic: 6, abundant: 10 }
+      overlapTolerance: 0.1
+    kitId: halloween.interior
+    kit:
+      - kitItemId: halloween.interior.garland_black_orange
+        archetype: garland
+        anchors: [mantel, interior_window, banister]
+        attachment: draped
+        placementRule: along
+        specText: a garland of matte black and burnt-orange faux leaves with small black berries draped along the mantel edge, window top or stair rail
+        quantity: { subtle: [1, 1], classic: [1, 1], abundant: [1, 2] }
+        required: [subtle, classic, abundant]
+      - kitItemId: halloween.interior.pumpkin_gourd_grouping
+        archetype: pumpkins
+        anchors: [dining_table, sideboard, mantel, shelf]
+        attachment: placed
+        placementRule: on_surface
+        specText: a low grouping of three to five small pumpkins and gourds in orange, cream and deep green with a few dried leaves
+        quantity: { subtle: [1, 1], classic: [1, 2], abundant: [2, 3] }
+        required: [subtle, classic, abundant]
+      - kitItemId: halloween.interior.candles_flameless_dark
+        archetype: candles
+        anchors: [dining_table, sideboard, mantel]
+        attachment: placed
+        placementRule: on_surface
+        specText: three flameless pillar candles of varied heights in matte black metal holders, glowing warm amber
+        quantity: { subtle: [0, 1], classic: [1, 1], abundant: [1, 2] }
+        required: [classic, abundant]
+      - kitItemId: halloween.interior.bat_silhouettes_wall
+        archetype: wall_decal
+        anchors: [wall]
+        attachment: hung
+        placementRule: cluster_at
+        specText: ten to fifteen flat matte-black paper bat silhouettes in a loose rising cluster on a clear wall area, away from artwork, photographs and fixtures
+        quantity: { subtle: [0, 0], classic: [0, 1], abundant: [1, 1] }
+        required: []
+      - kitItemId: halloween.interior.cobweb_shelf
+        archetype: cobweb
+        anchors: [shelf, interior_window]
+        attachment: stretched
+        placementRule: along
+        specText: a thin stretch of white synthetic cobweb across one corner of an open shelf or window frame
+        quantity: { subtle: [0, 0], classic: [0, 0], abundant: [1, 1] }
+        required: []
+    promptFragments:
+      scene: a playful, tasteful US Halloween look added to the room in the photo
+      preserve: keep the camera position and crop, walls and wall color, windows, doors, flooring, ceiling, furniture and its positions, chairs, rugs, artwork, photographs and existing light fixtures exactly as photographed
+      negative: no gore, blood, weapons or skulls, no cartoon or licensed characters, no toys, no text, no people or pets, no open flames, no new furniture, no changed wall color
+heroRefs:
+  - { heroAssetId: hero.halloween.porch.v1, orientation: landscape }
+  - { heroAssetId: hero.halloween.porch.v1, orientation: portrait }
+exampleRefs:
+  - exampleAssetId: example.halloween.house_exterior.classic.source.v1
+    sceneType: house_exterior
+    style: classic
+    lightingMode: source
+  - exampleAssetId: example.halloween.house_exterior.classic.evening.v1
+    sceneType: house_exterior
+    style: classic
+    lightingMode: evening
+  - exampleAssetId: example.halloween.apartment_entry.classic.source.v1
+    sceneType: apartment_entry
+    style: classic
+    lightingMode: source
+  - exampleAssetId: example.halloween.balcony.classic.source.v1
+    sceneType: balcony
+    style: classic
+    lightingMode: source
+  - exampleAssetId: example.halloween.interior.classic.source.v1
+    sceneType: interior
+    style: classic
+    lightingMode: source
+review:
+  checklistVersion: 1
+  approvedBy: [editorial_lead, second_approver]
+  approvedAt: null
+  goldenRunId: null

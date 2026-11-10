@@ -1,0 +1,377 @@
+# Style kits for halloween.US (commerce side of Shop the look).
+# Specs: docs/specs/holidays-and-content.md "Style kits" and docs/specs/commerce.md "Style kits and products".
+# kitItemId, anchors, specText, quantity and required mirror ../packs/halloween.yaml exactly; the loader
+# cross-checks them. anchorCategory is the primary anchor; sortOrder is placement prominence
+# (door, porch, roofline, then accents). specAttributes are our own words, never merchant text.
+# currentProductId points into ../commerce/products.json.
+
+holidayId: halloween
+packId: halloween.US
+packVersion: 1.0.1
+kits:
+  - kitId: halloween.house_exterior
+    holidayId: halloween
+    sceneType: house_exterior
+    version: 1.0.0
+    status: published
+    items:
+      - kitItemId: halloween.house_exterior.cobwebs
+        sortOrder: 1
+        anchorCategory: porch_rail
+        anchors: [porch_rail, column, door_frame]
+        specText: thin stretched white synthetic cobweb across one railing corner or wrapped loosely around the top of a porch post, never across the door opening
+        specAttributes:
+          category: cobweb
+          sizeRange: 1-2 stretched packs
+          material: synthetic fiber
+          colorFamily: white
+          lit: false
+          indoorOutdoor: outdoor
+          countRange: 1-2
+        quantity: { subtle: [0, 0], classic: [1, 2], abundant: [2, 3] }
+        required: []
+        currentProductId: prod_stretch_cobweb_pack
+      - kitItemId: halloween.house_exterior.jack_o_lanterns
+        sortOrder: 2
+        anchorCategory: porch_steps
+        anchors: [porch_steps, planter, walkway_edge]
+        specText: two to four carved orange pumpkins with simple friendly or classic triangle-eye faces, lit from inside by flameless candles, beside the steps or path, not on a tread
+        specAttributes:
+          category: carved pumpkins
+          sizeRange: 8-14 in
+          material: foam pumpkins with flameless LED candles
+          colorFamily: orange, warm glow
+          lit: true
+          lightColor: warm amber flicker (flameless)
+          indoorOutdoor: outdoor
+          countRange: 2-4
+        quantity: { subtle: [1, 1], classic: [1, 2], abundant: [2, 3] }
+        required: [subtle, classic, abundant]
+        currentProductId: prod_foam_jack_o_lanterns_lit
+      - kitItemId: halloween.house_exterior.pumpkin_group
+        sortOrder: 3
+        anchorCategory: porch_steps
+        anchors: [porch_steps, planter]
+        specText: a group of three to five uncarved orange and white pumpkins of mixed sizes with a few green-striped gourds beside the entry
+        specAttributes:
+          category: pumpkins
+          sizeRange: 6-14 in each
+          material: faux pumpkins and gourds
+          colorFamily: orange, white
+          lit: false
+          indoorOutdoor: outdoor
+          countRange: 3-5
+        quantity: { subtle: [0, 1], classic: [1, 1], abundant: [1, 2] }
+        required: []
+        currentProductId: prod_faux_pumpkin_gourd_set
+      - kitItemId: halloween.house_exterior.mums_and_corn
+        sortOrder: 4
+        anchorCategory: porch_steps
+        anchors: [porch_steps, planter, column]
+        specText: a potted chrysanthemum in rust and gold beside a tied bundle of tan dried corn stalks standing against a post or beside the steps
+        specAttributes:
+          category: potted plant and stalks
+          sizeRange: 10-14 in pot, 5-7 ft stalks
+          material: chrysanthemum, dried corn stalks, twine
+          colorFamily: rust, gold, tan
+          lit: false
+          indoorOutdoor: outdoor
+          countRange: 1-2
+        quantity: { subtle: [0, 1], classic: [1, 1], abundant: [1, 2] }
+        required: []
+        currentProductId: prod_mum_and_cornstalk_bundle
+      - kitItemId: halloween.house_exterior.string_lights_orange_purple
+        sortOrder: 5
+        anchorCategory: eaves
+        anchors: [eaves, porch_rail, door_frame]
+        specText: outdoor LED string lights alternating orange and purple bulbs on black wire, evenly spaced along the eave line or porch rail
+        specAttributes:
+          category: string lights
+          sizeRange: 25-50 ft run
+          material: LED on black wire
+          colorFamily: orange, purple
+          lit: true
+          lightColor: orange and purple
+          indoorOutdoor: outdoor
+          countRange: 1-2 runs
+        quantity: { subtle: [0, 0], classic: [0, 1], abundant: [1, 2] }
+        required: []
+        currentProductId: prod_led_lights_orange_purple
+      - kitItemId: halloween.house_exterior.skeleton_stylized
+        sortOrder: 6
+        anchorCategory: lawn
+        anchors: [lawn, porch_steps]
+        specText: one stylized bone-white plastic skeleton about five feet tall, seated or standing beside the steps or on the lawn, clean with no blood or damage
+        specAttributes:
+          category: figure
+          sizeRange: about 5 ft
+          material: plastic
+          colorFamily: bone white
+          lit: false
+          indoorOutdoor: outdoor
+          countRange: '1'
+        quantity: { subtle: [0, 0], classic: [0, 0], abundant: [0, 1] }
+        required: []
+        currentProductId: prod_posable_skeleton_5ft
+  - kitId: halloween.apartment_entry
+    holidayId: halloween
+    sceneType: apartment_entry
+    version: 1.0.0
+    status: published
+    items:
+      - kitItemId: halloween.apartment_entry.door_wreath
+        sortOrder: 1
+        anchorCategory: unit_door
+        anchors: [unit_door]
+        specText: a 16 to 20 inch wreath of matte black and deep orange faux leaves with a few mini orange and white pumpkins, centered on the unit door below any number plate
+        specAttributes:
+          category: wreath
+          sizeRange: 16-20 in
+          material: artificial leaves, foam mini pumpkins
+          colorFamily: black, orange
+          lit: false
+          indoorOutdoor: indoor_or_outdoor
+          countRange: '1'
+        quantity: { subtle: [1, 1], classic: [1, 1], abundant: [1, 1] }
+        required: [subtle, classic, abundant]
+        currentProductId: prod_wreath_black_orange_18in
+      - kitItemId: halloween.apartment_entry.jack_o_lantern_pair
+        sortOrder: 2
+        anchorCategory: floor_area
+        anchors: [floor_area, planter]
+        specText: two small carved foam pumpkins with friendly faces lit by flameless tea lights, set together at one side of the door's own alcove, clear of the corridor
+        specAttributes:
+          category: carved pumpkins
+          sizeRange: 5-8 in
+          material: foam pumpkins with flameless tea lights
+          colorFamily: orange, warm glow
+          lit: true
+          lightColor: warm amber flicker (flameless)
+          indoorOutdoor: indoor_or_outdoor
+          countRange: '2'
+        quantity: { subtle: [0, 1], classic: [1, 1], abundant: [1, 1] }
+        required: [classic, abundant]
+        currentProductId: prod_mini_jack_o_lanterns_lit
+      - kitItemId: halloween.apartment_entry.cobweb_frame
+        sortOrder: 3
+        anchorCategory: door_frame
+        anchors: [door_frame]
+        specText: a thin stretch of white synthetic cobweb across one upper corner of the door frame, never across the door opening or the number plate
+        specAttributes:
+          category: cobweb
+          sizeRange: 1 pack
+          material: synthetic fiber
+          colorFamily: white
+          lit: false
+          indoorOutdoor: indoor_or_outdoor
+          countRange: '1'
+        quantity: { subtle: [0, 0], classic: [0, 1], abundant: [1, 1] }
+        required: []
+        currentProductId: prod_stretch_cobweb_pack
+      - kitItemId: halloween.apartment_entry.bat_silhouettes
+        sortOrder: 4
+        anchorCategory: wall
+        anchors: [wall]
+        specText: eight to twelve flat matte-black paper bat silhouettes in a loose rising cluster on the wall beside the door, clear of the number plate and fixtures
+        specAttributes:
+          category: wall decal
+          sizeRange: 3-6 in each, 12-20 pieces
+          material: paper or vinyl
+          colorFamily: black
+          lit: false
+          indoorOutdoor: indoor_or_outdoor
+          countRange: 8-12
+        quantity: { subtle: [0, 0], classic: [0, 1], abundant: [1, 1] }
+        required: []
+        currentProductId: prod_bat_silhouette_decals
+  - kitId: halloween.balcony
+    holidayId: halloween
+    sceneType: balcony
+    version: 1.0.0
+    status: published
+    items:
+      - kitItemId: halloween.balcony.railing_lights
+        sortOrder: 1
+        anchorCategory: balcony_railing
+        anchors: [balcony_railing]
+        specText: battery LED string lights in orange or warm white woven along the inside of the railing, ending at the balcony's own edge
+        specAttributes:
+          category: string lights
+          sizeRange: 10-25 ft
+          material: battery LED on clear wire
+          colorFamily: orange or warm white
+          lit: true
+          lightColor: orange or warm white
+          indoorOutdoor: outdoor
+          countRange: 1 run
+        quantity: { subtle: [0, 1], classic: [1, 1], abundant: [1, 1] }
+        required: [classic, abundant]
+        currentProductId: prod_battery_lights_orange_20ft
+      - kitItemId: halloween.balcony.jack_o_lanterns_small
+        sortOrder: 2
+        anchorCategory: balcony_floor
+        anchors: [balcony_floor, planter]
+        specText: one to three small carved pumpkins with friendly faces lit by flameless candles on the floor near a railing corner
+        specAttributes:
+          category: carved pumpkins
+          sizeRange: 5-8 in
+          material: foam pumpkins with flameless tea lights
+          colorFamily: orange, warm glow
+          lit: true
+          lightColor: warm amber flicker (flameless)
+          indoorOutdoor: outdoor
+          countRange: 1-3
+        quantity: { subtle: [1, 1], classic: [1, 2], abundant: [2, 3] }
+        required: [subtle, classic, abundant]
+        currentProductId: prod_mini_jack_o_lanterns_lit
+      - kitItemId: halloween.balcony.cobwebs
+        sortOrder: 3
+        anchorCategory: balcony_railing
+        anchors: [balcony_railing, door_frame]
+        specText: stretched white synthetic cobweb across one railing corner or the top of the door frame
+        specAttributes:
+          category: cobweb
+          sizeRange: 1 pack
+          material: synthetic fiber
+          colorFamily: white
+          lit: false
+          indoorOutdoor: outdoor
+          countRange: '1'
+        quantity: { subtle: [0, 0], classic: [0, 1], abundant: [1, 2] }
+        required: []
+        currentProductId: prod_stretch_cobweb_pack
+      - kitItemId: halloween.balcony.door_wreath
+        sortOrder: 4
+        anchorCategory: door_frame
+        anchors: [door_frame]
+        specText: a small wreath of black and orange leaves with mini pumpkins hung on the balcony door frame
+        specAttributes:
+          category: wreath
+          sizeRange: 14-18 in
+          material: artificial leaves, mini pumpkins
+          colorFamily: black, orange
+          lit: false
+          indoorOutdoor: outdoor
+          countRange: '1'
+        quantity: { subtle: [0, 1], classic: [1, 1], abundant: [1, 1] }
+        required: []
+        currentProductId: prod_wreath_black_orange_18in
+      - kitItemId: halloween.balcony.mums_potted
+        sortOrder: 5
+        anchorCategory: balcony_floor
+        anchors: [balcony_floor, planter]
+        specText: a potted chrysanthemum in rust or gold on the floor or in an existing planter
+        specAttributes:
+          category: potted plant
+          sizeRange: 10-12 in pot
+          material: chrysanthemum
+          colorFamily: rust, gold
+          lit: false
+          indoorOutdoor: outdoor
+          countRange: 1-2
+        quantity: { subtle: [0, 1], classic: [1, 1], abundant: [1, 2] }
+        required: []
+        currentProductId: prod_mum_potted
+      - kitItemId: halloween.balcony.bat_silhouettes
+        sortOrder: 6
+        anchorCategory: wall
+        anchors: [wall]
+        specText: a small cluster of flat black paper bat silhouettes on the wall beside the door
+        specAttributes:
+          category: wall decal
+          sizeRange: 3-6 in each, 12-20 pieces
+          material: paper or vinyl
+          colorFamily: black
+          lit: false
+          indoorOutdoor: outdoor
+          countRange: 8-12
+        quantity: { subtle: [0, 0], classic: [0, 0], abundant: [1, 1] }
+        required: []
+        currentProductId: prod_bat_silhouette_decals
+  - kitId: halloween.interior
+    holidayId: halloween
+    sceneType: interior
+    version: 1.0.0
+    status: published
+    items:
+      - kitItemId: halloween.interior.garland_black_orange
+        sortOrder: 1
+        anchorCategory: mantel
+        anchors: [mantel, interior_window, banister]
+        specText: a garland of matte black and burnt-orange faux leaves with small black berries draped along the mantel edge, window top or stair rail
+        specAttributes:
+          category: garland
+          sizeRange: 6-9 ft
+          material: artificial leaves and berries
+          colorFamily: black, orange
+          lit: false
+          indoorOutdoor: indoor
+          countRange: 1-2
+        quantity: { subtle: [1, 1], classic: [1, 1], abundant: [1, 2] }
+        required: [subtle, classic, abundant]
+        currentProductId: prod_garland_black_orange_leaf
+      - kitItemId: halloween.interior.pumpkin_gourd_grouping
+        sortOrder: 2
+        anchorCategory: dining_table
+        anchors: [dining_table, sideboard, mantel, shelf]
+        specText: a low grouping of three to five small pumpkins and gourds in orange, cream and deep green with a few dried leaves
+        specAttributes:
+          category: pumpkins
+          sizeRange: 3-7 in each
+          material: faux pumpkins and gourds, dried leaves
+          colorFamily: orange, cream, green
+          lit: false
+          indoorOutdoor: indoor
+          countRange: 3-5
+        quantity: { subtle: [1, 1], classic: [1, 2], abundant: [2, 3] }
+        required: [subtle, classic, abundant]
+        currentProductId: prod_mini_pumpkin_gourd_tabletop
+      - kitItemId: halloween.interior.candles_flameless_dark
+        sortOrder: 3
+        anchorCategory: dining_table
+        anchors: [dining_table, sideboard, mantel]
+        specText: three flameless pillar candles of varied heights in matte black metal holders, glowing warm amber
+        specAttributes:
+          category: candles
+          sizeRange: pillars 4-8 in
+          material: flameless LED, black metal holders
+          colorFamily: ivory, black
+          lit: true
+          lightColor: warm amber (flameless)
+          indoorOutdoor: indoor
+          countRange: '3'
+        quantity: { subtle: [0, 1], classic: [1, 1], abundant: [1, 2] }
+        required: [classic, abundant]
+        currentProductId: prod_flameless_pillars_black_holders
+      - kitItemId: halloween.interior.bat_silhouettes_wall
+        sortOrder: 4
+        anchorCategory: wall
+        anchors: [wall]
+        specText: ten to fifteen flat matte-black paper bat silhouettes in a loose rising cluster on a clear wall area, away from artwork, photographs and fixtures
+        specAttributes:
+          category: wall decal
+          sizeRange: 3-6 in each, 12-20 pieces
+          material: paper or vinyl
+          colorFamily: black
+          lit: false
+          indoorOutdoor: indoor
+          countRange: 10-15
+        quantity: { subtle: [0, 0], classic: [0, 1], abundant: [1, 1] }
+        required: []
+        currentProductId: prod_bat_silhouette_decals
+      - kitItemId: halloween.interior.cobweb_shelf
+        sortOrder: 5
+        anchorCategory: shelf
+        anchors: [shelf, interior_window]
+        specText: a thin stretch of white synthetic cobweb across one corner of an open shelf or window frame
+        specAttributes:
+          category: cobweb
+          sizeRange: 1 pack
+          material: synthetic fiber
+          colorFamily: white
+          lit: false
+          indoorOutdoor: indoor
+          countRange: '1'
+        quantity: { subtle: [0, 0], classic: [0, 0], abundant: [1, 1] }
+        required: []
+        currentProductId: prod_stretch_cobweb_pack

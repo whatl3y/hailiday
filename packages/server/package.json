@@ -1,0 +1,53 @@
+{
+  "name": "@holiday/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./*": {
+      "types": "./dist/*/index.d.ts",
+      "import": "./dist/*/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "content",
+    "fixtures"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "migrate": "node --import ./dist/config/load-env/index.js dist/migrate.js",
+    "seed": "node --import ./dist/config/load-env/index.js dist/seed.js",
+    "examples:render": "node --import ./dist/config/load-env/index.js dist/render-examples.js",
+    "models:bakeoff": "node --import ./dist/config/load-env/index.js dist/bakeoff.js",
+    "tombstones:replay": "node --import ./dist/config/load-env/index.js dist/tombstones-replay.js",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "1.6.0",
+    "@aws-sdk/client-s3": "3.1164.0",
+    "@aws-sdk/s3-presigned-post": "3.1164.0",
+    "@aws-sdk/s3-request-presigner": "3.1164.0",
+    "@holiday/core": "workspace:*",
+    "kysely": "0.29.8",
+    "nodemailer": "10.4.0",
+    "pg": "8.23.1",
+    "pg-boss": "12.38.1",
+    "pino": "10.4.0",
+    "sharp": "0.35.5",
+    "yaml": "2.9.1",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@types/nodemailer": "8.0.2",
+    "@types/pg": "8.23.1",
+    "vitest": "5.1.0"
+  }
+}

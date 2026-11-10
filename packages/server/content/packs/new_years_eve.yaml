@@ -1,0 +1,298 @@
+# Holiday pack new_years_eve.US (New Year's Eve).
+# Normative schema: docs/specs/holidays-and-content.md, "Pack schema". Validated by HolidayPackSchema in @holiday/core.
+# quantity: { <style>: [min, max] } counts instances (runs for lights and garland) per style;
+# required lists the styles in which the archetype must appear whenever one of its anchors is eligible.
+# priority is omitted: list order is the placement priority (1 = first).
+# Spec attributes and product mapping for each kit item live in ../kits/new_years_eve.yaml.
+# Any change that can alter a decoration plan or compiled instruction is at least a MINOR version bump.
+
+id: new_years_eve.US
+version: 1.0.1
+holidayId: new_years_eve
+region: US
+displayName: New Year's Eve
+journeyEmphasis: balanced
+traditionNotes: 'Celebration in gold, silver and white: warm-white string lights, metallic garland, brushed-gold lanterns, ornament bowls and a set table with flameless candles. No fireworks or sky effects, no alcohol bottles or branding, no clocks, numerals or lettering. Optional pack: enabled only if it passes the review checklist; it has no apartment_entry section.'
+lightingPolicy:
+  bySceneType:
+    house_exterior: { default: source, offered: [source, evening] }
+    balcony: { default: source, offered: [source, evening] }
+    interior: { default: source, offered: [source, evening] }
+  eveningGuidance: 'Warm-white and gold string lights glow with a gentle sparkle and soft contact light; metallic garland and ornaments catch the light; no fireworks or sky effects.'
+climateRule:
+  sourcePrecedence: [scene_analysis, address_region, neutral]
+  snow: only_if_visible_in_source
+  coldClimateOnlyItems: []
+existingDecorPolicy: preserve_and_complement
+forbidden:
+  - people
+  - pets
+  - text_or_signage
+  - house_number_changes
+  - new_structures
+  - structural_changes
+  - landscaping_changes
+  - neighbor_decor
+  - blocked_access
+  - brand_logos
+  - cartoon_or_licensed_characters
+  - mascots_and_inflatables
+  - snow_or_frost_unless_visible
+  - sky_effects
+  - religious_symbols
+  - open_flame_indoors
+sceneSections:
+  house_exterior:
+    buildingForms: [detached, attached, other]
+    formRules:
+      attached:
+        excludeAnchors: [lawn]
+        note: placements stay within the target unit's facade span
+      other: { excludeAnchors: [roofline, eaves, lawn] }
+    anchors:
+      - front_door
+      - door_frame
+      - porch_rail
+      - porch_steps
+      - roofline
+      - eaves
+      - window_frame
+      - column
+      - walkway_edge
+      - planter
+      - lawn
+    preserve:
+      - roofline shape
+      - window and door positions
+      - siding and trim color
+      - steps
+      - landscaping
+      - sky
+      - neighbors
+      - house numbers
+      - existing blur regions
+    keepClear:
+      - door swing
+      - step treads
+      - walkway surface
+      - driveway
+      - mailbox face
+    limits:
+      maxPlacements: { subtle: 3, classic: 6, abundant: 10 }
+      overlapTolerance: 0.1
+      groundMarginFraction: 0.03
+      edgeMarginFraction: 0.02
+    kitId: new_years_eve.house_exterior
+    kit:
+      - kitItemId: new_years_eve.house_exterior.string_lights_warm_white
+        archetype: string_lights
+        anchors: [eaves, roofline, porch_rail]
+        attachment: strung
+        placementRule: along
+        specText: outdoor warm-white LED string lights with evenly spaced bulbs following the eave line or rail
+        quantity: { subtle: [1, 1], classic: [1, 2], abundant: [2, 3] }
+        required: [subtle, classic, abundant]
+      - kitItemId: new_years_eve.house_exterior.door_wreath_ornament
+        archetype: wreath
+        anchors: [front_door]
+        attachment: hung
+        placementRule: centered_on
+        specText: a 20 to 24 inch wreath made of shiny and matte gold, silver and white round ornaments, centered on the existing front door
+        quantity: { subtle: [1, 1], classic: [1, 1], abundant: [1, 1] }
+        required: [subtle, classic, abundant]
+      - kitItemId: new_years_eve.house_exterior.garland_metallic
+        archetype: garland
+        anchors: [door_frame, porch_rail, column]
+        attachment: draped
+        placementRule: along
+        specText: a full garland of gold and silver metallic tinsel with small round gold and silver ornaments following the door frame or rail
+        quantity: { subtle: [0, 1], classic: [1, 1], abundant: [1, 2] }
+        required: [classic]
+      - kitItemId: new_years_eve.house_exterior.lantern_pair_gold
+        archetype: lantern
+        anchors: [porch_steps, planter]
+        attachment: placed
+        placementRule: beside
+        specText: a pair of brushed-gold metal and glass lanterns with flameless pillar candles beside the entry, not on a step tread
+        quantity: { subtle: [0, 0], classic: [0, 1], abundant: [1, 1] }
+        required: []
+      - kitItemId: new_years_eve.house_exterior.planter_ornament_fill
+        archetype: ornament_fill
+        anchors: [planter]
+        attachment: placed
+        placementRule: beside
+        specText: clusters of gold, silver and white shatterproof ornaments nestled on top of the existing planters without changing the plants
+        quantity: { subtle: [0, 0], classic: [0, 1], abundant: [1, 2] }
+        required: []
+    promptFragments:
+      scene: a festive, elegant US New Year's Eve display in gold, silver and warm white added to the confirmed target home
+      preserve: keep the same camera position, crop, perspective and lens, the roof outline, doors, windows, siding color and texture, trim, steps, railings, landscaping, sky, time of day, parked vehicles and every neighboring building exactly as photographed
+      negative: no fireworks, confetti or sky effects, no clocks, numerals or lettering, no bottles or glasses, no religious symbols, no text, no people, no snow unless present, no new structures, nothing on neighboring homes
+  balcony:
+    anchors: [balcony_railing, balcony_floor, door_frame, planter, wall]
+    preserve:
+      - railing structure
+      - floor
+      - balcony door
+      - exterior wall
+      - neighboring balconies and units
+      - view beyond the railing
+    keepClear:
+      - balcony door swing
+      - the path from the door to the railing
+      - the railing top edge
+    limits:
+      maxPlacements: { subtle: 3, classic: 5, abundant: 7 }
+      overlapTolerance: 0.1
+    kitId: new_years_eve.balcony
+    kit:
+      - kitItemId: new_years_eve.balcony.railing_lights_warm_white
+        archetype: string_lights
+        anchors: [balcony_railing]
+        attachment: strung
+        placementRule: along
+        specText: battery warm-white LED string lights woven along the inside face of the user's own railing, below the top edge and ending at the balcony's own edge
+        quantity: { subtle: [1, 1], classic: [1, 1], abundant: [1, 1] }
+        required: [subtle, classic, abundant]
+      - kitItemId: new_years_eve.balcony.lantern_cluster_gold
+        archetype: lantern
+        anchors: [balcony_floor, planter]
+        attachment: placed
+        placementRule: cluster_at
+        specText: two or three brushed-gold lanterns of different heights with flameless candles grouped in a corner of the balcony floor
+        quantity: { subtle: [0, 1], classic: [1, 1], abundant: [1, 1] }
+        required: [classic, abundant]
+      - kitItemId: new_years_eve.balcony.door_frame_garland_metallic
+        archetype: garland
+        anchors: [door_frame]
+        attachment: draped
+        placementRule: along
+        specText: gold and silver metallic tinsel garland along the top of the balcony door frame, leaving the opening clear
+        quantity: { subtle: [0, 0], classic: [0, 1], abundant: [1, 1] }
+        required: []
+      - kitItemId: new_years_eve.balcony.ornament_planter
+        archetype: ornament_fill
+        anchors: [planter, balcony_floor]
+        attachment: placed
+        placementRule: cluster_at
+        specText: a low bowl or existing planter topped with gold, silver and white shatterproof ornaments
+        quantity: { subtle: [0, 0], classic: [0, 1], abundant: [1, 1] }
+        required: []
+    promptFragments:
+      scene: a festive, elegant New Year's Eve display in gold, silver and warm white on the user's own balcony
+      preserve: keep the camera position and crop, the railing structure, floor, balcony door and glass, exterior wall, the view beyond the railing and every neighboring balcony and unit exactly as photographed
+      negative: no items on the railing top edge, nothing on neighboring balconies or railings, no fireworks or sky effects, no clocks, numerals or lettering, no bottles or glasses, no text, no people
+  interior:
+    roomTypes: [dining_room, living_room, entryway, kitchen, bedroom, other]
+    anchors:
+      - mantel
+      - dining_table
+      - sideboard
+      - interior_window
+      - wall
+      - floor_area
+      - shelf
+      - banister
+    roomRules:
+      dining_room:
+        anchors: [dining_table, sideboard, interior_window, wall, shelf]
+      living_room: { anchors: [mantel, floor_area, interior_window, wall, shelf] }
+      entryway: { anchors: [banister, floor_area, wall, shelf] }
+      kitchen: { anchors: [dining_table, interior_window, shelf] }
+      bedroom: { anchors: [interior_window, wall, shelf] }
+      other: { anchors: [interior_window, wall, shelf] }
+    preserve:
+      - walls
+      - windows
+      - doors
+      - flooring
+      - ceiling
+      - furniture positions
+      - existing light fixtures
+      - artwork and photographs
+      - existing blur regions
+    keepClear:
+      - doorways
+      - circulation paths
+      - stair treads
+      - stove and sink
+      - seating surfaces
+    limits:
+      maxPlacements: { subtle: 3, classic: 6, abundant: 10 }
+      overlapTolerance: 0.1
+    kitId: new_years_eve.interior
+    kit:
+      - kitItemId: new_years_eve.interior.table_runner_metallic
+        archetype: table_linen
+        anchors: [dining_table]
+        attachment: draped
+        placementRule: on_surface
+        specText: a narrow table runner of soft champagne-gold woven fabric with a subtle sheen along the center of the existing table
+        quantity: { subtle: [1, 1], classic: [1, 1], abundant: [1, 1] }
+        required: [subtle, classic, abundant]
+      - kitItemId: new_years_eve.interior.candles_flameless
+        archetype: candles
+        anchors: [dining_table, sideboard, mantel]
+        attachment: placed
+        placementRule: on_surface
+        specText: a set of flameless taper and pillar candles in brass or glass holders with a warm glow
+        quantity: { subtle: [1, 2], classic: [2, 4], abundant: [4, 8] }
+        required: [subtle, classic, abundant]
+      - kitItemId: new_years_eve.interior.garland_metallic_lit
+        archetype: garland
+        anchors: [mantel, interior_window]
+        attachment: draped
+        placementRule: along
+        specText: a garland of silver and gold tinsel with warm-white micro LED lights along the mantel or window top
+        quantity: { subtle: [0, 1], classic: [1, 1], abundant: [1, 2] }
+        required: [classic, abundant]
+      - kitItemId: new_years_eve.interior.ornament_bowl
+        archetype: ornament_fill
+        anchors: [dining_table, sideboard, shelf]
+        attachment: placed
+        placementRule: on_surface
+        specText: a low clear glass bowl filled with shiny and matte gold, silver and white ornaments
+        quantity: { subtle: [0, 1], classic: [1, 1], abundant: [1, 2] }
+        required: []
+      - kitItemId: new_years_eve.interior.place_accents_gold
+        archetype: napkins
+        anchors: [dining_table]
+        attachment: placed
+        placementRule: on_surface
+        specText: ivory cloth napkins with simple gold rings at each existing place setting
+        quantity: { subtle: [0, 0], classic: [1, 1], abundant: [1, 1] }
+        required: []
+      - kitItemId: new_years_eve.interior.curtain_lights_window
+        archetype: string_lights
+        anchors: [interior_window]
+        attachment: hung
+        placementRule: along
+        specText: a curtain of warm-white micro LED fairy lights hanging in front of the window glass, inside the window frame
+        quantity: { subtle: [0, 0], classic: [0, 0], abundant: [1, 1] }
+        required: []
+    promptFragments:
+      scene: an elegant New Year's Eve setting in gold, silver and warm white added to the room in the photo
+      preserve: keep the camera position and crop, walls and wall color, windows, doors, flooring, ceiling, furniture and its positions, chairs, rugs, artwork, photographs and existing light fixtures exactly as photographed
+      negative: no fireworks, no clocks, numerals or lettering, no bottles, glasses or alcohol, no confetti, no text, no people or pets, no open flames, no new furniture, no changed wall color
+heroRefs:
+  - heroAssetId: hero.new_years_eve.table.v1
+    orientation: landscape
+  - { heroAssetId: hero.new_years_eve.table.v1, orientation: portrait }
+exampleRefs:
+  - exampleAssetId: example.new_years_eve.house_exterior.classic.source.v1
+    sceneType: house_exterior
+    style: classic
+    lightingMode: source
+  - exampleAssetId: example.new_years_eve.balcony.classic.source.v1
+    sceneType: balcony
+    style: classic
+    lightingMode: source
+  - exampleAssetId: example.new_years_eve.interior.classic.source.v1
+    sceneType: interior
+    style: classic
+    lightingMode: source
+review:
+  checklistVersion: 1
+  approvedBy: [editorial_lead, second_approver]
+  approvedAt: null
+  goldenRunId: null

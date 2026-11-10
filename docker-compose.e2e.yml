@@ -1,0 +1,58 @@
+# Browser-test stack: `pnpm docker:e2e`, or
+#   docker compose -p holiday-e2e -f docker-compose.yml -f docker-compose.e2e.yml up --build -d
+#
+# It runs as its own Compose project (`holiday-e2e`), so its containers, network and data
+# volumes are separate from the local stack's (`holiday`): `pnpm docker:e2e:down` stops it
+# and `pnpm docker:e2e:reset` deletes only its volumes, leaving the local stack's data alone.
+# Both stacks publish the same host ports, so stop one (`pnpm docker:down`) before starting
+# the other.
+#
+# Forces every provider to its fixture and blanks every provider key. `environment:`
+# overrides the values migrate, api and workers load from .env, so the e2e suite never
+# reaches a live (paid) provider even when .env holds real keys.
+#
+# It also pins the per-owner allowance and quotas to their specified defaults, so a .env
+# override cannot change what the suite expects, and raises the render backstop's device and
+# IP limits and the session creation limit: every test is a new visitor, but they all come
+# from this one machine, so the render backstop (6 render requests per device and 6 per IP per
+# day) and the session creation limit (20 new sessions per IP per 10 minutes) would otherwise
+# refuse the suite, or a second run of it.
+
+name: holiday-e2e
+
+x-e2e-env: &e2e-env
+  APP_ENV: development
+  ADDRESS_PROVIDER: fixture
+  STREET_VIEW_PROVIDER: fixture
+  IMAGE_EDITOR_PROVIDER: fixture
+  VISION_PROVIDER: fixture
+  SAFETY_PROVIDER: fixture
+  TURNSTILE_MODE: fixture
+  GOOGLE_MAPS_SERVER_KEY: ''
+  GOOGLE_STREET_VIEW_BROWSER_KEY: ''
+  GOOGLE_STREET_VIEW_SIGNING_SECRET: ''
+  OPENAI_API_KEY: ''
+  GEMINI_API_KEY: ''
+  ANTHROPIC_API_KEY: ''
+  TURNSTILE_SITE_KEY: ''
+  TURNSTILE_SECRET_KEY: ''
+  ALLOWANCE_VARIANTS_PER_24H: '3'
+  ALLOWANCE_ADDRESSES_PER_24H: '3'
+  ALLOWANCE_NEW_OWNER_VARIANTS_PER_24H: 'null'
+  QUOTA_ATTEMPTS_PER_OWNER_24H: '8'
+  QUOTA_RENDER_REQUESTS_PER_DEVICE_24H: '1000'
+  QUOTA_RENDER_REQUESTS_PER_IP_24H: '1000'
+  RATE_SESSIONS_PER_IP_10M: '1000'
+
+services:
+  migrate:
+    environment:
+      <<: *e2e-env
+
+  api:
+    environment:
+      <<: *e2e-env
+
+  workers:
+    environment:
+      <<: *e2e-env

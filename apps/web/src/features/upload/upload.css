@@ -1,0 +1,331 @@
+.upload {
+  --stack-gap: var(--space-5);
+}
+
+.upload__header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.upload__holiday {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border-radius: var(--radius-l);
+  background: var(--paper-sunk);
+}
+
+.upload__pickers {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.picker {
+  cursor: pointer;
+}
+
+.picker--block {
+  width: 100%;
+  min-height: 56px;
+}
+
+.picker:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  padding: var(--space-7) var(--space-5);
+  border: 1.5px dashed var(--control-border);
+  border-radius: var(--radius-l);
+  background:
+    radial-gradient(120% 90% at 50% 0%, var(--accent-soft), transparent 70%), var(--paper-raised);
+  text-align: center;
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out);
+}
+
+.dropzone .picker--block {
+  width: auto;
+  min-width: 240px;
+}
+
+.dropzone[data-dragging] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.dropzone__hint {
+  font-size: var(--text-s);
+  color: var(--ink-soft);
+}
+
+.tips {
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.tips summary {
+  display: flex;
+  align-items: center;
+  min-height: var(--target-comfort);
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+
+.tips summary::-webkit-details-marker {
+  display: none;
+}
+
+.tips summary::after {
+  content: '+';
+  margin-left: auto;
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  color: var(--ink-muted);
+}
+
+.tips[open] summary::after {
+  content: '−';
+}
+
+.tips ul {
+  margin: 0 0 var(--space-4);
+  padding-left: var(--space-5);
+  color: var(--ink-soft);
+}
+
+.tips li + li {
+  margin-top: var(--space-2);
+}
+
+.attest {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.upload__preview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.upload__preview .image-card {
+  max-width: 640px;
+}
+
+.upload__status-text {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+}
+
+.upload__declined .message {
+  font-size: var(--text-m);
+}
+
+.scene-chip {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--target-comfort);
+  padding: 0 var(--space-4);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-pill);
+  background: var(--paper-raised);
+  font-size: var(--text-s);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.scene-chip:hover {
+  border-color: var(--accent);
+}
+
+.scene-chooser {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-radius: var(--radius-l);
+  background: var(--paper-sunk);
+}
+
+.scene-chooser--required {
+  border: 1px solid var(--accent);
+  background: var(--accent-soft);
+}
+
+.scene-chooser__heading {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+}
+
+.cap-first {
+  display: inline-block;
+}
+
+.cap-first::first-letter {
+  text-transform: uppercase;
+}
+
+/* People prompt and crop */
+
+.people-preview,
+.crop {
+  position: relative;
+  width: 100%;
+  max-width: min(100%, calc(60dvh * var(--ratio, 1.333)));
+  margin-inline: auto;
+  overflow: hidden;
+  border-radius: var(--radius-m);
+  background: var(--paper-sunk);
+}
+
+.people-preview img,
+.crop__image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  user-select: none;
+}
+
+.people-preview__glow {
+  position: absolute;
+  border-radius: 40%;
+  background: radial-gradient(closest-side, rgb(255 248 230 / 0.55), rgb(255 248 230 / 0));
+  box-shadow: 0 0 40px 12px rgb(255 248 230 / 0.35);
+}
+
+.crop__frame {
+  position: absolute;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 100vmax rgb(20 15 11 / 0.55);
+}
+
+.crop__handle {
+  position: absolute;
+  width: var(--target-comfort);
+  height: var(--target-comfort);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  touch-action: none;
+  cursor: grab;
+}
+
+.crop__handle::after {
+  content: '';
+  position: absolute;
+  inset: 12px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 6px rgb(0 0 0 / 0.4);
+}
+
+.crop__handle--topLeft {
+  left: -22px;
+  top: -22px;
+}
+
+.crop__handle--topRight {
+  right: -22px;
+  top: -22px;
+}
+
+.crop__handle--bottomLeft {
+  left: -22px;
+  bottom: -22px;
+}
+
+.crop__handle--bottomRight {
+  right: -22px;
+  bottom: -22px;
+}
+
+/* Straighten control under the crop tool */
+
+.straighten {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  max-width: min(100%, calc(60dvh * var(--ratio, 1.333)));
+  margin-inline: auto;
+  font-size: var(--text-s);
+  color: var(--ink-soft);
+}
+
+.straighten__label {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.straighten__value {
+  min-width: 11ch;
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+.straighten__track {
+  position: relative;
+  height: var(--target-comfort);
+  min-width: 0;
+  cursor: ew-resize;
+  touch-action: none;
+}
+
+.straighten__track::before {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  top: 50%;
+  height: 4px;
+  margin-top: -2px;
+  border-radius: 2px;
+  background: var(--line-strong);
+}
+
+.straighten__level {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 2px;
+  height: 16px;
+  margin: -8px 0 0 -1px;
+  background: var(--ink-muted);
+}
+
+.straighten__thumb {
+  position: absolute;
+  top: 0;
+  left: var(--straighten, 50%);
+  width: var(--target-comfort);
+  height: var(--target-comfort);
+  margin-left: calc(var(--target-comfort) / -2);
+  border-radius: 50%;
+}
+
+.straighten__thumb::after {
+  content: '';
+  position: absolute;
+  inset: 12px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.3);
+}
+
+.straighten__thumb:focus-visible {
+  outline-offset: -4px;
+  border-radius: 50%;
+}

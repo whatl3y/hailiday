@@ -1,0 +1,2277 @@
+{
+  "version": 1,
+  "providerMode": "fixture",
+  "authoredAt": "2026-11-09T12:00:00.000Z",
+  "rebaseTimestampsOnSeed": true,
+  "description": "Fixture offers. Timestamps are authored relative to authoredAt; the seed shifts every offer timestamp by (now - authoredAt) so freshness rules behave the same on any day. seasonalEligibility holds occurrence IDs (<holidayId>.US.<year>). A price is displayed only when priceSource is not none and priceObservedAt is within 24 hours.",
+  "offers": [
+    {
+      "offerId": "offer_foam_jack_o_lanterns_lit__home_garden",
+      "productId": "prod_foam_jack_o_lanterns_lit",
+      "merchantProgramId": "fixture_home_garden_us",
+      "merchantItemId": "FX-1000",
+      "destinationCountry": "US",
+      "currency": "USD",
+      "priceMinor": 4499,
+      "priceSource": "feed",
+      "priceObservedAt": "2026-11-09T06:00:00.000Z",
+      "availability": "in_stock",
+      "availabilityObservedAt": "2026-11-09T06:00:00.000Z",
+      "destinationUrl": "https://example.com/fixture-home-garden/p/foam-jack-o-lanterns-lit",
+      "trackingUrlTemplate": "https://example.com/fixture-network/click/fhg?subId1={subId}&url={destinationUrl}",
+      "contentRights": {
+        "imageDisplay": {
+          "state": "unknown",
+          "evidenceRef": null
+        },
+        "imageAiInput": {
+          "state": "denied",
+          "evidenceRef": "fixture:program-terms"
+        },
+        "textUse": {
+          "state": "unknown",
+          "evidenceRef": null
+        }
+      },
+      "lifecycleStatus": "active",
+      "seasonalEligibility": ["halloween.US.2026", "halloween.US.2027"],
+      "sponsored": false,
+      "lastVerifiedAt": "2026-11-09T06:00:00.000Z",
+      "verificationMethod": "feed",
+      "verifiedBy": "fixture-operator",
+      "notes": null
+    },
+    {
+      "offerId": "offer_faux_pumpkin_gourd_set__home_garden",
+      "productId": "prod_faux_pumpkin_gourd_set",
+      "merchantProgramId": "fixture_home_garden_us",
+      "merchantItemId": "FX-1001",
+      "destinationCountry": "US",
+      "currency": "USD",
+      "priceMinor": 3999,
+      "priceSource": "feed",
+      "priceObservedAt": "2026-11-09T03:00:00.000Z",
+      "availability": "in_stock",
+      "availabilityObservedAt": "2026-11-09T03:00:00.000Z",
+      "destinationUrl": "https://example.com/fixture-home-garden/p/faux-pumpkin-gourd-set",
+      "trackingUrlTemplate": "https://example.com/fixture-network/click/fhg?subId1={subId}&url={destinationUrl}",
+      "contentRights": {
+        "imageDisplay": {
+          "state": "unknown",
+          "evidenceRef": null
+        },
+        "imageAiInput": {
+          "state": "denied",
+          "evidenceRef": "fixture:program-terms"
+        },
+        "textUse": {
+          "state": "unknown",
+          "evidenceRef": null
+        }
+      },
+      "lifecycleStatus": "active",
+      "seasonalEligibility": ["halloween.US.2026", "halloween.US.2027", "thanksgiving_us.US.2026"],
+      "sponsored": false,
+      "lastVerifiedAt": "2026-11-09T03:00:00.000Z",
+      "verificationMethod": "feed",
+      "verifiedBy": "fixture-operator",
+      "notes": null
+    },
+    {
+      "offerId": "offer_stretch_cobweb_pack__marketplace",
+      "productId": "prod_stretch_cobweb_pack",
+      "merchantProgramId": "fixture_marketplace_us",
+      "merchantItemId": "FXB00000RU",
+      "destinationCountry": "US",
+      "currency": "USD",
+      "priceMinor": null,
+      "priceSource": "none",
+      "priceObservedAt": null,
+      "availability": "in_stock",
+      "availabilityObservedAt": "2026-11-09T00:00:00.000Z",
+      "destinationUrl": "https://example.com/fixture-marketplace/p/stretch-cobweb-pack",
+      "trackingUrlTemplate": "{destinationUrl}?tag={trackingId}",
+      "contentRights": {
+        "imageDisplay": {
+          "state": "unknown",
+          "evidenceRef": null
+        },
+        "imageAiInput": {
+          "state": "denied",
+          "evidenceRef": "fixture:program-terms"
+        },
+        "textUse": {
+          "state": "denied",
+          "evidenceRef": "fixture:associates-policies"
+        }
+      },
+      "lifecycleStatus": "active",
+      "seasonalEligibility": ["halloween.US.2026", "halloween.US.2027"],
+      "sponsored": false,
+      "lastVerifiedAt": "2026-11-09T00:00:00.000Z",
+      "verificationMethod": "manual",
+      "verifiedBy": "fixture-operator",
+      "notes": null
+    },
+    {
+      "offerId": "offer_led_lights_orange_purple__marketplace",
+      "productId": "prod_led_lights_orange_purple",
+      "merchantProgramId": "fixture_marketplace_us",
+      "merchantItemId": "FXB00000RV",
+      "destinationCountry": "US",
+      "currency": "USD",
+      "priceMinor": null,
+      "priceSource": "none",
+      "priceObservedAt": null,
+      "availability": "in_stock",
+      "availabilityObservedAt": "2026-11-08T21:00:00.000Z",
+      "destinationUrl": "https://example.com/fixture-marketplace/p/led-lights-orange-purple",
+      "trackingUrlTemplate": "{destinationUrl}?tag={trackingId}",
+      "contentRights": {
+        "imageDisplay": {
+          "state": "unknown",
+          "evidenceRef": null
+        },
+        "imageAiInput": {
+          "state": "denied",
+          "evidenceRef": "fixture:program-terms"
+        },
+        "textUse": {
+          "state": "denied",
+          "evidenceRef": "fixture:associates-policies"
+        }
+      },
+      "lifecycleStatus": "active",
+      "seasonalEligibility": ["halloween.US.2026", "halloween.US.2027"],
+      "sponsored": false,
+      "lastVerifiedAt": "2026-11-08T21:00:00.000Z",
+      "verificationMethod": "manual",
+      "verifiedBy": "fixture-operator",
+      "notes": null
+    },
+    {
+      "offerId": "offer_mum_and_cornstalk_bundle__home_garden",
+      "productId": "prod_mum_and_cornstalk_bundle",
+      "merchantProgramId": "fixture_home_garden_us",
+      "merchantItemId": "FX-1004",
+      "destinationCountry": "US",
+      "currency": "USD",
+      "priceMinor": 3499,
+      "priceSource": "feed",
+      "priceObservedAt": "2026-11-08T18:00:00.000Z",
+      "availability": "in_stock",
+      "availabilityObservedAt": "2026-11-08T18:00:00.000Z",
+      "destinationUrl": "https://example.com/fixture-home-garden/p/mum-and-cornstalk-bundle",
+      "trackingUrlTemplate": "https://example.com/fixture-network/click/fhg?subId1={subId}&url={destinationUrl}",
+      "contentRights": {
+        "imageDisplay": {
+          "state": "unknown",
+          "evidenceRef": null
+        },
+        "imageAiInput": {
+          "state": "denied",
+          "evidenceRef": "fixture:program-terms"
+        },
+        "textUse": {
+          "state": "unknown",
+          "evidenceRef": null
+        }
+      },
+      "lifecycleStatus": "active",
+      "seasonalEligibility": ["halloween.US.2026", "halloween.US.2027"],
+      "sponsored": false,
+      "lastVerifiedAt": "2026-11-08T18:00:00.000Z",
+      "verificationMethod": "feed",
+      "verifiedBy": "fixture-operator",
+      "notes": null
+    },
+    {
+      "offerId": "offer_posable_skeleton_5ft__marketplace",
+      "productId": "prod_posable_skeleton_5ft",
+      "merchantProgramId": "fixture_marketplace_us",
+      "merchantItemId": "FXB00000RX",
+      "destinationCountry": "US",
+      "currency": "USD",
+      "priceMinor": null,
+      "priceSource": "none",
+      "priceObservedAt": null,
+      "availability": "in_stock",
+      "availabilityObservedAt": "2026-11-09T06:00:00.000Z",
+      "destinationUrl": "https://example.com/fixture-marketplace/p/posable-skeleton-5ft",
+      "trackingUrlTemplate": "{destinationUrl}?tag={trackingId}",
+      "contentRights": {
+        "imageDisplay": {
+          "state": "unknown",
+          "evidenceRef": null
+        },
+        "imageAiInput": {
+          "state": "denied",
+          "evidenceRef": "fixture:program-terms"
+        },
+        "textUse": {
+          "state": "denied",
+          "evidenceRef": "fixture:associates-policies"
+        }
+      },
+      "lifecycleStatus": "active",
+      "seasonalEligibility": ["halloween.US.2026", "halloween.US.2027"],
+      "sponsored": false,
+      "lastVerifiedAt": "2026-11-09T06:00:00.000Z",
+      "verificationMethod": "manual",
+      "verifiedBy": "fixture-operator",
+      "notes": null
+    },
+    {
+      "offerId": "offer_wreath_black_orange_18in__decor",
+      "productId": "prod_wreath_black_orange_18in",
+      "merchantProgramId": "fixture_decor_us",
+      "merchantItemId": "FX-1006",
+      "destinationCountry": "US",
+      "currency": "USD",
+      "priceMinor": null,
+      "priceSource": "none",
+      "priceObservedAt": null,
+      "availability": "in_stock",
+      "availabilityObservedAt": "2026-11-09T03:00:00.000Z",
+      "destinationUrl": "https://example.com/fixture-decor-co/p/wreath-black-orange-18in",
+      "trackingUrlTemplate": null,
+      "contentRights": {
+        "imageDisplay": {
+          "state": "unknown",
+          "evidenceRef": null
+        },
+        "imageAiInput": {
+          "state": "denied",
+          "evidenceRef": "fixture:program-terms"
+        },
+        "textUse": {
+          "state": "unknown",
+          "evidenceRef": null
+        }
+      },
+      "lifecycleStatus": "active",
+      "seasonalEligibility": ["halloween.US.2026", "halloween.US.2027"],
+      "sponsored": false,
+      "lastVerifiedAt": "2026-11-09T03:00:00.000Z",
+      "verificationMethod": "manual",
+      "verifiedBy": "fixture-operator",
+      "notes": null
+    },
+    {
+      "offerId": "offer_mini_jack_o_lanterns_lit__home_garden",
+      "productId": "prod_mini_jack_o_lanterns_lit",
+      "merchantProgramId": "fixture_home_garden_us",
+      "merchantItemId": "FX-1007",
+      "destinationCountry": "US",
+      "currency": "USD",
+      "priceMinor": 2999,
+      "priceSource": "feed",
+      "priceObservedAt": "2026-11-09T00:00:00.000Z",
+      "availability": "in_stock",
+      "availabilityObservedAt": "2026-11-09T00:00:00.000Z",
+      "destinationUrl": "https://example.com/fixture-home-garden/p/mini-jack-o-lanterns-lit",
+      "trackingUrlTemplate": "https://example.com/fixture-network/click/fhg?subId1={subId}&url={destinationUrl}",
+      "contentRights": {
+        "imageDisplay": {
+          "state": "unknown",
+          "evidenceRef": null
+        },
+        "imageAiInput": {
+          "state": "denied",
+          "evidenceRef": "fixture:program-terms"
+        },
+        "textUse": {
+          "state": "unknown",
+          "evidenceRef": null
+        }
+      },
+      "lifecycleStatus": "active",
+      "seasonalEligibility": ["halloween.US.2026", "halloween.US.2027"],
+      "sponsored": false,
+      "lastVerifiedAt": "2026-11-09T00:00:00.000Z",
+      "verificationMethod": "feed",
+      "verifiedBy": "fixture-operator",
+      "notes": null
+    },
+    {
+      "offerId": "offer_bat_silhouette_decals__marketplace",
+      "productId": "prod_bat_silhouette_decals",
+      "merchantProgramId": "fixture_marketplace_us",
+      "merchantItemId": "FXB00000S0",
+      "destinationCountry": "US",
+      "currency": "USD",
+      "priceMinor": null,
+      "priceSource": "none",
+      "priceObservedAt": null,
+      "availability": "in_stock",
+      "availabilityObservedAt": "2026-11-08T21:00:00.000Z",
+      "destinationUrl": "https://example.com/fixture-marketplace/p/bat-silhouette-decals",
+      "trackingUrlTemplate": "{destinationUrl}?tag={trackingId}",
+      "contentRights": {
+        "imageDisplay": {
+          "state": "unknown",
+          "evidenceRef": null
+        },
+        "imageAiInput": {
+          "state": "denied",
+          "evidenceRef": "fixture:program-terms"
+        },
+        "textUse": {
+          "state": "denied",
+          "evidenceRef": "fixture:associates-policies"
+        }
+      },
+      "lifecycleStatus": "active",
+      "seasonalEligibility": ["halloween.US.2026", "halloween.US.2027"],
+      "sponsored": false,
+      "lastVerifiedAt": "2026-11-08T21:00:00.000Z",
+      "verificationMethod": "manual",
+      "verifiedBy": "fixture-operator",
+      "notes": null
+    },
+    {
+      "offerId": "offer_battery_lights_orange_20ft__marketplace",
+      "productId": "prod_battery_lights_orange_20ft",
+      "merchantProgramId": "fixture_marketplace_us",
+      "merchantItemId": "FXB00000S1",
+      "destinationCountry": "US",
+      "currency": "USD",
+      "priceMinor": null,
+      "priceSource": "none",
+      "priceObservedAt": null,
+      "availability": "in_stock",
+      "availabilityObservedAt": "2026-11-08T18:00:00.000Z",
+      "destinationUrl": "https://example.com/fixture-marketplace/p/battery-lights-orange-20ft",
+      "trackingUrlTemplate": "{destinationUrl}?tag={trackingId}",
+      "contentRights": {
+        "imageDisplay": {
+          "state": "unknown",
+          "evidenceRef": null
+        },
+        "imageAiInput": {
+          "state": "denied",
+          "evidenceRef": "fixture:program-terms"
+        },
+        "textUse": {
+          "state": "denied",
+          "evidenceRef": "fixture:associates-policies"
+        }
+      },
+      "lifecycleStatus": "active",
+      "seasonalEligibility": ["halloween.US.2026", "halloween.US.2027"],
+      "sponsored": false,
+      "lastVerifiedAt": "2026-11-08T18:00:00.000Z",
+      "verificationMethod": "manual",
+      "verifiedBy": "fixture-operator",
+      "notes": null
+    },
+    {
+      "offerId": "offer_mum_potted__home_garden",
+      "productId": "prod_mum_potted",
+      "merchantProgramId": "fixture_home_garden_us",
+      "merchantItemId": "FX-1010",
+      "destinationCountry": "US",
+      "currency": "USD",
+      "priceMinor": 1499,
+      "priceSource": "feed",
+      "priceObservedAt": "2026-11-09T06:00:00.000Z",
+      "availability": "in_stock",
+      "availabilityObservedAt": "2026-11-09T06:00:00.000Z",
+      "destinationUrl": "https://example.com/fixture-home-garden/p/mum-potted",
+      "trackingUrlTemplate": "https://example.com/fixture-network/click/fhg?subId1={subId}&url={destinationUrl}",
+      "contentRights": {
+        "imageDisplay": {
+          "state": "unknown",
+          "evidenceRef": null
+        },
+        "imageAiInput": {
+          "state": "denied",
+          "evidenceRef": "fixture:program-terms"
+        },
+        "textUse": {
+          "state": "unknown",
+          "evidenceRef": null
+        }
+      },
+      "lifecycleStatus": "active",
+      "seasonalEligibility": ["halloween.US.2026", "halloween.US.2027", "thanksgiving_us.US.2026"],
+      "sponsored": false,
+      "lastVerifiedAt": "2026-11-09T06:00:00.000Z",
+      "verificationMethod": "feed",
+      "verifiedBy": "fixture-operator",
+      "notes": null
+    },
+    {
+      "offerId": "offer_garland_black_orange_leaf__decor",
+      "productId": "prod_garland_black_orange_leaf",
+      "merchantProgramId": "fixture_decor_us",
+      "merchantItemId": "FX-1011",
+      "destinationCountry": "US",
+      "currency": "USD",
+      "priceMinor": null,
+      "priceSource": "none",
+      "priceObservedAt": null,
+      "availability": "in_stock",
+      "availabilityObservedAt": "2026-11-09T03:00:00.000Z",
+      "destinationUrl": "https://example.com/fixture-decor-co/p/garland-black-orange-leaf",
+      "trackingUrlTemplate": null,
+      "contentRights": {
+        "imageDisplay": {
+          "state": "unknown",
+          "evidenceRef": null
+        },
+        "imageAiInput": {
+          "state": "denied",
+          "evidenceRef": "fixture:program-terms"
+        },
+        "textUse": {
+          "state": "unknown",
+          "evidenceRef": null
+        }
+      },
+      "lifecycleStatus": "active",
+      "seasonalEligibility": ["halloween.US.2026", "halloween.US.2027"],
+      "sponsored": false,
+      "lastVerifiedAt": "2026-11-09T03:00:00.000Z",
+      "verificationMethod": "manual",
+      "verifiedBy": "fixture-operator",
+      "notes": null
+    },
+    {
+      "offerId": "offer_mini_pumpkin_gourd_tabletop__home_garden",
+      "productId": "prod_mini_pumpkin_gourd_tabletop",
+      "merchantProgramId": "fixture_home_garden_us",
+      "merchantItemId": "FX-1012",
+      "destinationCountry": "US",
+      "currency": "USD",
+      "priceMinor": 2499,
+      "priceSource": "feed",
+      "priceObservedAt": "2026-11-09T00:00:00.000Z",
+      "availability": "in_stock",
+      "availabilityObservedAt": "2026-11-09T00:00:00.000Z",
+      "destinationUrl": "https://example.com/fixture-home-garden/p/mini-pumpkin-gourd-tabletop",
+      "trackingUrlTemplate": "https://example.com/fixture-network/click/fhg?subId1={subId}&url={destinationUrl}",
+      "contentRights": {
+        "imageDisplay": {
+          "state": "unknown",
+          "evidenceRef": null
+        },
+        "imageAiInput": {
+          "state": "denied",
+          "evidenceRef": "fixture:program-terms"
+        },
+        "textUse": {
+          "state": "unknown",
+          "evidenceRef": null
+        }
+      },
+      "lifecycleStatus": "active",
+      "seasonalEligibility": ["halloween.US.2026", "halloween.US.2027"],
+      "sponsored": false,
+      "lastVerifiedAt": "2026-11-09T00:00:00.000Z",
+      "verificationMethod": "feed",
+      "verifiedBy": "fixture-operator",
+      "notes": null
+    },
+    {
+      "offerId": "offer_flameless_pillars_black_holders__lights_lanterns",
+      "productId": "prod_flameless_pillars_black_holders",
+      "merchantProgramId": "fixture_lights_lanterns_us",
+      "merchantItemId": "FX-1013",
+      "destinationCountry": "US",
+      "currency": "USD",
+      "priceMinor": 4999,
+      "priceSource": "api",
+      "priceObservedAt": "2026-11-08T21:00:00.000Z",
+      "availability": "in_stock",
+      "availabilityObservedAt": "2026-11-08T21:00:00.000Z",
+      "destinationUrl": "https://example.com/fixture-lights-lanterns/p/flameless-pillars-black-holders",
+      "trackingUrlTemplate": "https://example.com/fixture-network/click/fll?subId1={subId}&url={destinationUrl}",
+      "contentRights": {
+        "imageDisplay": {
+          "state": "unknown",
+          "evidenceRef": null
+        },
+        "imageAiInput": {
+          "state": "denied",
+          "evidenceRef": "fixture:program-terms"
+        },
+        "textUse": {
+          "state": "unknown",
+          "evidenceRef": null
+        }
+      },
+      "lifecycleStatus": "active",
+      "seasonalEligibility": ["halloween.US.2026", "halloween.US.2027"],
+      "sponsored": false,
+      "lastVerifiedAt": "2026-11-08T21:00:00.000Z",
+      "verificationMethod": "api",
+      "verifiedBy": "fixture-operator",
+      "notes": null
+    },
+    {
+      "offerId": "offer_wreath_autumn_maple_24in__harvest_market",
+      "productId": "prod_wreath_autumn_maple_24in",
+      "merchantProgramId": "fixture_harvest_market_us",
+      "merchantItemId": "FX-1014",
+      "destinationCountry": "US",
+      "currency": "USD",
+      "priceMinor": 5499,
+      "priceSource": "manual_non_amazon",
+      "priceObservedAt": "2026-11-08T18:00:00.000Z",
+      "availability": "in_stock",
+      "availabilityObservedAt": "2026-11-08T18:00:00.000Z",
+      "destinationUrl": "https://example.com/fixture-harvest-market/p/wreath-autumn-maple-24in",
+      "trackingUrlTemplate": null,
+      "contentRights": {
+        "imageDisplay": {
+          "state": "unknown",
+          "evidenceRef": null
+        },
+        "imageAiInput": {
+          "state": "denied",
+          "evidenceRef": "fixture:program-terms"
+        },
+        "textUse": {
+          "state": "unknown",
+          "evidenceRef": null
+        }
+      },
+      "lifecycleStatus": "active",
+      "seasonalEligibility": ["thanksgiving_us.US.2026"],
+      "sponsored": false,
+      "lastVerifiedAt": "2026-11-08T18:00:00.000Z",
+      "verificationMethod": "manual",
+      "verifiedBy": "fixture-operator",
+      "notes": null
+    },
+    {
+      "offerId": "offer_garland_harvest_leaf_gourd__harvest_market",
+      "productId": "prod_garland_harvest_leaf_gourd",
+      "merchantProgramId": "fixture_harvest_market_us",
+      "merchantItemId": "FX-1015",
+      "destinationCountry": "US",
+      "currency": "USD",
+      "priceMinor": 3299,
+      "priceSource": "manual_non_amazon",
+      "priceObservedAt": "2026-11-09T06:00:00.000Z",
+      "availability": "in_stock",
+      "availabilityObservedAt": "2026-11-09T06:00:00.000Z",
+      "destinationUrl": "https://example.com/fixture-harvest-market/p/garland-harvest-leaf-gourd",
+      "trackingUrlTemplate": null,
+      "contentRights": {
+        "imageDisplay": {
+          "state": "unknown",
+          "evidenceRef": null
+        },
+        "imageAiInput": {
+          "state": "denied",
+          "evidenceRef": "fixture:program-terms"
+        },
+        "textUse": {
+          "state": "unknown",
+          "evidenceRef": null
+        }
+      },
+      "lifecycleStatus": "active",
+      "seasonalEligibility": ["thanksgiving_us.US.2026"],
+      "sponsored": false,
+      "lastVerifiedAt": "2026-11-09T06:00:00.000Z",
+      "verificationMethod": "manual",
+      "verifiedBy": "fixture-operator",
+      "notes": null
+    },
+    {
+      "offerId": "offer_corn_stalk_bundle__home_garden",
+      "productId": "prod_corn_stalk_bundle",
+      "merchantProgramId": "fixture_home_garden_us",
+      "merchantItemId": "FX-1016",
+      "destinationCountry": "US",
+      "currency": "USD",
+      "priceMinor": 1999,
+      "priceSource": "feed",
+      "priceObservedAt": "2026-11-09T03:00:00.000Z",
+      "availability": "in_stock",
+      "availabilityObservedAt": "2026-11-09T03:00:00.000Z",
+      "destinationUrl": "https://example.com/fixture-home-garden/p/corn-stalk-bundle",
+      "trackingUrlTemplate": "https://example.com/fixture-network/click/fhg?subId1={subId}&url={destinationUrl}",
+      "contentRights": {
+        "imageDisplay": {
+          "state": "unknown",
+          "evidenceRef": null
+        },
+        "imageAiInput": {
+          "state": "denied",
+          "evidenceRef": "fixture:program-terms"
+        },
+        "textUse": {
+          "state": "unknown",
+          "evidenceRef": null
+        }
+      },
+      "lifecycleStatus": "active",
+      "seasonalEligibility": ["thanksgiving_us.US.2026"],
+      "sponsored": false,
+      "lastVerifiedAt": "2026-11-09T03:00:00.000Z",
+      "verificationMethod": "feed",
+      "verifiedBy": "fixture-operator",
+      "notes": null
+    },
+    {
+      "offerId": "offer_wreath_autumn_small_20in__harvest_market",
+      "productId": "prod_wreath_autumn_small_20in",
+      "merchantProgramId": "fixture_harvest_market_us",
+      "merchantItemId": "FX-1017",
+      "destinationCountry": "US",
+      "currency": "USD",
+      "priceMinor": 3999,
+      "priceSource": "manual_non_amazon",
+      "priceObservedAt": "2026-11-09T00:00:00.000Z",
+      "availability": "in_stock",
+      "availabilityObservedAt": "2026-11-09T00:00:00.000Z",
+      "destinationUrl": "https://example.com/fixture-harvest-market/p/wreath-autumn-small-20in",
+      "trackingUrlTemplate": null,
+      "contentRights": {
+        "imageDisplay": {
+          "state": "unknown",
+          "evidenceRef": null
+        },
+        "imageAiInput": {
+          "state": "denied",
+          "evidenceRef": "fixture:program-terms"
+        },
+        "textUse": {
+          "state": "unknown",
+          "evidenceRef": null
+        }
+      },
+      "lifecycleStatus": "active",
+      "seasonalEligibility": ["thanksgiving_us.US.2026"],
+      "sponsored": false,
+      "lastVerifiedAt": "2026-11-09T00:00:00.000Z",
+      "verificationMethod": "manual",
+      "verifiedBy": "fixture-operator",
+      "notes": null
+    },
+    {
+      "offerId": "offer_faux_pumpkin_trio_small__home_garden",
+      "productId": "prod_faux_pumpkin_trio_small",
+      "merchantProgramId": "fixture_home_garden_us",
+      "merchantItemId": "FX-1018",
+      "destinationCountry": "US",
+      "currency": "USD",
+      "priceMinor": 2299,
+      "priceSource": "feed",
+      "priceObservedAt": "2026-11-08T21:00:00.000Z",
+      "availability": "in_stock",
+      "availabilityObservedAt": "2026-11-08T21:00:00.000Z",
+      "destinationUrl": "https://example.com/fixture-home-garden/p/faux-pumpkin-trio-small",
+      "trackingUrlTemplate": "https://example.com/fixture-network/click/fhg?subId1={subId}&url={destinationUrl}",
+      "contentRights": {
+        "imageDisplay": {
+          "state": "unknown",
+          "evidenceRef": null
+        },
+        "imageAiInput": {
+          "state": "denied",
+          "evidenceRef": "fixture:program-terms"
+        },
+        "textUse": {
+          "state": "unknown",
+          "evidenceRef": null
+        }
+      },
+      "lifecycleStatus": "active",
+      "seasonalEligibility": ["thanksgiving_us.US.2026"],
+      "sponsored": false,
+      "lastVerifiedAt": "2026-11-08T21:00:00.000Z",
+      "verificationMethod": "feed",
+      "verifiedBy": "fixture-operator",
+      "notes": null
+    },
+    {
+      "offerId": "offer_linen_runner_rust__harvest_market",
+      "productId": "prod_linen_runner_rust",
+      "merchantProgramId": "fixture_harvest_market_us",
+      "merchantItemId": "FX-1019",
+      "destinationCountry": "US",
+      "currency": "USD",
+      "priceMinor": 3499,
+      "priceSource": "manual_non_amazon",
+      "priceObservedAt": "2026-11-08T18:00:00.000Z",
+      "availability": "in_stock",
+      "availabilityObservedAt": "2026-11-08T18:00:00.000Z",
+      "destinationUrl": "https://example.com/fixture-harvest-market/p/linen-runner-rust",
+      "trackingUrlTemplate": null,
+      "contentRights": {
+        "imageDisplay": {
+          "state": "unknown",
+          "evidenceRef": null
+        },
+        "imageAiInput": {
+          "state": "denied",
+          "evidenceRef": "fixture:program-terms"
+        },
+        "textUse": {
+          "state": "unknown",
+          "evidenceRef": null
+        }
+      },
+      "lifecycleStatus": "active",
+      "seasonalEligibility": ["thanksgiving_us.US.2026"],
+      "sponsored": false,
+      "lastVerifiedAt": "2026-11-08T18:00:00.000Z",
+      "verificationMethod": "manual",
+      "verifiedBy": "fixture-operator",
+      "notes": null
+    },
+    {
+      "offerId": "offer_harvest_centerpiece_low__harvest_market",
+      "productId": "prod_harvest_centerpiece_low",
+      "merchantProgramId": "fixture_harvest_market_us",
+      "merchantItemId": "FX-1020",
+      "destinationCountry": "US",
+      "currency": "USD",
+      "priceMinor": 5999,
+      "priceSource": "manual_non_amazon",
+      "priceObservedAt": "2026-11-09T06:00:00.000Z",
+      "availability": "in_stock",
+      "availabilityObservedAt": "2026-11-09T06:00:00.000Z",
+      "destinationUrl": "https://example.com/fixture-harvest-market/p/harvest-centerpiece-low",
+      "trackingUrlTemplate": null,
+      "contentRights": {
+        "imageDisplay": {
+          "state": "unknown",
+          "evidenceRef": null
+        },
+        "imageAiInput": {
+          "state": "denied",
+          "evidenceRef": "fixture:program-terms"
+        },
+        "textUse": {
+          "state": "unknown",
+          "evidenceRef": null
+        }
+      },
+      "lifecycleStatus": "active",
+      "seasonalEligibility": ["thanksgiving_us.US.2026"],
+      "sponsored": false,
+      "lastVerifiedAt": "2026-11-09T06:00:00.000Z",
+      "verificationMethod": "manual",
+      "verifiedBy": "fixture-operator",
+      "notes": null
+    },
+    {
+      "offerId": "offer_flameless_taper_pillar_set__lights_lanterns",
+      "productId": "prod_flameless_taper_pillar_set",
+      "merchantProgramId": "fixture_lights_lanterns_us",
+      "merchantItemId": "FX-1021",
+      "destinationCountry": "US",
+      "currency": "USD",
+      "priceMinor": 4499,
+      "priceSource": "api",
+      "priceObservedAt": "2026-11-09T03:00:00.000Z",
+      "availability": "in_stock",
+      "availabilityObservedAt": "2026-11-09T03:00:00.000Z",
+      "destinationUrl": "https://example.com/fixture-lights-lanterns/p/flameless-taper-pillar-set",
+      "trackingUrlTemplate": "https://example.com/fixture-network/click/fll?subId1={subId}&url={destinationUrl}",
+      "contentRights": {
+        "imageDisplay": {
+          "state": "unknown",
+          "evidenceRef": null
+        },
+        "imageAiInput": {
+          "state": "denied",
+          "evidenceRef": "fixture:program-terms"
+        },
+        "textUse": {
+          "state": "unknown",
+          "evidenceRef": null
+        }
+      },
+      "lifecycleStatus": "active",
+      "seasonalEligibility": ["thanksgiving_us.US.2026", "new_years_eve.US.2026"],
+      "sponsored": false,
+      "lastVerifiedAt": "2026-11-09T03:00:00.000Z",
+      "verificationMethod": "api",
+      "verifiedBy": "fixture-operator",
+      "notes": null
+    },
+    {
+      "offerId": "offer_napkins_autumn_rings__harvest_market",
+      "productId": "prod_napkins_autumn_rings",
+      "merchantProgramId": "fixture_harvest_market_us",
+      "merchantItemId": "FX-1022",
+      "destinationCountry": "US",
+      "currency": "USD",
+      "priceMinor": 3999,
+      "priceSource": "manual_non_amazon",
+      "priceObservedAt": "2026-11-09T00:00:00.000Z",
+      "availability": "in_stock",
+      "availabilityObservedAt": "2026-11-09T00:00:00.000Z",
+      "destinationUrl": "https://example.com/fixture-harvest-market/p/napkins-autumn-rings",
+      "trackingUrlTemplate": null,
+      "contentRights": {
+        "imageDisplay": {
+          "state": "unknown",
+          "evidenceRef": null
+        },
+        "imageAiInput": {
+          "state": "denied",
+          "evidenceRef": "fixture:program-terms"
+        },
+        "textUse": {
+          "state": "unknown",
+          "evidenceRef": null
+        }
+      },
+      "lifecycleStatus": "active",
+      "seasonalEligibility": ["thanksgiving_us.US.2026"],
+      "sponsored": false,
+      "lastVerifiedAt": "2026-11-09T00:00:00.000Z",
+      "verificationMethod": "manual",
+      "verifiedBy": "fixture-operator",
+      "notes": null
+    },
+    {
+      "offerId": "offer_harvest_arrangement_wheat__harvest_market",
+      "productId": "prod_harvest_arrangement_wheat",
+      "merchantProgramId": "fixture_harvest_market_us",
+      "merchantItemId": "FX-1023",
+      "destinationCountry": "US",
+      "currency": "USD",
+      "priceMinor": 4499,
+      "priceSource": "manual_non_amazon",
+      "priceObservedAt": "2026-11-08T21:00:00.000Z",
+      "availability": "in_stock",
+      "availabilityObservedAt": "2026-11-08T21:00:00.000Z",
+      "destinationUrl": "https://example.com/fixture-harvest-market/p/harvest-arrangement-wheat",
+      "trackingUrlTemplate": null,
+      "contentRights": {
+        "imageDisplay": {
+          "state": "unknown",
+          "evidenceRef": null
+        },
+        "imageAiInput": {
+          "state": "denied",
+          "evidenceRef": "fixture:program-terms"
+        },
+        "textUse": {
+          "state": "unknown",
+          "evidenceRef": null
+        }
+      },
+      "lifecycleStatus": "active",
+      "seasonalEligibility": ["thanksgiving_us.US.2026"],
+      "sponsored": false,
+      "lastVerifiedAt": "2026-11-08T21:00:00.000Z",
+      "verificationMethod": "manual",
+      "verifiedBy": "fixture-operator",
+      "notes": null
+    },
+    {
+      "offerId": "offer_garland_autumn_leaf_6ft__harvest_market",
+      "productId": "prod_garland_autumn_leaf_6ft",
+      "merchantProgramId": "fixture_harvest_market_us",
+      "merchantItemId": "FX-1024",
+      "destinationCountry": "US",
+      "currency": "USD",
+      "priceMinor": 1999,
+      "priceSource": "manual_non_amazon",
+      "priceObservedAt": "2026-11-08T18:00:00.000Z",
+      "availability": "in_stock",
+      "availabilityObservedAt": "2026-11-08T18:00:00.000Z",
+      "destinationUrl": "https://example.com/fixture-harvest-market/p/garland-autumn-leaf-6ft",
+      "trackingUrlTemplate": null,
+      "contentRights": {
+        "imageDisplay": {
+          "state": "unknown",
+          "evidenceRef": null
+        },
+        "imageAiInput": {
+          "state": "denied",
+          "evidenceRef": "fixture:program-terms"
+        },
+        "textUse": {
+          "state": "unknown",
+          "evidenceRef": null
+        }
+      },
+      "lifecycleStatus": "active",
+      "seasonalEligibility": ["thanksgiving_us.US.2026"],
+      "sponsored": false,
+      "lastVerifiedAt": "2026-11-08T18:00:00.000Z",
+      "verificationMethod": "manual",
+      "verifiedBy": "fixture-operator",
+      "notes": null
+    },
+    {
+      "offerId": "offer_led_string_warm_white_50ft__marketplace",
+      "productId": "prod_led_string_warm_white_50ft",
+      "merchantProgramId": "fixture_marketplace_us",
+      "merchantItemId": "FXB00000SH",
+      "destinationCountry": "US",
+      "currency": "USD",
+      "priceMinor": null,
+      "priceSource": "none",
+      "priceObservedAt": null,
+      "availability": "in_stock",
+      "availabilityObservedAt": "2026-11-09T06:00:00.000Z",
+      "destinationUrl": "https://example.com/fixture-marketplace/p/led-string-warm-white-50ft",
+      "trackingUrlTemplate": "{destinationUrl}?tag={trackingId}",
+      "contentRights": {
+        "imageDisplay": {
+          "state": "unknown",
+          "evidenceRef": null
+        },
+        "imageAiInput": {
+          "state": "denied",
+          "evidenceRef": "fixture:program-terms"
+        },
+        "textUse": {
+          "state": "denied",
+          "evidenceRef": "fixture:associates-policies"
+        }
+      },
+      "lifecycleStatus": "active",
+      "seasonalEligibility": ["christmas.US.2026", "new_years_eve.US.2026"],
+      "sponsored": false,
+      "lastVerifiedAt": "2026-11-09T06:00:00.000Z",
+      "verificationMethod": "manual",
+      "verifiedBy": "fixture-operator",
+      "notes": null
+    },
+    {
+      "offerId": "offer_wreath_evergreen_30in_velvet_bow__decor",
+      "productId": "prod_wreath_evergreen_30in_velvet_bow",
+      "merchantProgramId": "fixture_decor_us",
+      "merchantItemId": "FX-1026",
+      "destinationCountry": "US",
+      "currency": "USD",
+      "priceMinor": null,
+      "priceSource": "none",
+      "priceObservedAt": null,
+      "availability": "in_stock",
+      "availabilityObservedAt": "2026-11-09T03:00:00.000Z",
+      "destinationUrl": "https://example.com/fixture-decor-co/p/wreath-evergreen-30in-velvet-bow",
+      "trackingUrlTemplate": null,
+      "contentRights": {
+        "imageDisplay": {
+          "state": "unknown",
+          "evidenceRef": null
+        },
+        "imageAiInput": {
+          "state": "denied",
+          "evidenceRef": "fixture:program-terms"
+        },
+        "textUse": {
+          "state": "unknown",
+          "evidenceRef": null
+        }
+      },
+      "lifecycleStatus": "active",
+      "seasonalEligibility": ["christmas.US.2026"],
+      "sponsored": false,
+      "lastVerifiedAt": "2026-11-09T03:00:00.000Z",
+      "verificationMethod": "manual",
+      "verifiedBy": "fixture-operator",
+      "notes": null
+    },
+    {
+      "offerId": "offer_garland_evergreen_pinecone_9ft__decor",
+      "productId": "prod_garland_evergreen_pinecone_9ft",
+      "merchantProgramId": "fixture_decor_us",
+      "merchantItemId": "FX-1027",
+      "destinationCountry": "US",
+      "currency": "USD",
+      "priceMinor": null,
+      "priceSource": "none",
+      "priceObservedAt": null,
+      "availability": "in_stock",
+      "availabilityObservedAt": "2026-11-09T00:00:00.000Z",
+      "destinationUrl": "https://example.com/fixture-decor-co/p/garland-evergreen-pinecone-9ft",
+      "trackingUrlTemplate": null,
+      "contentRights": {
+        "imageDisplay": {
+          "state": "unknown",
+          "evidenceRef": null
+        },
+        "imageAiInput": {
+          "state": "denied",
+          "evidenceRef": "fixture:program-terms"
+        },
+        "textUse": {
+          "state": "unknown",
+          "evidenceRef": null
+        }
+      },
+      "lifecycleStatus": "active",
+      "seasonalEligibility": ["christmas.US.2026"],
+      "sponsored": false,
+      "lastVerifiedAt": "2026-11-09T00:00:00.000Z",
+      "verificationMethod": "manual",
+      "verifiedBy": "fixture-operator",
+      "notes": null
+    },
+    {
+      "offerId": "offer_potted_evergreen_lit_pair_4ft__home_garden",
+      "productId": "prod_potted_evergreen_lit_pair_4ft",
+      "merchantProgramId": "fixture_home_garden_us",
+      "merchantItemId": "FX-1028",
+      "destinationCountry": "US",
+      "currency": "USD",
+      "priceMinor": 14999,
+      "priceSource": "feed",
+      "priceObservedAt": "2026-11-08T21:00:00.000Z",
+      "availability": "in_stock",
+      "availabilityObservedAt": "2026-11-08T21:00:00.000Z",
+      "destinationUrl": "https://example.com/fixture-home-garden/p/potted-evergreen-lit-pair-4ft",
+      "trackingUrlTemplate": "https://example.com/fixture-network/click/fhg?subId1={subId}&url={destinationUrl}",
+      "contentRights": {
+        "imageDisplay": {
+          "state": "unknown",
+          "evidenceRef": null
+        },
+        "imageAiInput": {
+          "state": "denied",
+          "evidenceRef": "fixture:program-terms"
+        },
+        "textUse": {
+          "state": "unknown",
+          "evidenceRef": null
+        }
+      },
+      "lifecycleStatus": "active",
+      "seasonalEligibility": ["christmas.US.2026"],
+      "sponsored": false,
+      "lastVerifiedAt": "2026-11-08T21:00:00.000Z",
+      "verificationMethod": "feed",
+      "verifiedBy": "fixture-operator",
+      "notes": null
+    },
+    {
+      "offerId": "offer_lantern_black_flameless_16in__lights_lanterns",
+      "productId": "prod_lantern_black_flameless_16in",
+      "merchantProgramId": "fixture_lights_lanterns_us",
+      "merchantItemId": "FX-1029",
+      "destinationCountry": "US",
+      "currency": "USD",
+      "priceMinor": 3999,
+      "priceSource": "api",
+      "priceObservedAt": "2026-11-08T18:00:00.000Z",
+      "availability": "in_stock",
+      "availabilityObservedAt": "2026-11-08T18:00:00.000Z",
+      "destinationUrl": "https://example.com/fixture-lights-lanterns/p/lantern-black-flameless-16in",
+      "trackingUrlTemplate": "https://example.com/fixture-network/click/fll?subId1={subId}&url={destinationUrl}",
+      "contentRights": {
+        "imageDisplay": {
+          "state": "unknown",
+          "evidenceRef": null
+        },
+        "imageAiInput": {
+          "state": "denied",
+          "evidenceRef": "fixture:program-terms"
+        },
+        "textUse": {
+          "state": "unknown",
+          "evidenceRef": null
+        }
+      },
+      "lifecycleStatus": "active",
+      "seasonalEligibility": ["christmas.US.2026"],
+      "sponsored": false,
+      "lastVerifiedAt": "2026-11-08T18:00:00.000Z",
+      "verificationMethod": "api",
+      "verifiedBy": "fixture-operator",
+      "notes": null
+    },
+    {
+      "offerId": "offer_window_wreath_14in_set__decor",
+      "productId": "prod_window_wreath_14in_set",
+      "merchantProgramId": "fixture_decor_us",
+      "merchantItemId": "FX-1030",
+      "destinationCountry": "US",
+      "currency": "USD",
+      "priceMinor": null,
+      "priceSource": "none",
+      "priceObservedAt": null,
+      "availability": "in_stock",
+      "availabilityObservedAt": "2026-11-09T06:00:00.000Z",
+      "destinationUrl": "https://example.com/fixture-decor-co/p/window-wreath-14in-set",
+      "trackingUrlTemplate": null,
+      "contentRights": {
+        "imageDisplay": {
+          "state": "unknown",
+          "evidenceRef": null
+        },
+        "imageAiInput": {
+          "state": "denied",
+          "evidenceRef": "fixture:program-terms"
+        },
+        "textUse": {
+          "state": "unknown",
+          "evidenceRef": null
+        }
+      },
+      "lifecycleStatus": "active",
+      "seasonalEligibility": ["christmas.US.2026"],
+      "sponsored": false,
+      "lastVerifiedAt": "2026-11-09T06:00:00.000Z",
+      "verificationMethod": "manual",
+      "verifiedBy": "fixture-operator",
+      "notes": null
+    },
+    {
+      "offerId": "offer_wreath_evergreen_22in_bow__decor",
+      "productId": "prod_wreath_evergreen_22in_bow",
+      "merchantProgramId": "fixture_decor_us",
+      "merchantItemId": "FX-1031",
+      "destinationCountry": "US",
+      "currency": "USD",
+      "priceMinor": null,
+      "priceSource": "none",
+      "priceObservedAt": null,
+      "availability": "in_stock",
+      "availabilityObservedAt": "2026-11-09T03:00:00.000Z",
+      "destinationUrl": "https://example.com/fixture-decor-co/p/wreath-evergreen-22in-bow",
+      "trackingUrlTemplate": null,
+      "contentRights": {
+        "imageDisplay": {
+          "state": "unknown",
+          "evidenceRef": null
+        },
+        "imageAiInput": {
+          "state": "denied",
+          "evidenceRef": "fixture:program-terms"
+        },
+        "textUse": {
+          "state": "unknown",
+          "evidenceRef": null
+        }
+      },
+      "lifecycleStatus": "active",
+      "seasonalEligibility": ["christmas.US.2026"],
+      "sponsored": false,
+      "lastVerifiedAt": "2026-11-09T03:00:00.000Z",
+      "verificationMethod": "manual",
+      "verifiedBy": "fixture-operator",
+      "notes": null
+    },
+    {
+      "offerId": "offer_garland_evergreen_battery_lit_9ft__lights_lanterns",
+      "productId": "prod_garland_evergreen_battery_lit_9ft",
+      "merchantProgramId": "fixture_lights_lanterns_us",
+      "merchantItemId": "FX-1032",
+      "destinationCountry": "US",
+      "currency": "USD",
+      "priceMinor": 4999,
+      "priceSource": "api",
+      "priceObservedAt": "2026-11-09T00:00:00.000Z",
+      "availability": "in_stock",
+      "availabilityObservedAt": "2026-11-09T00:00:00.000Z",
+      "destinationUrl": "https://example.com/fixture-lights-lanterns/p/garland-evergreen-battery-lit-9ft",
+      "trackingUrlTemplate": "https://example.com/fixture-network/click/fll?subId1={subId}&url={destinationUrl}",
+      "contentRights": {
+        "imageDisplay": {
+          "state": "unknown",
+          "evidenceRef": null
+        },
+        "imageAiInput": {
+          "state": "denied",
+          "evidenceRef": "fixture:program-terms"
+        },
+        "textUse": {
+          "state": "unknown",
+          "evidenceRef": null
+        }
+      },
+      "lifecycleStatus": "active",
+      "seasonalEligibility": ["christmas.US.2026"],
+      "sponsored": false,
+      "lastVerifiedAt": "2026-11-09T00:00:00.000Z",
+      "verificationMethod": "api",
+      "verifiedBy": "fixture-operator",
+      "notes": null
+    },
+    {
+      "offerId": "offer_lantern_pair_small_black__lights_lanterns",
+      "productId": "prod_lantern_pair_small_black",
+      "merchantProgramId": "fixture_lights_lanterns_us",
+      "merchantItemId": "FX-1033",
+      "destinationCountry": "US",
+      "currency": "USD",
+      "priceMinor": 4999,
+      "priceSource": "api",
+      "priceObservedAt": "2026-11-08T21:00:00.000Z",
+      "availability": "in_stock",
+      "availabilityObservedAt": "2026-11-08T21:00:00.000Z",
+      "destinationUrl": "https://example.com/fixture-lights-lanterns/p/lantern-pair-small-black",
+      "trackingUrlTemplate": "https://example.com/fixture-network/click/fll?subId1={subId}&url={destinationUrl}",
+      "contentRights": {
+        "imageDisplay": {
+          "state": "unknown",
+          "evidenceRef": null
+        },
+        "imageAiInput": {
+          "state": "denied",
+          "evidenceRef": "fixture:program-terms"
+        },
+        "textUse": {
+          "state": "unknown",
+          "evidenceRef": null
+        }
+      },
+      "lifecycleStatus": "active",
+      "seasonalEligibility": ["christmas.US.2026"],
+      "sponsored": false,
+      "lastVerifiedAt": "2026-11-08T21:00:00.000Z",
+      "verificationMethod": "api",
+      "verifiedBy": "fixture-operator",
+      "notes": null
+    },
+    {
+      "offerId": "offer_potted_evergreen_small_lit__home_garden",
+      "productId": "prod_potted_evergreen_small_lit",
+      "merchantProgramId": "fixture_home_garden_us",
+      "merchantItemId": "FX-1034",
+      "destinationCountry": "US",
+      "currency": "USD",
+      "priceMinor": 4999,
+      "priceSource": "feed",
+      "priceObservedAt": "2026-11-08T18:00:00.000Z",
+      "availability": "in_stock",
+      "availabilityObservedAt": "2026-11-08T18:00:00.000Z",
+      "destinationUrl": "https://example.com/fixture-home-garden/p/potted-evergreen-small-lit",
+      "trackingUrlTemplate": "https://example.com/fixture-network/click/fhg?subId1={subId}&url={destinationUrl}",
+      "contentRights": {
+        "imageDisplay": {
+          "state": "unknown",
+          "evidenceRef": null
+        },
+        "imageAiInput": {
+          "state": "denied",
+          "evidenceRef": "fixture:program-terms"
+        },
+        "textUse": {
+          "state": "unknown",
+          "evidenceRef": null
+        }
+      },
+      "lifecycleStatus": "active",
+      "seasonalEligibility": ["christmas.US.2026"],
+      "sponsored": false,
+      "lastVerifiedAt": "2026-11-08T18:00:00.000Z",
+      "verificationMethod": "feed",
+      "verifiedBy": "fixture-operator",
+      "notes": null
+    },
+    {
+      "offerId": "offer_battery_string_warm_white_20ft__marketplace",
+      "productId": "prod_battery_string_warm_white_20ft",
+      "merchantProgramId": "fixture_marketplace_us",
+      "merchantItemId": "FXB00000SR",
+      "destinationCountry": "US",
+      "currency": "USD",
+      "priceMinor": null,
+      "priceSource": "none",
+      "priceObservedAt": null,
+      "availability": "in_stock",
+      "availabilityObservedAt": "2026-11-09T06:00:00.000Z",
+      "destinationUrl": "https://example.com/fixture-marketplace/p/battery-string-warm-white-20ft",
+      "trackingUrlTemplate": "{destinationUrl}?tag={trackingId}",
+      "contentRights": {
+        "imageDisplay": {
+          "state": "unknown",
+          "evidenceRef": null
+        },
+        "imageAiInput": {
+          "state": "denied",
+          "evidenceRef": "fixture:program-terms"
+        },
+        "textUse": {
+          "state": "denied",
+          "evidenceRef": "fixture:associates-policies"
+        }
+      },
+      "lifecycleStatus": "active",
+      "seasonalEligibility": ["christmas.US.2026", "new_years_eve.US.2026"],
+      "sponsored": false,
+      "lastVerifiedAt": "2026-11-09T06:00:00.000Z",
+      "verificationMethod": "manual",
+      "verifiedBy": "fixture-operator",
+      "notes": null
+    },
+    {
+      "offerId": "offer_tree_prelit_7ft__decor",
+      "productId": "prod_tree_prelit_7ft",
+      "merchantProgramId": "fixture_decor_us",
+      "merchantItemId": "FX-1036",
+      "destinationCountry": "US",
+      "currency": "USD",
+      "priceMinor": null,
+      "priceSource": "none",
+      "priceObservedAt": null,
+      "availability": "in_stock",
+      "availabilityObservedAt": "2026-11-09T03:00:00.000Z",
+      "destinationUrl": "https://example.com/fixture-decor-co/p/tree-prelit-7ft",
+      "trackingUrlTemplate": null,
+      "contentRights": {
+        "imageDisplay": {
+          "state": "unknown",
+          "evidenceRef": null
+        },
+        "imageAiInput": {
+          "state": "denied",
+          "evidenceRef": "fixture:program-terms"
+        },
+        "textUse": {
+          "state": "unknown",
+          "evidenceRef": null
+        }
+      },
+      "lifecycleStatus": "active",
+      "seasonalEligibility": ["christmas.US.2026"],
+      "sponsored": false,
+      "lastVerifiedAt": "2026-11-09T03:00:00.000Z",
+      "verificationMethod": "manual",
+      "verifiedBy": "fixture-operator",
+      "notes": null
+    },
+    {
+      "offerId": "offer_knit_stockings_set__decor",
+      "productId": "prod_knit_stockings_set",
+      "merchantProgramId": "fixture_decor_us",
+      "merchantItemId": "FX-1037",
+      "destinationCountry": "US",
+      "currency": "USD",
+      "priceMinor": null,
+      "priceSource": "none",
+      "priceObservedAt": null,
+      "availability": "in_stock",
+      "availabilityObservedAt": "2026-11-09T00:00:00.000Z",
+      "destinationUrl": "https://example.com/fixture-decor-co/p/knit-stockings-set",
+      "trackingUrlTemplate": null,
+      "contentRights": {
+        "imageDisplay": {
+          "state": "unknown",
+          "evidenceRef": null
+        },
+        "imageAiInput": {
+          "state": "denied",
+          "evidenceRef": "fixture:program-terms"
+        },
+        "textUse": {
+          "state": "unknown",
+          "evidenceRef": null
+        }
+      },
+      "lifecycleStatus": "active",
+      "seasonalEligibility": ["christmas.US.2026"],
+      "sponsored": false,
+      "lastVerifiedAt": "2026-11-09T00:00:00.000Z",
+      "verificationMethod": "manual",
+      "verifiedBy": "fixture-operator",
+      "notes": null
+    },
+    {
+      "offerId": "offer_evergreen_centerpiece_candles__lights_lanterns",
+      "productId": "prod_evergreen_centerpiece_candles",
+      "merchantProgramId": "fixture_lights_lanterns_us",
+      "merchantItemId": "FX-1038",
+      "destinationCountry": "US",
+      "currency": "USD",
+      "priceMinor": 6999,
+      "priceSource": "api",
+      "priceObservedAt": "2026-11-08T21:00:00.000Z",
+      "availability": "in_stock",
+      "availabilityObservedAt": "2026-11-08T21:00:00.000Z",
+      "destinationUrl": "https://example.com/fixture-lights-lanterns/p/evergreen-centerpiece-candles",
+      "trackingUrlTemplate": "https://example.com/fixture-network/click/fll?subId1={subId}&url={destinationUrl}",
+      "contentRights": {
+        "imageDisplay": {
+          "state": "unknown",
+          "evidenceRef": null
+        },
+        "imageAiInput": {
+          "state": "denied",
+          "evidenceRef": "fixture:program-terms"
+        },
+        "textUse": {
+          "state": "unknown",
+          "evidenceRef": null
+        }
+      },
+      "lifecycleStatus": "active",
+      "seasonalEligibility": ["christmas.US.2026"],
+      "sponsored": false,
+      "lastVerifiedAt": "2026-11-08T21:00:00.000Z",
+      "verificationMethod": "api",
+      "verifiedBy": "fixture-operator",
+      "notes": null
+    },
+    {
+      "offerId": "offer_evergreen_arrangement_gold__decor",
+      "productId": "prod_evergreen_arrangement_gold",
+      "merchantProgramId": "fixture_decor_us",
+      "merchantItemId": "FX-1039",
+      "destinationCountry": "US",
+      "currency": "USD",
+      "priceMinor": null,
+      "priceSource": "none",
+      "priceObservedAt": null,
+      "availability": "in_stock",
+      "availabilityObservedAt": "2026-11-08T18:00:00.000Z",
+      "destinationUrl": "https://example.com/fixture-decor-co/p/evergreen-arrangement-gold",
+      "trackingUrlTemplate": null,
+      "contentRights": {
+        "imageDisplay": {
+          "state": "unknown",
+          "evidenceRef": null
+        },
+        "imageAiInput": {
+          "state": "denied",
+          "evidenceRef": "fixture:program-terms"
+        },
+        "textUse": {
+          "state": "unknown",
+          "evidenceRef": null
+        }
+      },
+      "lifecycleStatus": "active",
+      "seasonalEligibility": ["christmas.US.2026"],
+      "sponsored": false,
+      "lastVerifiedAt": "2026-11-08T18:00:00.000Z",
+      "verificationMethod": "manual",
+      "verifiedBy": "fixture-operator",
+      "notes": null
+    },
+    {
+      "offerId": "offer_decorative_gift_boxes__marketplace",
+      "productId": "prod_decorative_gift_boxes",
+      "merchantProgramId": "fixture_marketplace_us",
+      "merchantItemId": "FXB00000SW",
+      "destinationCountry": "US",
+      "currency": "USD",
+      "priceMinor": null,
+      "priceSource": "none",
+      "priceObservedAt": null,
+      "availability": "in_stock",
+      "availabilityObservedAt": "2026-11-09T06:00:00.000Z",
+      "destinationUrl": "https://example.com/fixture-marketplace/p/decorative-gift-boxes",
+      "trackingUrlTemplate": "{destinationUrl}?tag={trackingId}",
+      "contentRights": {
+        "imageDisplay": {
+          "state": "unknown",
+          "evidenceRef": null
+        },
+        "imageAiInput": {
+          "state": "denied",
+          "evidenceRef": "fixture:program-terms"
+        },
+        "textUse": {
+          "state": "denied",
+          "evidenceRef": "fixture:associates-policies"
+        }
+      },
+      "lifecycleStatus": "active",
+      "seasonalEligibility": ["christmas.US.2026"],
+      "sponsored": false,
+      "lastVerifiedAt": "2026-11-09T06:00:00.000Z",
+      "verificationMethod": "manual",
+      "verifiedBy": "fixture-operator",
+      "notes": null
+    },
+    {
+      "offerId": "offer_ornament_wreath_gold_silver_22in__decor",
+      "productId": "prod_ornament_wreath_gold_silver_22in",
+      "merchantProgramId": "fixture_decor_us",
+      "merchantItemId": "FX-1041",
+      "destinationCountry": "US",
+      "currency": "USD",
+      "priceMinor": null,
+      "priceSource": "none",
+      "priceObservedAt": null,
+      "availability": "in_stock",
+      "availabilityObservedAt": "2026-11-09T03:00:00.000Z",
+      "destinationUrl": "https://example.com/fixture-decor-co/p/ornament-wreath-gold-silver-22in",
+      "trackingUrlTemplate": null,
+      "contentRights": {
+        "imageDisplay": {
+          "state": "unknown",
+          "evidenceRef": null
+        },
+        "imageAiInput": {
+          "state": "denied",
+          "evidenceRef": "fixture:program-terms"
+        },
+        "textUse": {
+          "state": "unknown",
+          "evidenceRef": null
+        }
+      },
+      "lifecycleStatus": "active",
+      "seasonalEligibility": ["new_years_eve.US.2026"],
+      "sponsored": false,
+      "lastVerifiedAt": "2026-11-09T03:00:00.000Z",
+      "verificationMethod": "manual",
+      "verifiedBy": "fixture-operator",
+      "notes": null
+    },
+    {
+      "offerId": "offer_tinsel_garland_gold_silver_9ft__marketplace",
+      "productId": "prod_tinsel_garland_gold_silver_9ft",
+      "merchantProgramId": "fixture_marketplace_us",
+      "merchantItemId": "FXB00000SY",
+      "destinationCountry": "US",
+      "currency": "USD",
+      "priceMinor": null,
+      "priceSource": "none",
+      "priceObservedAt": null,
+      "availability": "in_stock",
+      "availabilityObservedAt": "2026-11-09T00:00:00.000Z",
+      "destinationUrl": "https://example.com/fixture-marketplace/p/tinsel-garland-gold-silver-9ft",
+      "trackingUrlTemplate": "{destinationUrl}?tag={trackingId}",
+      "contentRights": {
+        "imageDisplay": {
+          "state": "unknown",
+          "evidenceRef": null
+        },
+        "imageAiInput": {
+          "state": "denied",
+          "evidenceRef": "fixture:program-terms"
+        },
+        "textUse": {
+          "state": "denied",
+          "evidenceRef": "fixture:associates-policies"
+        }
+      },
+      "lifecycleStatus": "active",
+      "seasonalEligibility": ["new_years_eve.US.2026"],
+      "sponsored": false,
+      "lastVerifiedAt": "2026-11-09T00:00:00.000Z",
+      "verificationMethod": "manual",
+      "verifiedBy": "fixture-operator",
+      "notes": null
+    },
+    {
+      "offerId": "offer_lantern_pair_brushed_gold__lights_lanterns",
+      "productId": "prod_lantern_pair_brushed_gold",
+      "merchantProgramId": "fixture_lights_lanterns_us",
+      "merchantItemId": "FX-1043",
+      "destinationCountry": "US",
+      "currency": "USD",
+      "priceMinor": 6999,
+      "priceSource": "api",
+      "priceObservedAt": "2026-11-08T21:00:00.000Z",
+      "availability": "in_stock",
+      "availabilityObservedAt": "2026-11-08T21:00:00.000Z",
+      "destinationUrl": "https://example.com/fixture-lights-lanterns/p/lantern-pair-brushed-gold",
+      "trackingUrlTemplate": "https://example.com/fixture-network/click/fll?subId1={subId}&url={destinationUrl}",
+      "contentRights": {
+        "imageDisplay": {
+          "state": "unknown",
+          "evidenceRef": null
+        },
+        "imageAiInput": {
+          "state": "denied",
+          "evidenceRef": "fixture:program-terms"
+        },
+        "textUse": {
+          "state": "unknown",
+          "evidenceRef": null
+        }
+      },
+      "lifecycleStatus": "active",
+      "seasonalEligibility": ["new_years_eve.US.2026"],
+      "sponsored": false,
+      "lastVerifiedAt": "2026-11-08T21:00:00.000Z",
+      "verificationMethod": "api",
+      "verifiedBy": "fixture-operator",
+      "notes": null
+    },
+    {
+      "offerId": "offer_shatterproof_ornaments_gold_silver__marketplace",
+      "productId": "prod_shatterproof_ornaments_gold_silver",
+      "merchantProgramId": "fixture_marketplace_us",
+      "merchantItemId": "FXB00000T0",
+      "destinationCountry": "US",
+      "currency": "USD",
+      "priceMinor": null,
+      "priceSource": "none",
+      "priceObservedAt": null,
+      "availability": "in_stock",
+      "availabilityObservedAt": "2026-11-08T18:00:00.000Z",
+      "destinationUrl": "https://example.com/fixture-marketplace/p/shatterproof-ornaments-gold-silver",
+      "trackingUrlTemplate": "{destinationUrl}?tag={trackingId}",
+      "contentRights": {
+        "imageDisplay": {
+          "state": "unknown",
+          "evidenceRef": null
+        },
+        "imageAiInput": {
+          "state": "denied",
+          "evidenceRef": "fixture:program-terms"
+        },
+        "textUse": {
+          "state": "denied",
+          "evidenceRef": "fixture:associates-policies"
+        }
+      },
+      "lifecycleStatus": "active",
+      "seasonalEligibility": ["new_years_eve.US.2026"],
+      "sponsored": false,
+      "lastVerifiedAt": "2026-11-08T18:00:00.000Z",
+      "verificationMethod": "manual",
+      "verifiedBy": "fixture-operator",
+      "notes": null
+    },
+    {
+      "offerId": "offer_runner_champagne_sheen__harvest_market",
+      "productId": "prod_runner_champagne_sheen",
+      "merchantProgramId": "fixture_harvest_market_us",
+      "merchantItemId": "FX-1045",
+      "destinationCountry": "US",
+      "currency": "USD",
+      "priceMinor": 2999,
+      "priceSource": "manual_non_amazon",
+      "priceObservedAt": "2026-11-09T06:00:00.000Z",
+      "availability": "in_stock",
+      "availabilityObservedAt": "2026-11-09T06:00:00.000Z",
+      "destinationUrl": "https://example.com/fixture-harvest-market/p/runner-champagne-sheen",
+      "trackingUrlTemplate": null,
+      "contentRights": {
+        "imageDisplay": {
+          "state": "unknown",
+          "evidenceRef": null
+        },
+        "imageAiInput": {
+          "state": "denied",
+          "evidenceRef": "fixture:program-terms"
+        },
+        "textUse": {
+          "state": "unknown",
+          "evidenceRef": null
+        }
+      },
+      "lifecycleStatus": "active",
+      "seasonalEligibility": ["new_years_eve.US.2026"],
+      "sponsored": false,
+      "lastVerifiedAt": "2026-11-09T06:00:00.000Z",
+      "verificationMethod": "manual",
+      "verifiedBy": "fixture-operator",
+      "notes": null
+    },
+    {
+      "offerId": "offer_tinsel_garland_lit_micro__lights_lanterns",
+      "productId": "prod_tinsel_garland_lit_micro",
+      "merchantProgramId": "fixture_lights_lanterns_us",
+      "merchantItemId": "FX-1046",
+      "destinationCountry": "US",
+      "currency": "USD",
+      "priceMinor": 3999,
+      "priceSource": "api",
+      "priceObservedAt": "2026-11-09T03:00:00.000Z",
+      "availability": "in_stock",
+      "availabilityObservedAt": "2026-11-09T03:00:00.000Z",
+      "destinationUrl": "https://example.com/fixture-lights-lanterns/p/tinsel-garland-lit-micro",
+      "trackingUrlTemplate": "https://example.com/fixture-network/click/fll?subId1={subId}&url={destinationUrl}",
+      "contentRights": {
+        "imageDisplay": {
+          "state": "unknown",
+          "evidenceRef": null
+        },
+        "imageAiInput": {
+          "state": "denied",
+          "evidenceRef": "fixture:program-terms"
+        },
+        "textUse": {
+          "state": "unknown",
+          "evidenceRef": null
+        }
+      },
+      "lifecycleStatus": "active",
+      "seasonalEligibility": ["new_years_eve.US.2026"],
+      "sponsored": false,
+      "lastVerifiedAt": "2026-11-09T03:00:00.000Z",
+      "verificationMethod": "api",
+      "verifiedBy": "fixture-operator",
+      "notes": null
+    },
+    {
+      "offerId": "offer_napkins_ivory_gold_rings__harvest_market",
+      "productId": "prod_napkins_ivory_gold_rings",
+      "merchantProgramId": "fixture_harvest_market_us",
+      "merchantItemId": "FX-1047",
+      "destinationCountry": "US",
+      "currency": "USD",
+      "priceMinor": 4499,
+      "priceSource": "manual_non_amazon",
+      "priceObservedAt": "2026-11-09T00:00:00.000Z",
+      "availability": "in_stock",
+      "availabilityObservedAt": "2026-11-09T00:00:00.000Z",
+      "destinationUrl": "https://example.com/fixture-harvest-market/p/napkins-ivory-gold-rings",
+      "trackingUrlTemplate": null,
+      "contentRights": {
+        "imageDisplay": {
+          "state": "unknown",
+          "evidenceRef": null
+        },
+        "imageAiInput": {
+          "state": "denied",
+          "evidenceRef": "fixture:program-terms"
+        },
+        "textUse": {
+          "state": "unknown",
+          "evidenceRef": null
+        }
+      },
+      "lifecycleStatus": "active",
+      "seasonalEligibility": ["new_years_eve.US.2026"],
+      "sponsored": false,
+      "lastVerifiedAt": "2026-11-09T00:00:00.000Z",
+      "verificationMethod": "manual",
+      "verifiedBy": "fixture-operator",
+      "notes": null
+    },
+    {
+      "offerId": "offer_curtain_fairy_lights_warm_white__marketplace",
+      "productId": "prod_curtain_fairy_lights_warm_white",
+      "merchantProgramId": "fixture_marketplace_us",
+      "merchantItemId": "FXB00000T4",
+      "destinationCountry": "US",
+      "currency": "USD",
+      "priceMinor": null,
+      "priceSource": "none",
+      "priceObservedAt": null,
+      "availability": "in_stock",
+      "availabilityObservedAt": "2026-11-08T21:00:00.000Z",
+      "destinationUrl": "https://example.com/fixture-marketplace/p/curtain-fairy-lights-warm-white",
+      "trackingUrlTemplate": "{destinationUrl}?tag={trackingId}",
+      "contentRights": {
+        "imageDisplay": {
+          "state": "unknown",
+          "evidenceRef": null
+        },
+        "imageAiInput": {
+          "state": "denied",
+          "evidenceRef": "fixture:program-terms"
+        },
+        "textUse": {
+          "state": "denied",
+          "evidenceRef": "fixture:associates-policies"
+        }
+      },
+      "lifecycleStatus": "active",
+      "seasonalEligibility": ["new_years_eve.US.2026"],
+      "sponsored": false,
+      "lastVerifiedAt": "2026-11-08T21:00:00.000Z",
+      "verificationMethod": "manual",
+      "verifiedBy": "fixture-operator",
+      "notes": null
+    },
+    {
+      "offerId": "offer_led_string_warm_white_50ft__lights_lanterns",
+      "productId": "prod_led_string_warm_white_50ft",
+      "merchantProgramId": "fixture_lights_lanterns_us",
+      "merchantItemId": "FX-1049",
+      "destinationCountry": "US",
+      "currency": "USD",
+      "priceMinor": 3499,
+      "priceSource": "api",
+      "priceObservedAt": "2026-11-08T18:00:00.000Z",
+      "availability": "in_stock",
+      "availabilityObservedAt": "2026-11-08T18:00:00.000Z",
+      "destinationUrl": "https://example.com/fixture-lights-lanterns/p/led-string-warm-white-50ft",
+      "trackingUrlTemplate": "https://example.com/fixture-network/click/fll?subId1={subId}&url={destinationUrl}",
+      "contentRights": {
+        "imageDisplay": {
+          "state": "unknown",
+          "evidenceRef": null
+        },
+        "imageAiInput": {
+          "state": "denied",
+          "evidenceRef": "fixture:program-terms"
+        },
+        "textUse": {
+          "state": "unknown",
+          "evidenceRef": null
+        }
+      },
+      "lifecycleStatus": "active",
+      "seasonalEligibility": ["christmas.US.2026", "new_years_eve.US.2026"],
+      "sponsored": false,
+      "lastVerifiedAt": "2026-11-08T18:00:00.000Z",
+      "verificationMethod": "api",
+      "verifiedBy": "fixture-operator",
+      "notes": "Second offer for the same product; ranking tie-breaks between programs."
+    },
+    {
+      "offerId": "offer_wreath_evergreen_30in_velvet_bow__home_garden",
+      "productId": "prod_wreath_evergreen_30in_velvet_bow",
+      "merchantProgramId": "fixture_home_garden_us",
+      "merchantItemId": "FX-1050",
+      "destinationCountry": "US",
+      "currency": "USD",
+      "priceMinor": 8499,
+      "priceSource": "feed",
+      "priceObservedAt": "2026-11-09T06:00:00.000Z",
+      "availability": "in_stock",
+      "availabilityObservedAt": "2026-11-09T06:00:00.000Z",
+      "destinationUrl": "https://example.com/fixture-home-garden/p/wreath-evergreen-30in-velvet-bow",
+      "trackingUrlTemplate": "https://example.com/fixture-network/click/fhg?subId1={subId}&url={destinationUrl}",
+      "contentRights": {
+        "imageDisplay": {
+          "state": "unknown",
+          "evidenceRef": null
+        },
+        "imageAiInput": {
+          "state": "denied",
+          "evidenceRef": "fixture:program-terms"
+        },
+        "textUse": {
+          "state": "unknown",
+          "evidenceRef": null
+        }
+      },
+      "lifecycleStatus": "active",
+      "seasonalEligibility": ["christmas.US.2026"],
+      "sponsored": false,
+      "lastVerifiedAt": "2026-11-09T06:00:00.000Z",
+      "verificationMethod": "feed",
+      "verifiedBy": "fixture-operator",
+      "notes": "Same product at an approved program: tracking beats plain for the same product."
+    },
+    {
+      "offerId": "offer_tree_prelit_7ft__marketplace",
+      "productId": "prod_tree_prelit_7ft",
+      "merchantProgramId": "fixture_marketplace_us",
+      "merchantItemId": "FXB00000T7",
+      "destinationCountry": "US",
+      "currency": "USD",
+      "priceMinor": null,
+      "priceSource": "none",
+      "priceObservedAt": null,
+      "availability": "out_of_stock",
+      "availabilityObservedAt": "2026-11-09T03:00:00.000Z",
+      "destinationUrl": "https://example.com/fixture-marketplace/p/tree-prelit-7ft",
+      "trackingUrlTemplate": "{destinationUrl}?tag={trackingId}",
+      "contentRights": {
+        "imageDisplay": {
+          "state": "unknown",
+          "evidenceRef": null
+        },
+        "imageAiInput": {
+          "state": "denied",
+          "evidenceRef": "fixture:program-terms"
+        },
+        "textUse": {
+          "state": "denied",
+          "evidenceRef": "fixture:associates-policies"
+        }
+      },
+      "lifecycleStatus": "paused",
+      "seasonalEligibility": ["christmas.US.2026"],
+      "sponsored": false,
+      "lastVerifiedAt": "2026-11-09T03:00:00.000Z",
+      "verificationMethod": "manual",
+      "verifiedBy": "fixture-operator",
+      "notes": "Paused: out of stock at verification."
+    },
+    {
+      "offerId": "offer_faux_pumpkin_gourd_set__harvest_market",
+      "productId": "prod_faux_pumpkin_gourd_set",
+      "merchantProgramId": "fixture_harvest_market_us",
+      "merchantItemId": "FX-1052",
+      "destinationCountry": "US",
+      "currency": "USD",
+      "priceMinor": 3799,
+      "priceSource": "manual_non_amazon",
+      "priceObservedAt": "2026-11-09T00:00:00.000Z",
+      "availability": "in_stock",
+      "availabilityObservedAt": "2026-11-09T00:00:00.000Z",
+      "destinationUrl": "https://example.com/fixture-harvest-market/p/faux-pumpkin-gourd-set",
+      "trackingUrlTemplate": null,
+      "contentRights": {
+        "imageDisplay": {
+          "state": "unknown",
+          "evidenceRef": null
+        },
+        "imageAiInput": {
+          "state": "denied",
+          "evidenceRef": "fixture:program-terms"
+        },
+        "textUse": {
+          "state": "unknown",
+          "evidenceRef": null
+        }
+      },
+      "lifecycleStatus": "active",
+      "seasonalEligibility": ["halloween.US.2026", "halloween.US.2027", "thanksgiving_us.US.2026"],
+      "sponsored": false,
+      "lastVerifiedAt": "2026-11-09T00:00:00.000Z",
+      "verificationMethod": "manual",
+      "verifiedBy": "fixture-operator",
+      "notes": null
+    },
+    {
+      "offerId": "offer_mum_potted__harvest_market",
+      "productId": "prod_mum_potted",
+      "merchantProgramId": "fixture_harvest_market_us",
+      "merchantItemId": "FX-1053",
+      "destinationCountry": "US",
+      "currency": "USD",
+      "priceMinor": 1299,
+      "priceSource": "manual_non_amazon",
+      "priceObservedAt": "2026-11-08T21:00:00.000Z",
+      "availability": "in_stock",
+      "availabilityObservedAt": "2026-11-08T21:00:00.000Z",
+      "destinationUrl": "https://example.com/fixture-harvest-market/p/mum-potted",
+      "trackingUrlTemplate": null,
+      "contentRights": {
+        "imageDisplay": {
+          "state": "unknown",
+          "evidenceRef": null
+        },
+        "imageAiInput": {
+          "state": "denied",
+          "evidenceRef": "fixture:program-terms"
+        },
+        "textUse": {
+          "state": "unknown",
+          "evidenceRef": null
+        }
+      },
+      "lifecycleStatus": "active",
+      "seasonalEligibility": ["halloween.US.2026", "halloween.US.2027", "thanksgiving_us.US.2026"],
+      "sponsored": false,
+      "lastVerifiedAt": "2026-11-08T21:00:00.000Z",
+      "verificationMethod": "manual",
+      "verifiedBy": "fixture-operator",
+      "notes": null
+    },
+    {
+      "offerId": "offer_garland_harvest_leaf_gourd__marketplace",
+      "productId": "prod_garland_harvest_leaf_gourd",
+      "merchantProgramId": "fixture_marketplace_us",
+      "merchantItemId": "FXB00000TA",
+      "destinationCountry": "US",
+      "currency": "USD",
+      "priceMinor": 2999,
+      "priceSource": "merchant_served_link",
+      "priceObservedAt": "2026-11-08T18:00:00.000Z",
+      "availability": "in_stock",
+      "availabilityObservedAt": "2026-11-08T18:00:00.000Z",
+      "destinationUrl": "https://example.com/fixture-marketplace/p/garland-harvest-leaf-gourd",
+      "trackingUrlTemplate": "{destinationUrl}?tag={trackingId}",
+      "contentRights": {
+        "imageDisplay": {
+          "state": "unknown",
+          "evidenceRef": null
+        },
+        "imageAiInput": {
+          "state": "denied",
+          "evidenceRef": "fixture:program-terms"
+        },
+        "textUse": {
+          "state": "denied",
+          "evidenceRef": "fixture:associates-policies"
+        }
+      },
+      "lifecycleStatus": "active",
+      "seasonalEligibility": ["thanksgiving_us.US.2026"],
+      "sponsored": false,
+      "lastVerifiedAt": "2026-11-08T18:00:00.000Z",
+      "verificationMethod": "manual",
+      "verifiedBy": "fixture-operator",
+      "notes": "Price shown through the merchant-served link."
+    },
+    {
+      "offerId": "offer_wreath_autumn_maple_24in__home_garden",
+      "productId": "prod_wreath_autumn_maple_24in",
+      "merchantProgramId": "fixture_home_garden_us",
+      "merchantItemId": "FX-1055",
+      "destinationCountry": "US",
+      "currency": "USD",
+      "priceMinor": 5299,
+      "priceSource": "feed",
+      "priceObservedAt": "2026-11-09T06:00:00.000Z",
+      "availability": "in_stock",
+      "availabilityObservedAt": "2026-11-09T06:00:00.000Z",
+      "destinationUrl": "https://example.com/fixture-home-garden/p/wreath-autumn-maple-24in",
+      "trackingUrlTemplate": "https://example.com/fixture-network/click/fhg?subId1={subId}&url={destinationUrl}",
+      "contentRights": {
+        "imageDisplay": {
+          "state": "unknown",
+          "evidenceRef": null
+        },
+        "imageAiInput": {
+          "state": "denied",
+          "evidenceRef": "fixture:program-terms"
+        },
+        "textUse": {
+          "state": "unknown",
+          "evidenceRef": null
+        }
+      },
+      "lifecycleStatus": "active",
+      "seasonalEligibility": ["thanksgiving_us.US.2026"],
+      "sponsored": false,
+      "lastVerifiedAt": "2026-11-09T06:00:00.000Z",
+      "verificationMethod": "feed",
+      "verifiedBy": "fixture-operator",
+      "notes": null
+    },
+    {
+      "offerId": "offer_flameless_taper_pillar_set__marketplace",
+      "productId": "prod_flameless_taper_pillar_set",
+      "merchantProgramId": "fixture_marketplace_us",
+      "merchantItemId": "FXB00000TC",
+      "destinationCountry": "US",
+      "currency": "USD",
+      "priceMinor": null,
+      "priceSource": "none",
+      "priceObservedAt": null,
+      "availability": "in_stock",
+      "availabilityObservedAt": "2026-11-09T03:00:00.000Z",
+      "destinationUrl": "https://example.com/fixture-marketplace/p/flameless-taper-pillar-set",
+      "trackingUrlTemplate": "{destinationUrl}?tag={trackingId}",
+      "contentRights": {
+        "imageDisplay": {
+          "state": "unknown",
+          "evidenceRef": null
+        },
+        "imageAiInput": {
+          "state": "denied",
+          "evidenceRef": "fixture:program-terms"
+        },
+        "textUse": {
+          "state": "denied",
+          "evidenceRef": "fixture:associates-policies"
+        }
+      },
+      "lifecycleStatus": "active",
+      "seasonalEligibility": ["thanksgiving_us.US.2026", "new_years_eve.US.2026"],
+      "sponsored": false,
+      "lastVerifiedAt": "2026-11-09T03:00:00.000Z",
+      "verificationMethod": "manual",
+      "verifiedBy": "fixture-operator",
+      "notes": null
+    },
+    {
+      "offerId": "offer_potted_evergreen_lit_pair_4ft__holiday_outlet",
+      "productId": "prod_potted_evergreen_lit_pair_4ft",
+      "merchantProgramId": "fixture_holiday_outlet_us",
+      "merchantItemId": "FX-1057",
+      "destinationCountry": "US",
+      "currency": "USD",
+      "priceMinor": null,
+      "priceSource": "none",
+      "priceObservedAt": null,
+      "availability": "in_stock",
+      "availabilityObservedAt": "2026-11-09T00:00:00.000Z",
+      "destinationUrl": "https://example.com/fixture-holiday-outlet/p/potted-evergreen-lit-pair-4ft",
+      "trackingUrlTemplate": null,
+      "contentRights": {
+        "imageDisplay": {
+          "state": "unknown",
+          "evidenceRef": null
+        },
+        "imageAiInput": {
+          "state": "denied",
+          "evidenceRef": "fixture:program-terms"
+        },
+        "textUse": {
+          "state": "unknown",
+          "evidenceRef": null
+        }
+      },
+      "lifecycleStatus": "paused",
+      "seasonalEligibility": ["christmas.US.2026"],
+      "sponsored": false,
+      "lastVerifiedAt": "2026-11-09T00:00:00.000Z",
+      "verificationMethod": "manual",
+      "verifiedBy": "fixture-operator",
+      "notes": "Paused: program suspended."
+    },
+    {
+      "offerId": "offer_posable_skeleton_5ft__holiday_outlet",
+      "productId": "prod_posable_skeleton_5ft",
+      "merchantProgramId": "fixture_holiday_outlet_us",
+      "merchantItemId": "FX-1058",
+      "destinationCountry": "US",
+      "currency": "USD",
+      "priceMinor": null,
+      "priceSource": "none",
+      "priceObservedAt": null,
+      "availability": "in_stock",
+      "availabilityObservedAt": "2026-11-08T21:00:00.000Z",
+      "destinationUrl": "https://example.com/fixture-holiday-outlet/p/posable-skeleton-5ft",
+      "trackingUrlTemplate": null,
+      "contentRights": {
+        "imageDisplay": {
+          "state": "unknown",
+          "evidenceRef": null
+        },
+        "imageAiInput": {
+          "state": "denied",
+          "evidenceRef": "fixture:program-terms"
+        },
+        "textUse": {
+          "state": "unknown",
+          "evidenceRef": null
+        }
+      },
+      "lifecycleStatus": "paused",
+      "seasonalEligibility": ["halloween.US.2026", "halloween.US.2027"],
+      "sponsored": false,
+      "lastVerifiedAt": "2026-11-08T21:00:00.000Z",
+      "verificationMethod": "manual",
+      "verifiedBy": "fixture-operator",
+      "notes": "Paused: program suspended."
+    },
+    {
+      "offerId": "offer_garland_evergreen_pinecone_9ft__lights_lanterns",
+      "productId": "prod_garland_evergreen_pinecone_9ft",
+      "merchantProgramId": "fixture_lights_lanterns_us",
+      "merchantItemId": "FX-1059",
+      "destinationCountry": "US",
+      "currency": "USD",
+      "priceMinor": 4299,
+      "priceSource": "api",
+      "priceObservedAt": "2026-10-30T12:00:00.000Z",
+      "availability": "in_stock",
+      "availabilityObservedAt": "2026-10-30T12:00:00.000Z",
+      "destinationUrl": "https://example.com/fixture-lights-lanterns/p/garland-evergreen-pinecone-9ft",
+      "trackingUrlTemplate": "https://example.com/fixture-network/click/fll?subId1={subId}&url={destinationUrl}",
+      "contentRights": {
+        "imageDisplay": {
+          "state": "unknown",
+          "evidenceRef": null
+        },
+        "imageAiInput": {
+          "state": "denied",
+          "evidenceRef": "fixture:program-terms"
+        },
+        "textUse": {
+          "state": "unknown",
+          "evidenceRef": null
+        }
+      },
+      "lifecycleStatus": "active",
+      "seasonalEligibility": ["christmas.US.2026"],
+      "sponsored": false,
+      "lastVerifiedAt": "2026-10-30T12:00:00.000Z",
+      "verificationMethod": "api",
+      "verifiedBy": "fixture-operator",
+      "notes": "Active but last verified 10 days before authoring: excluded by the freshness limit."
+    },
+    {
+      "offerId": "offer_knit_stockings_set__home_garden",
+      "productId": "prod_knit_stockings_set",
+      "merchantProgramId": "fixture_home_garden_us",
+      "merchantItemId": "FX-1060",
+      "destinationCountry": "US",
+      "currency": "USD",
+      "priceMinor": 5799,
+      "priceSource": "feed",
+      "priceObservedAt": "2026-11-09T06:00:00.000Z",
+      "availability": "in_stock",
+      "availabilityObservedAt": null,
+      "destinationUrl": "https://example.com/fixture-home-garden/p/knit-stockings-set",
+      "trackingUrlTemplate": "https://example.com/fixture-network/click/fhg?subId1={subId}&url={destinationUrl}",
+      "contentRights": {
+        "imageDisplay": {
+          "state": "unknown",
+          "evidenceRef": null
+        },
+        "imageAiInput": {
+          "state": "denied",
+          "evidenceRef": "fixture:program-terms"
+        },
+        "textUse": {
+          "state": "unknown",
+          "evidenceRef": null
+        }
+      },
+      "lifecycleStatus": "draft",
+      "seasonalEligibility": ["christmas.US.2026"],
+      "sponsored": false,
+      "lastVerifiedAt": null,
+      "verificationMethod": null,
+      "verifiedBy": null,
+      "notes": "Draft: curated but not yet verified."
+    },
+    {
+      "offerId": "offer_wreath_evergreen_24in_classic_2025__decor",
+      "productId": "prod_wreath_evergreen_24in_classic_2025",
+      "merchantProgramId": "fixture_decor_us",
+      "merchantItemId": "FX-1061",
+      "destinationCountry": "US",
+      "currency": "USD",
+      "priceMinor": null,
+      "priceSource": "none",
+      "priceObservedAt": null,
+      "availability": "unknown",
+      "availabilityObservedAt": "2026-11-09T03:00:00.000Z",
+      "destinationUrl": "https://example.com/fixture-decor-co/p/wreath-evergreen-24in-classic-2025",
+      "trackingUrlTemplate": null,
+      "contentRights": {
+        "imageDisplay": {
+          "state": "unknown",
+          "evidenceRef": null
+        },
+        "imageAiInput": {
+          "state": "denied",
+          "evidenceRef": "fixture:program-terms"
+        },
+        "textUse": {
+          "state": "unknown",
+          "evidenceRef": null
+        }
+      },
+      "lifecycleStatus": "retired",
+      "seasonalEligibility": ["christmas.US.2026"],
+      "sponsored": false,
+      "lastVerifiedAt": "2026-11-09T03:00:00.000Z",
+      "verificationMethod": "manual",
+      "verifiedBy": "fixture-operator",
+      "notes": "Retired: product discontinued."
+    },
+    {
+      "offerId": "offer_bat_silhouette_decals__decor",
+      "productId": "prod_bat_silhouette_decals",
+      "merchantProgramId": "fixture_decor_us",
+      "merchantItemId": "FX-1062",
+      "destinationCountry": "US",
+      "currency": "USD",
+      "priceMinor": null,
+      "priceSource": "none",
+      "priceObservedAt": null,
+      "availability": "unknown",
+      "availabilityObservedAt": "2026-11-09T00:00:00.000Z",
+      "destinationUrl": "https://example.com/fixture-decor-co/p/bat-silhouette-decals",
+      "trackingUrlTemplate": null,
+      "contentRights": {
+        "imageDisplay": {
+          "state": "unknown",
+          "evidenceRef": null
+        },
+        "imageAiInput": {
+          "state": "denied",
+          "evidenceRef": "fixture:program-terms"
+        },
+        "textUse": {
+          "state": "unknown",
+          "evidenceRef": null
+        }
+      },
+      "lifecycleStatus": "active",
+      "seasonalEligibility": ["halloween.US.2026", "halloween.US.2027"],
+      "sponsored": false,
+      "lastVerifiedAt": "2026-11-09T00:00:00.000Z",
+      "verificationMethod": "manual",
+      "verifiedBy": "fixture-operator",
+      "notes": "Availability unknown at last check."
+    }
+  ]
+}

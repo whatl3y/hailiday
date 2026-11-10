@@ -1,0 +1,340 @@
+# Style kits for thanksgiving_us.US (commerce side of Shop the look).
+# Specs: docs/specs/holidays-and-content.md "Style kits" and docs/specs/commerce.md "Style kits and products".
+# kitItemId, anchors, specText, quantity and required mirror ../packs/thanksgiving_us.yaml exactly; the loader
+# cross-checks them. anchorCategory is the primary anchor; sortOrder is placement prominence
+# (door, porch, roofline, then accents). specAttributes are our own words, never merchant text.
+# currentProductId points into ../commerce/products.json.
+
+holidayId: thanksgiving_us
+packId: thanksgiving_us.US
+packVersion: 1.0.1
+kits:
+  - kitId: thanksgiving_us.house_exterior
+    holidayId: thanksgiving_us
+    sceneType: house_exterior
+    version: 1.0.0
+    status: published
+    items:
+      - kitItemId: thanksgiving_us.house_exterior.wreath_autumn
+        sortOrder: 1
+        anchorCategory: front_door
+        anchors: [front_door]
+        specText: a 22 to 26 inch wreath of orange and russet maple leaves with small pinecones and wheat, centered on the existing front door
+        specAttributes:
+          category: wreath
+          sizeRange: 22-26 in
+          material: artificial maple leaves, pinecones, wheat
+          colorFamily: orange, russet
+          lit: false
+          indoorOutdoor: outdoor
+          countRange: '1'
+        quantity: { subtle: [1, 1], classic: [1, 1], abundant: [1, 1] }
+        required: [subtle, classic, abundant]
+        currentProductId: prod_wreath_autumn_maple_24in
+      - kitItemId: thanksgiving_us.house_exterior.garland_harvest
+        sortOrder: 2
+        anchorCategory: porch_rail
+        anchors: [porch_rail, door_frame, column]
+        specText: amber and rust leaf garland with small gourds following the visible rail or door frame
+        specAttributes:
+          category: garland
+          sizeRange: 6-9 ft
+          material: artificial leaves, small gourds
+          colorFamily: amber, rust
+          lit: false
+          indoorOutdoor: outdoor
+          countRange: 1-3
+        quantity: { subtle: [0, 1], classic: [1, 1], abundant: [1, 3] }
+        required: [classic]
+        currentProductId: prod_garland_harvest_leaf_gourd
+      - kitItemId: thanksgiving_us.house_exterior.corn_stalks
+        sortOrder: 3
+        anchorCategory: column
+        anchors: [column, porch_rail]
+        specText: a bundle of dried corn stalks tied to a porch post
+        specAttributes:
+          category: stalk bundle
+          sizeRange: 5-7 ft
+          material: dried corn stalks, twine
+          colorFamily: tan
+          lit: false
+          indoorOutdoor: outdoor
+          countRange: 1-2
+        quantity: { subtle: [0, 0], classic: [0, 0], abundant: [1, 2] }
+        required: []
+        currentProductId: prod_corn_stalk_bundle
+      - kitItemId: thanksgiving_us.house_exterior.pumpkin_group
+        sortOrder: 4
+        anchorCategory: porch_steps
+        anchors: [porch_steps, planter]
+        specText: a group of two to four uncarved orange and white pumpkins and gourds beside the entry, not on a step tread
+        specAttributes:
+          category: pumpkins
+          sizeRange: 6-14 in each
+          material: faux pumpkins and gourds
+          colorFamily: orange, white
+          lit: false
+          indoorOutdoor: outdoor
+          countRange: 2-4
+        quantity: { subtle: [1, 1], classic: [1, 2], abundant: [2, 3] }
+        required: [classic, abundant]
+        currentProductId: prod_faux_pumpkin_gourd_set
+      - kitItemId: thanksgiving_us.house_exterior.mums_potted
+        sortOrder: 5
+        anchorCategory: porch_steps
+        anchors: [porch_steps, planter, walkway_edge]
+        specText: potted chrysanthemums in rust, gold and burgundy beside the steps or in existing planters
+        specAttributes:
+          category: potted plant
+          sizeRange: 10-14 in pot
+          material: chrysanthemum
+          colorFamily: rust, gold, burgundy
+          lit: false
+          indoorOutdoor: outdoor
+          countRange: 1-4
+        quantity: { subtle: [0, 1], classic: [1, 2], abundant: [2, 4] }
+        required: []
+        currentProductId: prod_mum_potted
+  - kitId: thanksgiving_us.apartment_entry
+    holidayId: thanksgiving_us
+    sceneType: apartment_entry
+    version: 1.0.0
+    status: published
+    items:
+      - kitItemId: thanksgiving_us.apartment_entry.wreath_autumn
+        sortOrder: 1
+        anchorCategory: unit_door
+        anchors: [unit_door]
+        specText: an 18 to 22 inch wreath of orange, russet and gold faux maple leaves with small pinecones and wheat stems, centered on the unit door below any number plate
+        specAttributes:
+          category: wreath
+          sizeRange: 18-22 in
+          material: artificial maple leaves, pinecones, wheat
+          colorFamily: orange, russet, gold
+          lit: false
+          indoorOutdoor: indoor_or_outdoor
+          countRange: '1'
+        quantity: { subtle: [1, 1], classic: [1, 1], abundant: [1, 1] }
+        required: [subtle, classic, abundant]
+        currentProductId: prod_wreath_autumn_small_20in
+      - kitItemId: thanksgiving_us.apartment_entry.frame_garland_harvest
+        sortOrder: 2
+        anchorCategory: door_frame
+        anchors: [door_frame]
+        specText: a slim garland of amber and rust faux leaves with small gourds along the top of the door frame, never across the opening
+        specAttributes:
+          category: garland
+          sizeRange: about 6 ft
+          material: artificial leaves, small gourds
+          colorFamily: amber, rust
+          lit: false
+          indoorOutdoor: indoor_or_outdoor
+          countRange: '1'
+        quantity: { subtle: [0, 1], classic: [1, 1], abundant: [1, 1] }
+        required: [classic, abundant]
+        currentProductId: prod_garland_harvest_leaf_gourd
+      - kitItemId: thanksgiving_us.apartment_entry.pumpkin_group_alcove
+        sortOrder: 3
+        anchorCategory: floor_area
+        anchors: [floor_area, planter]
+        specText: a compact group of two or three small uncarved orange and white pumpkins at one side of the door's own alcove, clear of the corridor
+        specAttributes:
+          category: pumpkins
+          sizeRange: 5-9 in each
+          material: faux pumpkins
+          colorFamily: orange, white
+          lit: false
+          indoorOutdoor: indoor_or_outdoor
+          countRange: 2-3
+        quantity: { subtle: [0, 1], classic: [1, 1], abundant: [1, 1] }
+        required: []
+        currentProductId: prod_faux_pumpkin_trio_small
+      - kitItemId: thanksgiving_us.apartment_entry.mum_potted
+        sortOrder: 4
+        anchorCategory: floor_area
+        anchors: [floor_area, planter]
+        specText: one potted chrysanthemum in rust or gold in a plain terracotta pot beside the door, clear of the corridor
+        specAttributes:
+          category: potted plant
+          sizeRange: 10-12 in pot
+          material: chrysanthemum
+          colorFamily: rust, gold
+          lit: false
+          indoorOutdoor: indoor_or_outdoor
+          countRange: '1'
+        quantity: { subtle: [0, 0], classic: [0, 1], abundant: [1, 1] }
+        required: []
+        currentProductId: prod_mum_potted
+  - kitId: thanksgiving_us.balcony
+    holidayId: thanksgiving_us
+    sceneType: balcony
+    version: 1.0.0
+    status: published
+    items:
+      - kitItemId: thanksgiving_us.balcony.door_wreath_autumn
+        sortOrder: 1
+        anchorCategory: door_frame
+        anchors: [door_frame]
+        specText: a 16 to 20 inch wreath of orange and russet faux maple leaves with wheat stems hung on the balcony door frame without blocking the door
+        specAttributes:
+          category: wreath
+          sizeRange: 16-20 in
+          material: artificial maple leaves, wheat
+          colorFamily: orange, russet
+          lit: false
+          indoorOutdoor: outdoor
+          countRange: '1'
+        quantity: { subtle: [0, 1], classic: [1, 1], abundant: [1, 1] }
+        required: []
+        currentProductId: prod_wreath_autumn_small_20in
+      - kitItemId: thanksgiving_us.balcony.pumpkin_gourd_group
+        sortOrder: 2
+        anchorCategory: balcony_floor
+        anchors: [balcony_floor, planter]
+        specText: a group of three to five uncarved orange, white and green pumpkins and gourds on the floor near a railing corner, clear of the door path
+        specAttributes:
+          category: pumpkins
+          sizeRange: 6-12 in each
+          material: faux pumpkins and gourds
+          colorFamily: orange, white, green
+          lit: false
+          indoorOutdoor: outdoor
+          countRange: 3-5
+        quantity: { subtle: [1, 1], classic: [1, 1], abundant: [1, 2] }
+        required: [subtle, classic, abundant]
+        currentProductId: prod_faux_pumpkin_gourd_set
+      - kitItemId: thanksgiving_us.balcony.mums_potted
+        sortOrder: 3
+        anchorCategory: balcony_floor
+        anchors: [balcony_floor, planter]
+        specText: one or two potted chrysanthemums in rust, gold or burgundy on the floor or in an existing planter
+        specAttributes:
+          category: potted plant
+          sizeRange: 10-12 in pot
+          material: chrysanthemum
+          colorFamily: rust, gold, burgundy
+          lit: false
+          indoorOutdoor: outdoor
+          countRange: 1-2
+        quantity: { subtle: [0, 1], classic: [1, 1], abundant: [1, 2] }
+        required: []
+        currentProductId: prod_mum_potted
+      - kitItemId: thanksgiving_us.balcony.railing_garland_harvest
+        sortOrder: 4
+        anchorCategory: balcony_railing
+        anchors: [balcony_railing]
+        specText: a garland of amber and rust faux leaves woven along the inside face of the user's own railing, below the top edge and ending at the balcony's own edge
+        specAttributes:
+          category: garland
+          sizeRange: 6-9 ft
+          material: artificial leaves, small gourds
+          colorFamily: amber, rust
+          lit: false
+          indoorOutdoor: outdoor
+          countRange: '1'
+        quantity: { subtle: [0, 0], classic: [0, 1], abundant: [1, 1] }
+        required: []
+        currentProductId: prod_garland_harvest_leaf_gourd
+  - kitId: thanksgiving_us.interior
+    holidayId: thanksgiving_us
+    sceneType: interior
+    version: 1.0.0
+    status: published
+    items:
+      - kitItemId: thanksgiving_us.interior.table_runner
+        sortOrder: 1
+        anchorCategory: dining_table
+        anchors: [dining_table]
+        specText: a woven linen table runner in rust or mustard along the center of the existing table
+        specAttributes:
+          category: table linen
+          sizeRange: 72-108 in
+          material: woven linen or cotton
+          colorFamily: rust, mustard
+          lit: false
+          indoorOutdoor: indoor
+          countRange: '1'
+        quantity: { subtle: [1, 1], classic: [1, 1], abundant: [1, 1] }
+        required: [subtle, classic, abundant]
+        currentProductId: prod_linen_runner_rust
+      - kitItemId: thanksgiving_us.interior.centerpiece_low
+        sortOrder: 2
+        anchorCategory: dining_table
+        anchors: [dining_table]
+        specText: a low centerpiece of small pumpkins, gourds, eucalyptus and autumn leaves that keeps sightlines across the table
+        specAttributes:
+          category: centerpiece
+          sizeRange: 24-36 in long, under 10 in tall
+          material: small pumpkins, gourds, eucalyptus, leaves
+          colorFamily: orange, green, cream
+          lit: false
+          indoorOutdoor: indoor
+          countRange: '1'
+        quantity: { subtle: [1, 1], classic: [1, 1], abundant: [1, 2] }
+        required: [subtle, classic, abundant]
+        currentProductId: prod_harvest_centerpiece_low
+      - kitItemId: thanksgiving_us.interior.candles_flameless
+        sortOrder: 3
+        anchorCategory: dining_table
+        anchors: [dining_table, sideboard, mantel]
+        specText: a set of flameless taper and pillar candles in brass or glass holders with a warm glow
+        specAttributes:
+          category: candles
+          sizeRange: tapers 10-12 in, pillars 4-8 in
+          material: flameless LED, brass or glass holders
+          colorFamily: ivory, brass
+          lit: true
+          lightColor: warm white (flameless)
+          indoorOutdoor: indoor
+          countRange: 2-8
+        quantity: { subtle: [0, 2], classic: [2, 4], abundant: [4, 8] }
+        required: [classic, abundant]
+        currentProductId: prod_flameless_taper_pillar_set
+      - kitItemId: thanksgiving_us.interior.place_accents
+        sortOrder: 4
+        anchorCategory: dining_table
+        anchors: [dining_table]
+        specText: cloth napkins in autumn tones with simple rings at each existing place setting
+        specAttributes:
+          category: napkins
+          sizeRange: 20 in napkins with rings
+          material: cloth, wood rings
+          colorFamily: rust, olive, mustard
+          lit: false
+          indoorOutdoor: indoor
+          countRange: 4-8
+        quantity: { subtle: [0, 0], classic: [1, 1], abundant: [1, 1] }
+        required: []
+        currentProductId: prod_napkins_autumn_rings
+      - kitItemId: thanksgiving_us.interior.sideboard_harvest
+        sortOrder: 5
+        anchorCategory: sideboard
+        anchors: [sideboard, shelf, mantel]
+        specText: a harvest arrangement of leaves, small pumpkins and wheat on the sideboard
+        specAttributes:
+          category: arrangement
+          sizeRange: 12-24 in
+          material: artificial leaves, small pumpkins, wheat
+          colorFamily: orange, tan
+          lit: false
+          indoorOutdoor: indoor
+          countRange: 1-2
+        quantity: { subtle: [0, 1], classic: [1, 1], abundant: [1, 2] }
+        required: []
+        currentProductId: prod_harvest_arrangement_wheat
+      - kitItemId: thanksgiving_us.interior.window_garland
+        sortOrder: 6
+        anchorCategory: interior_window
+        anchors: [interior_window]
+        specText: autumn leaf garland along the window top
+        specAttributes:
+          category: garland
+          sizeRange: about 6 ft
+          material: artificial autumn leaves
+          colorFamily: orange, russet
+          lit: false
+          indoorOutdoor: indoor
+          countRange: 1-2
+        quantity: { subtle: [0, 0], classic: [0, 1], abundant: [1, 2] }
+        required: []
+        currentProductId: prod_garland_autumn_leaf_6ft

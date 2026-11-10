@@ -1,0 +1,306 @@
+{
+  "version": 1,
+  "providerMode": "photo",
+  "description": "Hero specifications per holiday and the neutral off-season hero. Every hero is a licensed real photograph from content/photos (photo.photoId); the seed crops each orientation from the master around the manifest focal point (landscape 3:2, art-directed portrait 2:3) and encodes every rendition in AVIF, WebP and JPEG. focalPoint and safeArea are in 0-1 coordinates of each crop; safeArea ([x0, y0, x1, y1]) is the quiet region reserved for the headline and address input. Rights record the photographer, source URL and license.",
+  "crops": {
+    "landscape": {
+      "aspect": "3:2",
+      "master": {
+        "width": 3000,
+        "height": 2000
+      },
+      "renditionWidths": [2400, 1600, 1200, 800]
+    },
+    "portrait": {
+      "aspect": "2:3",
+      "master": {
+        "width": 2000,
+        "height": 3000
+      },
+      "renditions": [
+        {
+          "width": 1080,
+          "height": 1620
+        },
+        {
+          "width": 720,
+          "height": 1080
+        }
+      ]
+    },
+    "shareCard": {
+      "aspect": "1200:630",
+      "derivedFrom": "landscape",
+      "width": 1200,
+      "height": 630
+    }
+  },
+  "formats": ["avif", "webp", "jpeg"],
+  "firstLoadByteBudget": 200000,
+  "heroes": [
+    {
+      "heroAssetId": "hero.halloween.porch.v1",
+      "holidayId": "halloween",
+      "sceneType": "house_exterior",
+      "title": "Halloween porch at dusk",
+      "subject": "A real white porch house at dusk with glowing jack-o'-lanterns on the rail and lawn, orange bunting and warm string lights; playful, no characters or gore.",
+      "composition": "The porch spans the middle; the siding above the porch gives a calm area for text.",
+      "lightingMode": "evening",
+      "altKey": "hero.halloween.alt",
+      "altText": "Halloween scene: a white porch at dusk with glowing jack-o'-lanterns on the rail and lawn",
+      "photo": {
+        "photoId": "halloween"
+      },
+      "crops": {
+        "landscape": {
+          "focalPoint": {
+            "x": 0.5,
+            "y": 0.56
+          },
+          "safeArea": [0.34, 0.075, 0.6, 0.3]
+        },
+        "portrait": {
+          "focalPoint": {
+            "x": 0.5,
+            "y": 0.56
+          },
+          "safeArea": [0.14, 0.075, 0.725, 0.3]
+        }
+      },
+      "rights": {
+        "sourceKind": "licensed",
+        "creator": "Bruno Guerrero",
+        "licensor": "Unsplash",
+        "licenseRef": "https://unsplash.com/license",
+        "licenseVersion": null,
+        "territory": "worldwide",
+        "permittedUses": ["landing", "share_card", "example_pages"],
+        "attribution": "Photo: Bruno Guerrero / Unsplash License",
+        "expiresAt": null,
+        "generation": null,
+        "photographer": "Bruno Guerrero",
+        "sourceUrl": "https://unsplash.com/photos/a-house-decorated-for-halloween-with-pumpkins-and-lights--FR8KNy5r1o",
+        "license": "Unsplash License",
+        "licenseUrl": "https://unsplash.com/license"
+      },
+      "approval": {
+        "approvedAt": "2026-11-09T12:00:00.000Z",
+        "approvedBy": "fixture",
+        "approvedCrops": ["landscape", "portrait"]
+      },
+      "providerMode": "photo"
+    },
+    {
+      "heroAssetId": "hero.thanksgiving_us.dining_room.v1",
+      "holidayId": "thanksgiving_us",
+      "sceneType": "interior",
+      "roomType": "dining_room",
+      "title": "Candlelit Thanksgiving table",
+      "subject": "A real dining table set for Thanksgiving: tall taper candles in brass and black holders, wheat and pine cones in a white pitcher, woven chargers, dark napkins and checked linen in a bright home dining room.",
+      "composition": "Table-level view; the pitcher and candles sit at the center; the light wall at the upper right gives a calm area for text.",
+      "lightingMode": "evening",
+      "altKey": "hero.thanksgiving_us.alt",
+      "altText": "Thanksgiving scene: a candlelit table set for dinner with wheat, pine cones and checked linen",
+      "photo": {
+        "photoId": "thanksgiving_us"
+      },
+      "crops": {
+        "landscape": {
+          "focalPoint": {
+            "x": 0.46,
+            "y": 0.5
+          },
+          "safeArea": [0.5, 0.019, 0.98, 0.139]
+        },
+        "portrait": {
+          "focalPoint": {
+            "x": 0.41,
+            "y": 0.5
+          },
+          "safeArea": [0.45, 0.02, 0.96, 0.14]
+        }
+      },
+      "rights": {
+        "sourceKind": "licensed",
+        "creator": "Libby Penner",
+        "licensor": "Unsplash",
+        "licenseRef": "https://unsplash.com/license",
+        "licenseVersion": null,
+        "territory": "worldwide",
+        "permittedUses": ["landing", "share_card", "example_pages"],
+        "attribution": "Photo: Libby Penner / Unsplash License",
+        "expiresAt": null,
+        "generation": null,
+        "photographer": "Libby Penner",
+        "sourceUrl": "https://unsplash.com/photos/white-candles-on-round-table-4CnaFQRDI0A",
+        "license": "Unsplash License",
+        "licenseUrl": "https://unsplash.com/license"
+      },
+      "approval": {
+        "approvedAt": "2026-11-09T12:00:00.000Z",
+        "approvedBy": "fixture",
+        "approvedCrops": ["landscape", "portrait"]
+      },
+      "providerMode": "photo"
+    },
+    {
+      "heroAssetId": "hero.christmas.exterior.v1",
+      "holidayId": "christmas",
+      "sceneType": "interior",
+      "roomType": "living_room",
+      "title": "Christmas living room with a lit tree",
+      "subject": "A real living room decorated for Christmas: a tall tree in gold and champagne ornaments glowing with warm-white lights, an evergreen garland on a white mantel, wrapped gifts and stacked firewood. No snow.",
+      "composition": "The tree is the subject on the right; the pale wall at the upper left gives a calm area for text.",
+      "lightingMode": "source",
+      "altKey": "hero.christmas.alt",
+      "altText": "Christmas scene: a living room with a glowing tree in gold ornaments and a garland on the mantel",
+      "photo": {
+        "photoId": "christmas"
+      },
+      "crops": {
+        "landscape": {
+          "focalPoint": {
+            "x": 0.62,
+            "y": 0.5
+          },
+          "safeArea": [0.03, 0.03, 0.4, 0.25]
+        },
+        "portrait": {
+          "focalPoint": {
+            "x": 0.5,
+            "y": 0.5
+          },
+          "safeArea": [0.03, 0.03, 0.4, 0.18]
+        }
+      },
+      "rights": {
+        "sourceKind": "licensed",
+        "creator": "Valeria Boltneva",
+        "licensor": "Pexels",
+        "licenseRef": "https://www.pexels.com/license/",
+        "licenseVersion": null,
+        "territory": "worldwide",
+        "permittedUses": ["landing", "share_card", "example_pages"],
+        "attribution": "Photo: Valeria Boltneva / Pexels License",
+        "expiresAt": null,
+        "generation": null,
+        "photographer": "Valeria Boltneva",
+        "sourceUrl": "https://www.pexels.com/photo/elegant-living-room-with-christmas-tree-19441268/",
+        "license": "Pexels License",
+        "licenseUrl": "https://www.pexels.com/license/"
+      },
+      "approval": {
+        "approvedAt": "2026-11-09T12:00:00.000Z",
+        "approvedBy": "fixture",
+        "approvedCrops": ["landscape", "portrait"]
+      },
+      "providerMode": "photo"
+    },
+    {
+      "heroAssetId": "hero.new_years_eve.table.v1",
+      "holidayId": "new_years_eve",
+      "sceneType": "interior",
+      "roomType": "dining_room",
+      "title": "New Year's Eve in gold light",
+      "subject": "A real room styled for a celebration: gold tinsel and warm-white fairy lights, a round mirror, gold and silver ornaments and pine cones on a dressed table. No bottles or text.",
+      "composition": "The mirror and table are the subject; the wall at the upper right gives a calm area for text.",
+      "lightingMode": "evening",
+      "altKey": "hero.new_years_eve.alt",
+      "altText": "New Year's Eve scene: a table with gold and silver ornaments under warm fairy lights",
+      "photo": {
+        "photoId": "new_years_eve"
+      },
+      "crops": {
+        "landscape": {
+          "focalPoint": {
+            "x": 0.55,
+            "y": 0.5
+          },
+          "safeArea": [0.58, 0.029, 0.9, 0.199]
+        },
+        "portrait": {
+          "focalPoint": {
+            "x": 0.5,
+            "y": 0.5
+          },
+          "safeArea": [0.57, 0.03, 0.97, 0.2]
+        }
+      },
+      "rights": {
+        "sourceKind": "licensed",
+        "creator": "Arina Krasnikova",
+        "licensor": "Pexels",
+        "licenseRef": "https://www.pexels.com/license/",
+        "licenseVersion": null,
+        "territory": "worldwide",
+        "permittedUses": ["landing", "share_card", "example_pages"],
+        "attribution": "Photo: Arina Krasnikova / Pexels License",
+        "expiresAt": null,
+        "generation": null,
+        "photographer": "Arina Krasnikova",
+        "sourceUrl": "https://www.pexels.com/photo/a-room-with-christmas-decorations-6212298/",
+        "license": "Pexels License",
+        "licenseUrl": "https://www.pexels.com/license/"
+      },
+      "approval": {
+        "approvedAt": "2026-11-09T12:00:00.000Z",
+        "approvedBy": "fixture",
+        "approvedCrops": ["landscape", "portrait"]
+      },
+      "providerMode": "photo"
+    },
+    {
+      "heroAssetId": "hero.neutral.porch.v1",
+      "holidayId": null,
+      "sceneType": "interior",
+      "roomType": "living_room",
+      "title": "Sunlit living room, no decorations",
+      "subject": "A real bright living room with large windows onto greenery, a grey sofa, a lounge chair and a rug; no holiday decor.",
+      "composition": "The windows and seating fill the middle; the wall and ceiling above the windows give a calm area for text.",
+      "lightingMode": "source",
+      "altKey": "hero.neutral.alt",
+      "altText": "Home scene: a sunlit living room with large windows, a sofa and a rug",
+      "photo": {
+        "photoId": "neutral"
+      },
+      "crops": {
+        "landscape": {
+          "focalPoint": {
+            "x": 0.5,
+            "y": 0.6
+          },
+          "safeArea": [0.12, 0.02, 0.88, 0.17]
+        },
+        "portrait": {
+          "focalPoint": {
+            "x": 0.613,
+            "y": 0.6
+          },
+          "safeArea": [0.03, 0.02, 0.97, 0.17]
+        }
+      },
+      "rights": {
+        "sourceKind": "licensed",
+        "creator": "Clay Banks",
+        "licensor": "Unsplash",
+        "licenseRef": "https://unsplash.com/license",
+        "licenseVersion": null,
+        "territory": "worldwide",
+        "permittedUses": ["landing", "share_card", "example_pages"],
+        "attribution": "Photo: Clay Banks / Unsplash License",
+        "expiresAt": null,
+        "generation": null,
+        "photographer": "Clay Banks",
+        "sourceUrl": "https://unsplash.com/photos/a-living-room-filled-with-furniture-and-large-windows-7pvC_d2iXSE",
+        "license": "Unsplash License",
+        "licenseUrl": "https://unsplash.com/license"
+      },
+      "approval": {
+        "approvedAt": "2026-11-09T12:00:00.000Z",
+        "approvedBy": "fixture",
+        "approvedCrops": ["landscape", "portrait"]
+      },
+      "providerMode": "photo"
+    }
+  ]
+}

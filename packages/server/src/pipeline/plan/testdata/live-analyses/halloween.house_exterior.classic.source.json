@@ -1,0 +1,227 @@
+{
+  "exampleId": "example.halloween.house_exterior.classic.source.v1",
+  "photoId": "house-14-victorian-autumn",
+  "working": {
+    "width": 1536,
+    "height": 1024
+  },
+  "usd": 0.042048,
+  "analysis": {
+    "schemaVersion": "1.0",
+    "sourceAssetId": "example.halloween.house_exterior.classic.source.v1",
+    "workingImage": {
+      "width": 1536,
+      "height": 1024,
+      "checksum": "48a837a9ac1f53f4bbbb977c10da332b0f0206772eb8d889aeb3297e1048b705"
+    },
+    "sceneType": "house_exterior",
+    "sceneTypeConfidence": 0.97,
+    "sceneTypeMismatch": false,
+    "buildingForm": "detached",
+    "targetFacade": [0.19, 0.13, 0.88, 0.89],
+    "targetFacadeAmbiguous": false,
+    "anchors": [
+      {
+        "id": "front_door_1",
+        "category": "front_door",
+        "box": [0.62, 0.58, 0.66, 0.76],
+        "confidence": 0.6,
+        "occluded": true,
+        "occlusionFraction": 0.3,
+        "note": "Dark doorway under porch roof, partly behind column and railing"
+      },
+      {
+        "id": "porch_steps_1",
+        "category": "porch_steps",
+        "box": [0.48, 0.76, 0.67, 0.89],
+        "confidence": 0.9,
+        "occluded": true,
+        "occlusionFraction": 0.25,
+        "note": "Stone steps with iron handrails, shrub in front"
+      },
+      {
+        "id": "porch_rail_left",
+        "category": "porch_rail",
+        "box": [0.19, 0.7, 0.24, 0.76],
+        "confidence": 0.85,
+        "occluded": false
+      },
+      {
+        "id": "porch_rail_mid",
+        "category": "porch_rail",
+        "box": [0.28, 0.7, 0.43, 0.76],
+        "confidence": 0.8,
+        "occluded": true,
+        "occlusionFraction": 0.3,
+        "note": "White balustrade partly behind shrub"
+      },
+      {
+        "id": "porch_rail_right",
+        "category": "porch_rail",
+        "box": [0.47, 0.7, 0.5, 0.76],
+        "confidence": 0.75,
+        "occluded": false
+      },
+      {
+        "id": "column_1",
+        "category": "column",
+        "box": [0.26, 0.56, 0.29, 0.67],
+        "confidence": 0.85,
+        "occluded": false
+      },
+      {
+        "id": "column_2",
+        "category": "column",
+        "box": [0.465, 0.56, 0.48, 0.67],
+        "confidence": 0.85,
+        "occluded": false
+      },
+      {
+        "id": "column_3",
+        "category": "column",
+        "box": [0.505, 0.55, 0.535, 0.67],
+        "confidence": 0.88,
+        "occluded": false
+      },
+      {
+        "id": "column_4",
+        "category": "column",
+        "box": [0.65, 0.54, 0.69, 0.67],
+        "confidence": 0.8,
+        "occluded": true,
+        "occlusionFraction": 0.2,
+        "note": "Partly behind maple foliage"
+      },
+      {
+        "id": "porch_eaves",
+        "category": "eaves",
+        "box": [0.19, 0.49, 0.73, 0.6],
+        "confidence": 0.85,
+        "occluded": false,
+        "note": "Curved wraparound porch roof edge"
+      },
+      {
+        "id": "main_roofline",
+        "category": "roofline",
+        "box": [0.47, 0.13, 0.87, 0.33],
+        "confidence": 0.85,
+        "occluded": true,
+        "occlusionFraction": 0.1
+      },
+      {
+        "id": "turret_roof",
+        "category": "roofline",
+        "box": [0.33, 0.15, 0.48, 0.32],
+        "confidence": 0.85,
+        "occluded": false
+      },
+      {
+        "id": "window_turret",
+        "category": "window_frame",
+        "box": [0.39, 0.38, 0.44, 0.5],
+        "confidence": 0.9,
+        "occluded": false
+      },
+      {
+        "id": "window_gable",
+        "category": "window_frame",
+        "box": [0.56, 0.23, 0.61, 0.31],
+        "confidence": 0.9,
+        "occluded": false
+      },
+      {
+        "id": "window_2nd_left",
+        "category": "window_frame",
+        "box": [0.475, 0.39, 0.53, 0.51],
+        "confidence": 0.9,
+        "occluded": false
+      },
+      {
+        "id": "window_2nd_mid",
+        "category": "window_frame",
+        "box": [0.565, 0.37, 0.61, 0.43],
+        "confidence": 0.85,
+        "occluded": false
+      },
+      {
+        "id": "window_2nd_right",
+        "category": "window_frame",
+        "box": [0.655, 0.35, 0.725, 0.48],
+        "confidence": 0.9,
+        "occluded": false
+      },
+      {
+        "id": "walkway_1",
+        "category": "walkway_edge",
+        "box": [0.29, 0.88, 0.55, 1],
+        "confidence": 0.9,
+        "occluded": false
+      },
+      {
+        "id": "lawn_left",
+        "category": "lawn",
+        "box": [0.06, 0.87, 0.45, 1],
+        "confidence": 0.95,
+        "occluded": false
+      },
+      {
+        "id": "lawn_right",
+        "category": "lawn",
+        "box": [0.45, 0.93, 0.94, 1],
+        "confidence": 0.9,
+        "occluded": false
+      }
+    ],
+    "preserveRegions": [
+      {
+        "kind": "other",
+        "box": [0.585, 0.67, 0.6, 0.685]
+      }
+    ],
+    "accessRegions": [
+      {
+        "kind": "walkway",
+        "box": [0.29, 0.88, 0.55, 1]
+      },
+      {
+        "kind": "steps",
+        "box": [0.48, 0.76, 0.67, 0.89]
+      },
+      {
+        "kind": "door",
+        "box": [0.62, 0.58, 0.66, 0.76]
+      }
+    ],
+    "hazards": [],
+    "existingDecorations": {
+      "present": false,
+      "density": "none",
+      "boxes": []
+    },
+    "peopleBoxes": [],
+    "protectedBlurRegions": [],
+    "lighting": {
+      "timeOfDay": "day",
+      "isDaylight": true,
+      "exposure": "normal"
+    },
+    "seasonCues": {
+      "snowVisible": false,
+      "foliage": "mixed"
+    },
+    "qualityFlags": {
+      "blur": false,
+      "lowLight": false,
+      "heavyOcclusion": false,
+      "multipleBuildings": false,
+      "embeddedPhoto": true,
+      "tooClose": false,
+      "tooFar": false
+    },
+    "model": {
+      "analysisModel": "claude-opus-5-5",
+      "analysisPromptVersion": "analysis-2026.11.0"
+    },
+    "elapsedMs": 15956
+  }
+}

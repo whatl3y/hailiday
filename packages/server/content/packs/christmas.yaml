@@ -1,0 +1,385 @@
+# Holiday pack christmas.US (Christmas).
+# Normative schema: docs/specs/holidays-and-content.md, "Pack schema". Validated by HolidayPackSchema in @holiday/core.
+# quantity: { <style>: [min, max] } counts instances (runs for lights and garland) per style;
+# required lists the styles in which the archetype must appear whenever one of its anchors is eligible.
+# priority is omitted: list order is the placement priority (1 = first).
+# Spec attributes and product mapping for each kit item live in ../kits/christmas.yaml.
+# Any change that can alter a decoration plan or compiled instruction is at least a MINOR version bump.
+
+id: christmas.US
+version: 1.0.1
+holidayId: christmas
+region: US
+displayName: Christmas
+journeyEmphasis: balanced
+traditionNotes: 'Evergreen, light and warmth: wreaths, garland, warm-white string lights, bows, lanterns and a decorated tree indoors. No religious symbols (a user selects a religious sub-tradition pack explicitly when one exists), no Santa, snowman or reindeer figures, no inflatables, no snow unless the photo already shows it.'
+lightingPolicy:
+  bySceneType:
+    house_exterior: { default: source, offered: [source, evening] }
+    apartment_entry: { default: source, offered: [source] }
+    balcony: { default: source, offered: [source, evening] }
+    interior: { default: source, offered: [source, evening] }
+  eveningGuidance: 'Electric decorations named in the placements glow warm white with soft bloom and contact light on the surfaces they touch; nothing else is lit and nothing is added to the sky.'
+climateRule:
+  sourcePrecedence: [scene_analysis, address_region, neutral]
+  snow: only_if_visible_in_source
+  coldClimateOnlyItems: []
+existingDecorPolicy: preserve_and_complement
+forbidden:
+  - people
+  - pets
+  - text_or_signage
+  - house_number_changes
+  - new_structures
+  - structural_changes
+  - landscaping_changes
+  - neighbor_decor
+  - blocked_access
+  - brand_logos
+  - cartoon_or_licensed_characters
+  - mascots_and_inflatables
+  - snow_or_frost_unless_visible
+  - sky_effects
+  - religious_symbols
+  - open_flame_indoors
+sceneSections:
+  house_exterior:
+    buildingForms: [detached, attached, other]
+    formRules:
+      attached:
+        excludeAnchors: [lawn]
+        note: placements stay within the target unit's facade span
+      other: { excludeAnchors: [roofline, eaves, lawn] }
+    anchors:
+      - front_door
+      - door_frame
+      - porch_rail
+      - porch_steps
+      - roofline
+      - eaves
+      - window_frame
+      - column
+      - walkway_edge
+      - planter
+      - lawn
+    preserve:
+      - roofline shape
+      - window and door positions
+      - siding and trim color
+      - steps
+      - landscaping
+      - sky
+      - neighbors
+      - house numbers
+      - existing blur regions
+    keepClear:
+      - door swing
+      - step treads
+      - walkway surface
+      - driveway
+      - mailbox face
+    limits:
+      maxPlacements: { subtle: 3, classic: 6, abundant: 10 }
+      overlapTolerance: 0.1
+      groundMarginFraction: 0.03
+      edgeMarginFraction: 0.02
+    kitId: christmas.house_exterior
+    kit:
+      - kitItemId: christmas.house_exterior.string_lights_warm_white
+        archetype: string_lights
+        anchors: [eaves, roofline, porch_rail]
+        attachment: strung
+        placementRule: along
+        specText: outdoor warm-white LED string lights with evenly spaced bulbs following the eave line or rail
+        quantity: { subtle: [0, 1], classic: [1, 2], abundant: [2, 3] }
+        required: [classic, abundant]
+      - kitItemId: christmas.house_exterior.wreath_evergreen
+        archetype: wreath
+        anchors: [front_door]
+        attachment: hung
+        placementRule: centered_on
+        specText: a 24 to 30 inch mixed evergreen wreath with a red velvet bow, centered on the existing front door
+        quantity: { subtle: [1, 1], classic: [1, 1], abundant: [1, 1] }
+        required: [subtle, classic, abundant]
+      - kitItemId: christmas.house_exterior.garland_evergreen
+        archetype: garland
+        anchors: [door_frame, porch_rail, column]
+        attachment: draped
+        placementRule: along
+        specText: mixed evergreen garland with pinecones following the door frame or rail
+        quantity: { subtle: [0, 1], classic: [1, 2], abundant: [2, 3] }
+        required: [classic]
+      - kitItemId: christmas.house_exterior.potted_evergreen_pair
+        archetype: potted_tree
+        anchors: [porch_steps, planter]
+        attachment: standing
+        placementRule: beside
+        specText: a pair of potted evergreens three to four feet tall with warm-white lights flanking the entry beside the steps
+        quantity: { subtle: [0, 0], classic: [0, 1], abundant: [1, 1] }
+        required: []
+      - kitItemId: christmas.house_exterior.lantern_flameless
+        archetype: lantern
+        anchors: [porch_steps, planter]
+        attachment: placed
+        placementRule: beside
+        specText: a black metal lantern with a flameless pillar candle beside the entry, not on a step tread
+        quantity: { subtle: [0, 1], classic: [0, 2], abundant: [1, 2] }
+        required: []
+      - kitItemId: christmas.house_exterior.window_wreath
+        archetype: wreath
+        anchors: [window_frame]
+        attachment: hung
+        placementRule: centered_on
+        specText: a small evergreen wreath with a red bow centered on each front window
+        quantity: { subtle: [0, 0], classic: [0, 0], abundant: [1, 4] }
+        required: []
+    promptFragments:
+      scene: a tasteful US Christmas display added to the confirmed target home
+      preserve: keep the same camera position, crop, perspective and lens, the roof outline, doors, windows, siding color and texture, trim, steps, railings, landscaping, sky, time of day, parked vehicles and every neighboring building exactly as photographed
+      negative: no snow or frost unless present, no Santa, snowman or reindeer figures, no inflatables, no religious symbols, no text, no people, no new structures, nothing on neighboring homes
+  apartment_entry:
+    anchors: [unit_door, door_frame, floor_area, planter, banister, wall]
+    preserve:
+      - the door and its hardware
+      - unit numbers and nameplates
+      - corridor walls and floor
+      - neighboring doors
+      - lighting fixtures
+      - signage
+    keepClear:
+      - the door swing
+      - the corridor or stair path
+      - neighboring doors
+      - fire equipment
+    limits:
+      maxPlacements: { subtle: 2, classic: 4, abundant: 5 }
+      overlapTolerance: 0.1
+    kitId: christmas.apartment_entry
+    kit:
+      - kitItemId: christmas.apartment_entry.door_wreath
+        archetype: wreath
+        anchors: [unit_door]
+        attachment: hung
+        placementRule: centered_on
+        specText: an 18 to 24 inch evergreen wreath with a red bow centered on the unit door below any number plate
+        quantity: { subtle: [1, 1], classic: [1, 1], abundant: [1, 1] }
+        required: [subtle, classic, abundant]
+      - kitItemId: christmas.apartment_entry.frame_garland_lit
+        archetype: garland
+        anchors: [door_frame]
+        attachment: draped
+        placementRule: along
+        specText: evergreen garland with battery warm-white lights along the top and sides of the door frame
+        quantity: { subtle: [0, 1], classic: [1, 1], abundant: [1, 1] }
+        required: [classic, abundant]
+      - kitItemId: christmas.apartment_entry.lantern_pair
+        archetype: lantern
+        anchors: [floor_area]
+        attachment: placed
+        placementRule: cluster_at
+        specText: a pair of small lanterns with flameless candles on the floor in the door's own alcove, clear of the corridor
+        quantity: { subtle: [0, 0], classic: [0, 1], abundant: [1, 1] }
+        required: []
+      - kitItemId: christmas.apartment_entry.potted_evergreen_small
+        archetype: potted_tree
+        anchors: [floor_area, planter]
+        attachment: standing
+        placementRule: cluster_at
+        specText: a small potted evergreen with warm-white lights beside the door, clear of the corridor
+        quantity: { subtle: [0, 0], classic: [0, 1], abundant: [1, 1] }
+        required: []
+      - kitItemId: christmas.apartment_entry.banister_garland
+        archetype: garland
+        anchors: [banister]
+        attachment: wrapped
+        placementRule: along
+        specText: evergreen garland wrapped along the stair handrail of the user's stoop or entry stairs
+        quantity: { subtle: [0, 0], classic: [0, 1], abundant: [1, 1] }
+        required: []
+    promptFragments:
+      scene: a tasteful Christmas welcome at the user's own apartment door
+      preserve: keep the camera position and crop, the door, its number plate, peephole and hardware, the corridor walls and floor, neighboring doors, light fixtures, signage and fire equipment exactly as photographed
+      negative: nothing on neighboring doors, nothing in the corridor path, no religious symbols, no Santa, snowman or reindeer figures, no inflatables, no text, no people
+  balcony:
+    anchors: [balcony_railing, balcony_floor, door_frame, planter, wall]
+    preserve:
+      - railing structure
+      - floor
+      - balcony door
+      - exterior wall
+      - neighboring balconies and units
+      - view beyond the railing
+    keepClear:
+      - balcony door swing
+      - the path from the door to the railing
+      - the railing top edge
+    limits:
+      maxPlacements: { subtle: 3, classic: 5, abundant: 7 }
+      overlapTolerance: 0.1
+    kitId: christmas.balcony
+    kit:
+      - kitItemId: christmas.balcony.railing_lights_warm_white
+        archetype: string_lights
+        anchors: [balcony_railing]
+        attachment: strung
+        placementRule: along
+        specText: battery warm-white LED string lights woven along the inside face of the user's own railing, below the top edge and ending at the balcony's own edge
+        quantity: { subtle: [0, 1], classic: [1, 1], abundant: [1, 1] }
+        required: [classic, abundant]
+      - kitItemId: christmas.balcony.door_frame_garland
+        archetype: garland
+        anchors: [door_frame]
+        attachment: draped
+        placementRule: along
+        specText: mixed evergreen garland with small pinecones along the top and sides of the balcony door frame, leaving the opening clear
+        quantity: { subtle: [0, 1], classic: [1, 1], abundant: [1, 1] }
+        required: []
+      - kitItemId: christmas.balcony.potted_evergreen_small
+        archetype: potted_tree
+        anchors: [balcony_floor, planter]
+        attachment: standing
+        placementRule: cluster_at
+        specText: a 2 to 3 foot potted evergreen with warm-white battery lights in a corner of the balcony floor, clear of the door path
+        quantity: { subtle: [1, 1], classic: [1, 1], abundant: [1, 2] }
+        required: [subtle, classic, abundant]
+      - kitItemId: christmas.balcony.lantern_flameless
+        archetype: lantern
+        anchors: [balcony_floor]
+        attachment: placed
+        placementRule: cluster_at
+        specText: one or two black metal lanterns with flameless pillar candles on the floor near the potted evergreen
+        quantity: { subtle: [0, 0], classic: [0, 1], abundant: [1, 1] }
+        required: []
+      - kitItemId: christmas.balcony.door_wreath
+        archetype: wreath
+        anchors: [door_frame]
+        attachment: hung
+        placementRule: centered_on
+        specText: a 16 to 20 inch evergreen wreath with a red bow hung at the top of the balcony door frame without covering the glass
+        quantity: { subtle: [0, 0], classic: [0, 1], abundant: [1, 1] }
+        required: []
+    promptFragments:
+      scene: a tasteful US Christmas display on the user's own balcony
+      preserve: keep the camera position and crop, the railing structure, floor, balcony door and glass, exterior wall, the view beyond the railing and every neighboring balcony and unit exactly as photographed
+      negative: no items on the railing top edge, nothing on neighboring balconies or railings, no snow unless present, no religious symbols, no Santa or snowman figures, no inflatables, no text, no people
+  interior:
+    roomTypes: [dining_room, living_room, entryway, kitchen, bedroom, other]
+    anchors:
+      - mantel
+      - dining_table
+      - sideboard
+      - interior_window
+      - wall
+      - floor_area
+      - shelf
+      - banister
+    roomRules:
+      dining_room:
+        anchors: [dining_table, sideboard, interior_window, wall, shelf]
+      living_room: { anchors: [mantel, floor_area, interior_window, wall, shelf] }
+      entryway: { anchors: [banister, floor_area, wall, shelf] }
+      kitchen: { anchors: [dining_table, interior_window, shelf] }
+      bedroom: { anchors: [interior_window, wall, shelf] }
+      other: { anchors: [interior_window, wall, shelf] }
+    preserve:
+      - walls
+      - windows
+      - doors
+      - flooring
+      - ceiling
+      - furniture positions
+      - existing light fixtures
+      - artwork and photographs
+      - existing blur regions
+    keepClear:
+      - doorways
+      - circulation paths
+      - stair treads
+      - stove and sink
+      - seating surfaces
+    limits:
+      maxPlacements: { subtle: 3, classic: 6, abundant: 10 }
+      overlapTolerance: 0.1
+    kitId: christmas.interior
+    kit:
+      - kitItemId: christmas.interior.tree_prelit
+        archetype: tree
+        anchors: [floor_area]
+        attachment: standing
+        placementRule: cluster_at
+        specText: a pre-lit artificial evergreen tree with warm-white lights, red and gold ornaments and a simple topper, scaled to the visible ceiling height, standing on open floor beside a wall or window with circulation clear
+        quantity: { subtle: [0, 1], classic: [1, 1], abundant: [1, 1] }
+        required: [classic, abundant]
+      - kitItemId: christmas.interior.mantel_garland_lit
+        archetype: garland
+        anchors: [mantel, interior_window]
+        attachment: draped
+        placementRule: along
+        specText: mixed evergreen garland with warm-white lights and pinecones along the mantel or window top
+        quantity: { subtle: [1, 1], classic: [1, 2], abundant: [2, 3] }
+        required: [subtle, classic, abundant]
+      - kitItemId: christmas.interior.stockings
+        archetype: stocking
+        anchors: [mantel]
+        attachment: hung
+        placementRule: hang_from
+        specText: three to four knit stockings in red, cream and green hung from the mantel edge
+        quantity: { subtle: [0, 0], classic: [1, 1], abundant: [1, 1] }
+        required: []
+      - kitItemId: christmas.interior.table_centerpiece
+        archetype: centerpiece
+        anchors: [dining_table]
+        attachment: placed
+        placementRule: on_surface
+        specText: a low evergreen centerpiece with pinecones, red berries and flameless pillar candles along the table center
+        quantity: { subtle: [1, 1], classic: [1, 1], abundant: [1, 2] }
+        required: [subtle, classic, abundant]
+      - kitItemId: christmas.interior.sideboard_arrangement
+        archetype: arrangement
+        anchors: [sideboard, shelf]
+        attachment: placed
+        placementRule: on_surface
+        specText: a small evergreen arrangement with gold ornaments and a flameless candle on the sideboard
+        quantity: { subtle: [0, 1], classic: [1, 1], abundant: [1, 2] }
+        required: []
+      - kitItemId: christmas.interior.wrapped_gifts
+        archetype: gift_wrap
+        anchors: [floor_area]
+        attachment: placed
+        placementRule: cluster_at
+        specText: a few wrapped gifts in red, gold and cream paper under the tree
+        quantity: { subtle: [0, 0], classic: [0, 3], abundant: [3, 6] }
+        required: []
+    promptFragments:
+      scene: a tasteful US Christmas interior added to the room in the photo
+      preserve: keep the camera position and crop, walls and wall color, windows, doors, flooring, ceiling, furniture and its positions, chairs, rugs, artwork, photographs and existing light fixtures exactly as photographed
+      negative: no religious figures, no Santa, snowman or reindeer figures, no cartoon characters or toys, no text, no people or pets, no open flames, no new furniture, no changed wall color
+heroRefs:
+  - { heroAssetId: hero.christmas.exterior.v1, orientation: landscape }
+  - { heroAssetId: hero.christmas.exterior.v1, orientation: portrait }
+exampleRefs:
+  - exampleAssetId: example.christmas.house_exterior.classic.source.v1
+    sceneType: house_exterior
+    style: classic
+    lightingMode: source
+  - exampleAssetId: example.christmas.house_exterior.classic.evening.v1
+    sceneType: house_exterior
+    style: classic
+    lightingMode: evening
+  - exampleAssetId: example.christmas.apartment_entry.classic.source.v1
+    sceneType: apartment_entry
+    style: classic
+    lightingMode: source
+  - exampleAssetId: example.christmas.balcony.classic.source.v1
+    sceneType: balcony
+    style: classic
+    lightingMode: source
+  - exampleAssetId: example.christmas.interior.classic.source.v1
+    sceneType: interior
+    style: classic
+    lightingMode: source
+review:
+  checklistVersion: 1
+  approvedBy: [editorial_lead, second_approver]
+  approvedAt: null
+  goldenRunId: null

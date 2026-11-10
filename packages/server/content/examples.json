@@ -1,0 +1,641 @@
+{
+  "version": 1,
+  "providerMode": "live",
+  "description": "Before/after example specifications per holiday and scene type (classic style, source lighting, plus three evening pairs). Every source is a licensed real photograph from content/photos (source.photoId); the after image is rendered from it by the configured live image editor with the active pack version (package script examples:render), never drawn by a fixture renderer. Rows stay inactive until a live render exists. Labeled \"AI preview\" and \"Example\" wherever shown. genericScenes are procedural test fixtures for fixture-kind sources only and are never shown.",
+  "genericScenes": {
+    "generic.interior.dining_room.oak": {
+      "sceneType": "interior",
+      "roomType": "dining_room",
+      "room": {
+        "roomType": "dining_room",
+        "wallColor": "#E9E2D4",
+        "trimColor": "#FFFFFF",
+        "floorColor": "#9A7651",
+        "ceiling": "flat",
+        "windowCount": 2,
+        "tableShape": "long_rectangle",
+        "tableColor": "#8A6440",
+        "chairCount": 6,
+        "chairColor": "#5C4632",
+        "sideboard": true,
+        "mantel": false,
+        "chandelier": true,
+        "rugColor": "#B9A88C"
+      }
+    },
+    "generic.interior.living_room.mantel": {
+      "sceneType": "interior",
+      "roomType": "living_room",
+      "room": {
+        "roomType": "living_room",
+        "wallColor": "#DCE3E1",
+        "trimColor": "#FFFFFF",
+        "floorColor": "#8C6A4A",
+        "ceiling": "flat",
+        "windowCount": 2,
+        "tableShape": "none",
+        "tableColor": null,
+        "chairCount": 0,
+        "chairColor": null,
+        "sideboard": false,
+        "mantel": true,
+        "chandelier": false,
+        "rugColor": "#7E8B8C",
+        "sofaColor": "#5E6E73",
+        "openFloorBesideWindow": true,
+        "shelf": true
+      }
+    },
+    "generic.apartment_entry.alcove": {
+      "sceneType": "apartment_entry",
+      "entry": {
+        "wallColor": "#E7E1D6",
+        "floorColor": "#7C7368",
+        "doorColor": "#33475B",
+        "doorFrameColor": "#F4F1EA",
+        "alcove": true,
+        "numberPlate": true,
+        "sconce": true,
+        "planter": false,
+        "banister": false,
+        "neighborDoorVisible": true
+      }
+    },
+    "generic.apartment_entry.stoop": {
+      "sceneType": "apartment_entry",
+      "entry": {
+        "wallColor": "#9C4F3E",
+        "floorColor": "#8E8A84",
+        "doorColor": "#1F3B2D",
+        "doorFrameColor": "#EFE8DA",
+        "alcove": false,
+        "numberPlate": true,
+        "sconce": true,
+        "planter": true,
+        "banister": true,
+        "neighborDoorVisible": false
+      }
+    },
+    "generic.balcony.city": {
+      "sceneType": "balcony",
+      "balcony": {
+        "railingStyle": "metal_bars",
+        "railingColor": "#2B2B2B",
+        "floorColor": "#A39B90",
+        "wallColor": "#D8CFC2",
+        "doorType": "sliding_glass",
+        "planter": true,
+        "view": "city",
+        "neighborBalconyVisible": true
+      }
+    },
+    "generic.balcony.garden": {
+      "sceneType": "balcony",
+      "balcony": {
+        "railingStyle": "glass_panels",
+        "railingColor": "#C9CED1",
+        "floorColor": "#8B6E52",
+        "wallColor": "#EFE9DF",
+        "doorType": "french_doors",
+        "planter": true,
+        "view": "trees",
+        "neighborBalconyVisible": false
+      }
+    }
+  },
+  "examples": [
+    {
+      "exampleId": "example.halloween.house_exterior.classic.source.v1",
+      "holidayId": "halloween",
+      "sceneType": "house_exterior",
+      "style": "classic",
+      "lightingMode": "source",
+      "source": {
+        "kind": "photo",
+        "photoId": "house-14-victorian-autumn",
+        "buildingForm": "detached"
+      },
+      "packVersion": "1.0.1",
+      "width": 1536,
+      "height": 1024,
+      "captionKey": "example.halloween.house_exterior",
+      "rights": {
+        "kind": "licensed_photo",
+        "photographer": "Brett Wharton",
+        "sourceUrl": "https://unsplash.com/photos/a-large-house-with-a-front-yard-IslNMR8-jww",
+        "license": "Unsplash License",
+        "licenseUrl": "https://unsplash.com/license",
+        "permission": "Before image: a licensed real photograph (Unsplash License); after image: rendered from it by the production image editor with the active pack version.",
+        "evidenceRef": "https://unsplash.com/photos/a-large-house-with-a-front-yard-IslNMR8-jww"
+      },
+      "approval": {
+        "approvedAt": "2026-11-09T12:00:00.000Z",
+        "approvedBy": "pending-live-render"
+      },
+      "providerMode": "fixture"
+    },
+    {
+      "exampleId": "example.halloween.house_exterior.classic.evening.v1",
+      "holidayId": "halloween",
+      "sceneType": "house_exterior",
+      "style": "classic",
+      "lightingMode": "evening",
+      "source": {
+        "kind": "photo",
+        "photoId": "house-14-victorian-autumn",
+        "buildingForm": "detached"
+      },
+      "packVersion": "1.0.1",
+      "width": 1536,
+      "height": 1024,
+      "captionKey": "example.halloween.house_exterior",
+      "rights": {
+        "kind": "licensed_photo",
+        "photographer": "Brett Wharton",
+        "sourceUrl": "https://unsplash.com/photos/a-large-house-with-a-front-yard-IslNMR8-jww",
+        "license": "Unsplash License",
+        "licenseUrl": "https://unsplash.com/license",
+        "permission": "Before image: a licensed real photograph (Unsplash License); after image: rendered from it by the production image editor with the active pack version.",
+        "evidenceRef": "https://unsplash.com/photos/a-large-house-with-a-front-yard-IslNMR8-jww"
+      },
+      "approval": {
+        "approvedAt": "2026-11-09T12:00:00.000Z",
+        "approvedBy": "pending-live-render"
+      },
+      "providerMode": "fixture"
+    },
+    {
+      "exampleId": "example.halloween.apartment_entry.classic.source.v1",
+      "holidayId": "halloween",
+      "sceneType": "apartment_entry",
+      "style": "classic",
+      "lightingMode": "source",
+      "source": {
+        "kind": "photo",
+        "photoId": "sample-apartment-hallway"
+      },
+      "packVersion": "1.0.1",
+      "width": 1536,
+      "height": 1024,
+      "captionKey": "example.halloween.apartment_entry",
+      "rights": {
+        "kind": "licensed_photo",
+        "photographer": "OSMAN ESPINOZA FRANCO",
+        "sourceUrl": "https://unsplash.com/photos/a-long-dimly-lit-hallway-with-doors-on-both-sides-pu815qnqhpY",
+        "license": "Unsplash License",
+        "licenseUrl": "https://unsplash.com/license",
+        "permission": "Before image: a licensed real photograph (Unsplash License); after image: rendered from it by the production image editor with the active pack version.",
+        "evidenceRef": "https://unsplash.com/photos/a-long-dimly-lit-hallway-with-doors-on-both-sides-pu815qnqhpY"
+      },
+      "approval": {
+        "approvedAt": "2026-11-09T12:00:00.000Z",
+        "approvedBy": "pending-live-render"
+      },
+      "providerMode": "fixture"
+    },
+    {
+      "exampleId": "example.halloween.balcony.classic.source.v1",
+      "holidayId": "halloween",
+      "sceneType": "balcony",
+      "style": "classic",
+      "lightingMode": "source",
+      "source": {
+        "kind": "photo",
+        "photoId": "sample-balcony"
+      },
+      "packVersion": "1.0.1",
+      "width": 1536,
+      "height": 1024,
+      "captionKey": "example.halloween.balcony",
+      "rights": {
+        "kind": "licensed_photo",
+        "photographer": "Josh Lemmon",
+        "sourceUrl": "https://unsplash.com/photos/wooden-balcony-overlooking-green-field-EDqqxCAcGwU",
+        "license": "Unsplash License",
+        "licenseUrl": "https://unsplash.com/license",
+        "permission": "Before image: a licensed real photograph (Unsplash License); after image: rendered from it by the production image editor with the active pack version.",
+        "evidenceRef": "https://unsplash.com/photos/wooden-balcony-overlooking-green-field-EDqqxCAcGwU"
+      },
+      "approval": {
+        "approvedAt": "2026-11-09T12:00:00.000Z",
+        "approvedBy": "pending-live-render"
+      },
+      "providerMode": "fixture"
+    },
+    {
+      "exampleId": "example.halloween.interior.classic.source.v1",
+      "holidayId": "halloween",
+      "sceneType": "interior",
+      "style": "classic",
+      "lightingMode": "source",
+      "source": {
+        "kind": "photo",
+        "photoId": "sample-living-room-mantel",
+        "roomType": "living_room"
+      },
+      "packVersion": "1.0.1",
+      "width": 1536,
+      "height": 1024,
+      "captionKey": "example.halloween.interior",
+      "rights": {
+        "kind": "licensed_photo",
+        "photographer": "Cole Ankney",
+        "sourceUrl": "https://unsplash.com/photos/a-living-room-with-a-fire-place-and-blue-chairs-cfUbiZFaIqQ",
+        "license": "Unsplash License",
+        "licenseUrl": "https://unsplash.com/license",
+        "permission": "Before image: a licensed real photograph (Unsplash License); after image: rendered from it by the production image editor with the active pack version.",
+        "evidenceRef": "https://unsplash.com/photos/a-living-room-with-a-fire-place-and-blue-chairs-cfUbiZFaIqQ"
+      },
+      "approval": {
+        "approvedAt": "2026-11-09T12:00:00.000Z",
+        "approvedBy": "pending-live-render"
+      },
+      "providerMode": "fixture"
+    },
+    {
+      "exampleId": "example.thanksgiving_us.house_exterior.classic.source.v1",
+      "holidayId": "thanksgiving_us",
+      "sceneType": "house_exterior",
+      "style": "classic",
+      "lightingMode": "source",
+      "source": {
+        "kind": "photo",
+        "photoId": "house-02-georgian-autumn",
+        "buildingForm": "detached"
+      },
+      "packVersion": "1.0.1",
+      "width": 1536,
+      "height": 1024,
+      "captionKey": "example.thanksgiving_us.house_exterior",
+      "rights": {
+        "kind": "licensed_photo",
+        "photographer": "Roger Starnes Sr",
+        "sourceUrl": "https://unsplash.com/photos/historic-brick-house-with-white-portico-tiUrUBzY0qg",
+        "license": "Unsplash License",
+        "licenseUrl": "https://unsplash.com/license",
+        "permission": "Before image: a licensed real photograph (Unsplash License); after image: rendered from it by the production image editor with the active pack version.",
+        "evidenceRef": "https://unsplash.com/photos/historic-brick-house-with-white-portico-tiUrUBzY0qg"
+      },
+      "approval": {
+        "approvedAt": "2026-11-09T12:00:00.000Z",
+        "approvedBy": "pending-live-render"
+      },
+      "providerMode": "fixture"
+    },
+    {
+      "exampleId": "example.thanksgiving_us.apartment_entry.classic.source.v1",
+      "holidayId": "thanksgiving_us",
+      "sceneType": "apartment_entry",
+      "style": "classic",
+      "lightingMode": "source",
+      "source": {
+        "kind": "photo",
+        "photoId": "sample-apartment-hallway"
+      },
+      "packVersion": "1.0.1",
+      "width": 1536,
+      "height": 1024,
+      "captionKey": "example.thanksgiving_us.apartment_entry",
+      "rights": {
+        "kind": "licensed_photo",
+        "photographer": "OSMAN ESPINOZA FRANCO",
+        "sourceUrl": "https://unsplash.com/photos/a-long-dimly-lit-hallway-with-doors-on-both-sides-pu815qnqhpY",
+        "license": "Unsplash License",
+        "licenseUrl": "https://unsplash.com/license",
+        "permission": "Before image: a licensed real photograph (Unsplash License); after image: rendered from it by the production image editor with the active pack version.",
+        "evidenceRef": "https://unsplash.com/photos/a-long-dimly-lit-hallway-with-doors-on-both-sides-pu815qnqhpY"
+      },
+      "approval": {
+        "approvedAt": "2026-11-09T12:00:00.000Z",
+        "approvedBy": "pending-live-render"
+      },
+      "providerMode": "fixture"
+    },
+    {
+      "exampleId": "example.thanksgiving_us.balcony.classic.source.v1",
+      "holidayId": "thanksgiving_us",
+      "sceneType": "balcony",
+      "style": "classic",
+      "lightingMode": "source",
+      "source": {
+        "kind": "photo",
+        "photoId": "sample-balcony"
+      },
+      "packVersion": "1.0.1",
+      "width": 1536,
+      "height": 1024,
+      "captionKey": "example.thanksgiving_us.balcony",
+      "rights": {
+        "kind": "licensed_photo",
+        "photographer": "Josh Lemmon",
+        "sourceUrl": "https://unsplash.com/photos/wooden-balcony-overlooking-green-field-EDqqxCAcGwU",
+        "license": "Unsplash License",
+        "licenseUrl": "https://unsplash.com/license",
+        "permission": "Before image: a licensed real photograph (Unsplash License); after image: rendered from it by the production image editor with the active pack version.",
+        "evidenceRef": "https://unsplash.com/photos/wooden-balcony-overlooking-green-field-EDqqxCAcGwU"
+      },
+      "approval": {
+        "approvedAt": "2026-11-09T12:00:00.000Z",
+        "approvedBy": "pending-live-render"
+      },
+      "providerMode": "fixture"
+    },
+    {
+      "exampleId": "example.thanksgiving_us.interior.classic.source.v1",
+      "holidayId": "thanksgiving_us",
+      "sceneType": "interior",
+      "style": "classic",
+      "lightingMode": "source",
+      "source": {
+        "kind": "photo",
+        "photoId": "sample-dining-room",
+        "roomType": "dining_room"
+      },
+      "packVersion": "1.0.1",
+      "width": 1536,
+      "height": 1024,
+      "captionKey": "example.thanksgiving_us.interior",
+      "rights": {
+        "kind": "licensed_photo",
+        "photographer": "Clay Banks",
+        "sourceUrl": "https://unsplash.com/photos/dining-room-with-rustic-wooden-table-and-chairs-lGWmTzCyEB8",
+        "license": "Unsplash License",
+        "licenseUrl": "https://unsplash.com/license",
+        "permission": "Before image: a licensed real photograph (Unsplash License); after image: rendered from it by the production image editor with the active pack version.",
+        "evidenceRef": "https://unsplash.com/photos/dining-room-with-rustic-wooden-table-and-chairs-lGWmTzCyEB8"
+      },
+      "approval": {
+        "approvedAt": "2026-11-09T12:00:00.000Z",
+        "approvedBy": "pending-live-render"
+      },
+      "providerMode": "fixture"
+    },
+    {
+      "exampleId": "example.thanksgiving_us.interior.classic.evening.v1",
+      "holidayId": "thanksgiving_us",
+      "sceneType": "interior",
+      "style": "classic",
+      "lightingMode": "evening",
+      "source": {
+        "kind": "photo",
+        "photoId": "sample-dining-room",
+        "roomType": "dining_room"
+      },
+      "packVersion": "1.0.1",
+      "width": 1536,
+      "height": 1024,
+      "captionKey": "example.thanksgiving_us.interior",
+      "rights": {
+        "kind": "licensed_photo",
+        "photographer": "Clay Banks",
+        "sourceUrl": "https://unsplash.com/photos/dining-room-with-rustic-wooden-table-and-chairs-lGWmTzCyEB8",
+        "license": "Unsplash License",
+        "licenseUrl": "https://unsplash.com/license",
+        "permission": "Before image: a licensed real photograph (Unsplash License); after image: rendered from it by the production image editor with the active pack version.",
+        "evidenceRef": "https://unsplash.com/photos/dining-room-with-rustic-wooden-table-and-chairs-lGWmTzCyEB8"
+      },
+      "approval": {
+        "approvedAt": "2026-11-09T12:00:00.000Z",
+        "approvedBy": "pending-live-render"
+      },
+      "providerMode": "fixture"
+    },
+    {
+      "exampleId": "example.christmas.house_exterior.classic.source.v1",
+      "holidayId": "christmas",
+      "sceneType": "house_exterior",
+      "style": "classic",
+      "lightingMode": "source",
+      "source": {
+        "kind": "photo",
+        "photoId": "house-04-bungalow-summer",
+        "buildingForm": "detached"
+      },
+      "packVersion": "1.0.1",
+      "width": 1536,
+      "height": 1024,
+      "captionKey": "example.christmas.house_exterior",
+      "rights": {
+        "kind": "licensed_photo",
+        "photographer": "Roger Starnes Sr",
+        "sourceUrl": "https://unsplash.com/photos/brown-and-white-concrete-house-O_YmfaRpjaE",
+        "license": "Unsplash License",
+        "licenseUrl": "https://unsplash.com/license",
+        "permission": "Before image: a licensed real photograph (Unsplash License); after image: rendered from it by the production image editor with the active pack version.",
+        "evidenceRef": "https://unsplash.com/photos/brown-and-white-concrete-house-O_YmfaRpjaE"
+      },
+      "approval": {
+        "approvedAt": "2026-11-09T12:00:00.000Z",
+        "approvedBy": "pending-live-render"
+      },
+      "providerMode": "fixture"
+    },
+    {
+      "exampleId": "example.christmas.house_exterior.classic.evening.v1",
+      "holidayId": "christmas",
+      "sceneType": "house_exterior",
+      "style": "classic",
+      "lightingMode": "evening",
+      "source": {
+        "kind": "photo",
+        "photoId": "house-04-bungalow-summer",
+        "buildingForm": "detached"
+      },
+      "packVersion": "1.0.1",
+      "width": 1536,
+      "height": 1024,
+      "captionKey": "example.christmas.house_exterior",
+      "rights": {
+        "kind": "licensed_photo",
+        "photographer": "Roger Starnes Sr",
+        "sourceUrl": "https://unsplash.com/photos/brown-and-white-concrete-house-O_YmfaRpjaE",
+        "license": "Unsplash License",
+        "licenseUrl": "https://unsplash.com/license",
+        "permission": "Before image: a licensed real photograph (Unsplash License); after image: rendered from it by the production image editor with the active pack version.",
+        "evidenceRef": "https://unsplash.com/photos/brown-and-white-concrete-house-O_YmfaRpjaE"
+      },
+      "approval": {
+        "approvedAt": "2026-11-09T12:00:00.000Z",
+        "approvedBy": "pending-live-render"
+      },
+      "providerMode": "fixture"
+    },
+    {
+      "exampleId": "example.christmas.apartment_entry.classic.source.v1",
+      "holidayId": "christmas",
+      "sceneType": "apartment_entry",
+      "style": "classic",
+      "lightingMode": "source",
+      "source": {
+        "kind": "photo",
+        "photoId": "sample-apartment-hallway"
+      },
+      "packVersion": "1.0.1",
+      "width": 1536,
+      "height": 1024,
+      "captionKey": "example.christmas.apartment_entry",
+      "rights": {
+        "kind": "licensed_photo",
+        "photographer": "OSMAN ESPINOZA FRANCO",
+        "sourceUrl": "https://unsplash.com/photos/a-long-dimly-lit-hallway-with-doors-on-both-sides-pu815qnqhpY",
+        "license": "Unsplash License",
+        "licenseUrl": "https://unsplash.com/license",
+        "permission": "Before image: a licensed real photograph (Unsplash License); after image: rendered from it by the production image editor with the active pack version.",
+        "evidenceRef": "https://unsplash.com/photos/a-long-dimly-lit-hallway-with-doors-on-both-sides-pu815qnqhpY"
+      },
+      "approval": {
+        "approvedAt": "2026-11-09T12:00:00.000Z",
+        "approvedBy": "pending-live-render"
+      },
+      "providerMode": "fixture"
+    },
+    {
+      "exampleId": "example.christmas.balcony.classic.source.v1",
+      "holidayId": "christmas",
+      "sceneType": "balcony",
+      "style": "classic",
+      "lightingMode": "source",
+      "source": {
+        "kind": "photo",
+        "photoId": "sample-balcony"
+      },
+      "packVersion": "1.0.1",
+      "width": 1536,
+      "height": 1024,
+      "captionKey": "example.christmas.balcony",
+      "rights": {
+        "kind": "licensed_photo",
+        "photographer": "Josh Lemmon",
+        "sourceUrl": "https://unsplash.com/photos/wooden-balcony-overlooking-green-field-EDqqxCAcGwU",
+        "license": "Unsplash License",
+        "licenseUrl": "https://unsplash.com/license",
+        "permission": "Before image: a licensed real photograph (Unsplash License); after image: rendered from it by the production image editor with the active pack version.",
+        "evidenceRef": "https://unsplash.com/photos/wooden-balcony-overlooking-green-field-EDqqxCAcGwU"
+      },
+      "approval": {
+        "approvedAt": "2026-11-09T12:00:00.000Z",
+        "approvedBy": "pending-live-render"
+      },
+      "providerMode": "fixture"
+    },
+    {
+      "exampleId": "example.christmas.interior.classic.source.v1",
+      "holidayId": "christmas",
+      "sceneType": "interior",
+      "style": "classic",
+      "lightingMode": "source",
+      "source": {
+        "kind": "photo",
+        "photoId": "sample-living-room-mantel",
+        "roomType": "living_room"
+      },
+      "packVersion": "1.0.1",
+      "width": 1536,
+      "height": 1024,
+      "captionKey": "example.christmas.interior",
+      "rights": {
+        "kind": "licensed_photo",
+        "photographer": "Cole Ankney",
+        "sourceUrl": "https://unsplash.com/photos/a-living-room-with-a-fire-place-and-blue-chairs-cfUbiZFaIqQ",
+        "license": "Unsplash License",
+        "licenseUrl": "https://unsplash.com/license",
+        "permission": "Before image: a licensed real photograph (Unsplash License); after image: rendered from it by the production image editor with the active pack version.",
+        "evidenceRef": "https://unsplash.com/photos/a-living-room-with-a-fire-place-and-blue-chairs-cfUbiZFaIqQ"
+      },
+      "approval": {
+        "approvedAt": "2026-11-09T12:00:00.000Z",
+        "approvedBy": "pending-live-render"
+      },
+      "providerMode": "fixture"
+    },
+    {
+      "exampleId": "example.new_years_eve.house_exterior.classic.source.v1",
+      "holidayId": "new_years_eve",
+      "sceneType": "house_exterior",
+      "style": "classic",
+      "lightingMode": "source",
+      "source": {
+        "kind": "photo",
+        "photoId": "house-07-modern-summer",
+        "buildingForm": "detached"
+      },
+      "packVersion": "1.0.1",
+      "width": 1536,
+      "height": 1024,
+      "captionKey": "example.new_years_eve.house_exterior",
+      "rights": {
+        "kind": "licensed_photo",
+        "photographer": "Roger Starnes Sr",
+        "sourceUrl": "https://unsplash.com/photos/a-modern-grey-house-with-a-green-lawn-and-trees-1XRV7Z4lhGo",
+        "license": "Unsplash License",
+        "licenseUrl": "https://unsplash.com/license",
+        "permission": "Before image: a licensed real photograph (Unsplash License); after image: rendered from it by the production image editor with the active pack version.",
+        "evidenceRef": "https://unsplash.com/photos/a-modern-grey-house-with-a-green-lawn-and-trees-1XRV7Z4lhGo"
+      },
+      "approval": {
+        "approvedAt": "2026-11-09T12:00:00.000Z",
+        "approvedBy": "pending-live-render"
+      },
+      "providerMode": "fixture"
+    },
+    {
+      "exampleId": "example.new_years_eve.balcony.classic.source.v1",
+      "holidayId": "new_years_eve",
+      "sceneType": "balcony",
+      "style": "classic",
+      "lightingMode": "source",
+      "source": {
+        "kind": "photo",
+        "photoId": "sample-balcony"
+      },
+      "packVersion": "1.0.1",
+      "width": 1536,
+      "height": 1024,
+      "captionKey": "example.new_years_eve.balcony",
+      "rights": {
+        "kind": "licensed_photo",
+        "photographer": "Josh Lemmon",
+        "sourceUrl": "https://unsplash.com/photos/wooden-balcony-overlooking-green-field-EDqqxCAcGwU",
+        "license": "Unsplash License",
+        "licenseUrl": "https://unsplash.com/license",
+        "permission": "Before image: a licensed real photograph (Unsplash License); after image: rendered from it by the production image editor with the active pack version.",
+        "evidenceRef": "https://unsplash.com/photos/wooden-balcony-overlooking-green-field-EDqqxCAcGwU"
+      },
+      "approval": {
+        "approvedAt": "2026-11-09T12:00:00.000Z",
+        "approvedBy": "pending-live-render"
+      },
+      "providerMode": "fixture"
+    },
+    {
+      "exampleId": "example.new_years_eve.interior.classic.source.v1",
+      "holidayId": "new_years_eve",
+      "sceneType": "interior",
+      "style": "classic",
+      "lightingMode": "source",
+      "source": {
+        "kind": "photo",
+        "photoId": "sample-dining-room",
+        "roomType": "dining_room"
+      },
+      "packVersion": "1.0.1",
+      "width": 1536,
+      "height": 1024,
+      "captionKey": "example.new_years_eve.interior",
+      "rights": {
+        "kind": "licensed_photo",
+        "photographer": "Clay Banks",
+        "sourceUrl": "https://unsplash.com/photos/dining-room-with-rustic-wooden-table-and-chairs-lGWmTzCyEB8",
+        "license": "Unsplash License",
+        "licenseUrl": "https://unsplash.com/license",
+        "permission": "Before image: a licensed real photograph (Unsplash License); after image: rendered from it by the production image editor with the active pack version.",
+        "evidenceRef": "https://unsplash.com/photos/dining-room-with-rustic-wooden-table-and-chairs-lGWmTzCyEB8"
+      },
+      "approval": {
+        "approvedAt": "2026-11-09T12:00:00.000Z",
+        "approvedBy": "pending-live-render"
+      },
+      "providerMode": "fixture"
+    }
+  ]
+}
