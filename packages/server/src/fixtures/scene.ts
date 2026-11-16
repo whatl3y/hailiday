@@ -11,7 +11,7 @@ import type {
   RoomType,
   SceneAnalysisModelOutput,
   SceneType,
-} from '@holiday/core';
+} from '@hailiday/core';
 import { normBox, overlapPx, type PxBox } from './svg.js';
 
 /**

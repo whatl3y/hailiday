@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import sharp from 'sharp';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { NormalizedBoxSchema, type DecorationPlan } from '@holiday/core';
+import { NormalizedBoxSchema, type DecorationPlan } from '@hailiday/core';
 import { testConfig } from '../config/index.js';
 import { loadContent, type Content } from '../content/load.js';
 import { sha256Hex } from '../ids/index.js';
@@ -469,6 +469,8 @@ describe('fixture triggers', () => {
     expect(renderScenarioForFileName('balcony_repair.png')).toBe('repair_then_pass');
     expect(renderScenarioForFileName('my-house-slow.jpg')).toBe('slow');
     expect(renderScenarioForFileName('Provider-Error.jpg')).toBe('provider_error');
+    expect(renderScenarioForFileName('porch-reject.jpg')).toBe('reject');
+    expect(renderScenarioForFileName('e2e-relight-reject-front-porch.jpg')).toBe('relight_reject');
     expect(renderScenarioForFileName('IMG_2041.HEIC')).toBe('pass');
     expect(sceneHintForFileName('thanksgiving-dining.jpg')).toMatchObject({
       sceneType: 'interior',
@@ -527,6 +529,19 @@ describe('fixture providers', () => {
     expect((await judge('repair_then_pass', 1)).result.major[0]?.code).toBe('implausible_decor');
     expect((await judge('repair_then_pass', 2)).result.major).toEqual([]);
     expect((await judge('reject', 2)).result.critical[0]?.code).toBe('structure_changed');
+    // `relight_reject` passes the decorations and fails every relight.
+    const relit = (mode: 'decorate' | 'relight') =>
+      providers.vision.judge({
+        renderAttemptId: 'ra',
+        original: image,
+        candidate: image,
+        plan,
+        mode,
+        ...(mode === 'relight' ? { base: image } : {}),
+        fixture: { scenario: 'relight_reject' },
+      });
+    expect((await relit('decorate')).result.critical).toEqual([]);
+    expect((await relit('relight')).result.critical[0]?.code).toBe('structure_changed');
   });
 
   it('injects editor failures and records the operation before completing', async () => {

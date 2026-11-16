@@ -1,4 +1,4 @@
-import type { CapabilityKey, SourceKind } from '@holiday/core';
+import type { CapabilityKey, SourceKind } from '@hailiday/core';
 import { useAppStore } from '../state/appStore';
 
 export type ImageOrigin = 'street_view' | 'generated' | 'example_after' | 'photo';
@@ -58,6 +58,14 @@ export function isFixtureStreetView(
   sourceKind: SourceKind | null | undefined,
 ): boolean {
   return sourceKind === 'fixture' || fixtureCapabilities.includes('street_view_display');
+}
+
+/**
+ * Whether address suggestions come from the fixture provider (no Google keys), so the address
+ * field offers the sample places and never credits Google for them.
+ */
+export function useIsFixtureAddressLookup(): boolean {
+  return useAppStore((state) => state.fixtureCapabilities.includes('address_lookup'));
 }
 
 export function useIsFixtureStreetView(sourceKind?: SourceKind | null): boolean {

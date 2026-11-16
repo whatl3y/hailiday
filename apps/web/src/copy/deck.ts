@@ -1,4 +1,4 @@
-import type { ErrorCode, HolidayId, SceneType } from '@holiday/core';
+import type { ErrorCode, HolidayId, SceneType } from '@hailiday/core';
 
 /**
  * The US English message catalog. Keys and strings follow the experience copy deck; rows that
@@ -32,6 +32,7 @@ const exampleEntries = {
 } as const satisfies Record<ExampleKey, string>;
 
 const landingAndAddress = {
+  'landing.eyebrow': 'Your place · Your photo · AI preview',
   'landing.headline': 'Imagine your place for the holidays.',
   'landing.subhead': 'Find your address or upload a photo to see a festive new look.',
   'landing.addressLabel': 'Enter a US address',
@@ -40,6 +41,9 @@ const landingAndAddress = {
   'landing.uploadInstead': 'Upload a photo instead',
   'landing.uploadInline': 'Or upload a photo',
   'landing.seeExample': 'See an example',
+  'landing.examplesTitle': 'From an everyday photo to a holiday look',
+  'landing.examplesLede':
+    'Each example began as an ordinary photograph. Switch to Before to see it as it was.',
   'landing.chooseHoliday': 'Choose a holiday',
   'landing.thanksgivingInvite':
     'Hosting this year? Upload a photo of your dining room or table to see it set for Thanksgiving.',
@@ -61,6 +65,9 @@ const landingAndAddress = {
   'address.manualEntry': "Can't find it? Enter the address manually",
   'address.noResults':
     'No matches. Check the street number and ZIP, enter the address manually, or upload a photo. Address lookup covers US addresses for now.',
+  'address.noResultsSample':
+    'No matches. This setup has no Google Maps keys, so address search only knows the sample places. Try one below, or upload a photo to decorate your own place.',
+  'address.samplePlaces': 'Sample places',
   'address.manualCandidates': 'Which of these did you mean?',
   'address.fields.street': 'Street address',
   'address.fields.unit': 'Apartment or unit (optional)',
@@ -82,7 +89,7 @@ const landingAndAddress = {
   'confirm.yes': 'Yes, decorate this place',
   'confirm.none': 'None of these. Upload a photo instead.',
   'interim.explain':
-    "We can show this street photo so you can check the place, but we can't decorate street photos yet. Upload a photo of the front and we'll decorate that.",
+    "We can show this street photo so you can check the place, but we can't decorate it. Upload a photo of the front and we'll decorate that.",
   'interim.noPhoto': 'Only photos you took or have the right to use can be decorated.',
   'interim.changeAddress': 'Try another address',
   'nosv.heading': "We can't use a street photo for this address",
@@ -96,7 +103,7 @@ const landingAndAddress = {
     'Something went wrong looking up the street photo. You can try again or upload a photo.',
   'session.limited':
     'We need a short breather: lots of visits came from your connection just now. Try again in about {retryAfter}.',
-  'session.failed': "We couldn't get Holiday ready for you. Check your connection and try again.",
+  'session.failed': "We couldn't get Hailiday ready for you. Check your connection and try again.",
 } as const;
 
 const uploadSceneAndWaiting = {
@@ -116,6 +123,8 @@ const uploadSceneAndWaiting = {
   'upload.attestationRequired': 'Please confirm before we upload your photo.',
   'upload.retentionLine':
     'Your photo is private. Unsaved projects are deleted after {anonymousRetention}.',
+  'upload.retentionLineKept':
+    'Your photo is private. We keep your looks so you can come back to them.',
   'upload.chooseHoliday': 'Which holiday?',
   'upload.preparing': 'Preparing your photo…',
   'upload.uploading': 'Uploading… {percent}%',
@@ -147,10 +156,23 @@ const uploadSceneAndWaiting = {
   'scene.label.bedroom': 'bedroom',
   'scene.label.room': 'room',
   'stage.preparing': 'Getting your photo ready',
+  'stage.framing': 'Zooming in on your home',
+  'stage.enhancing': 'Sharpening your street photo',
   'stage.planning': 'Planning the decorations',
   'stage.rendering': 'Decorating',
   'stage.checking': 'Checking the details',
+  'stage.eveningLight': 'Setting the evening light',
+  'stage.brightLight': 'Brightening the room',
   'stage.review': 'A person is checking your preview',
+  'trail.preparing': 'Photo',
+  'trail.framing': 'Zoom',
+  'trail.enhancing': 'Sharpen',
+  'trail.planning': 'Plan',
+  'trail.rendering': 'Decorate',
+  'trail.checking': 'Check',
+  'trail.eveningLight': 'Evening light',
+  'trail.brightLight': 'Bright light',
+  'trail.review': 'Review',
   'wait.queuePosition': "You're {n} in line",
   'wait.reviewNote': "For now, a person checks previews like this one before they're shown.",
   'wait.cancel': 'Cancel',
@@ -158,7 +180,24 @@ const uploadSceneAndWaiting = {
   'wait.examplesHeading': 'While you wait: examples',
   'wait.longWait':
     "This is taking longer than usual. You can keep waiting or come back later; we'll keep your preview here for {anonymousRetention}.",
-  'wait.usuallyAbout': 'Usually about a minute',
+  'wait.longWaitKept':
+    'This is taking longer than usual. You can keep waiting or come back later; your preview will be here.',
+  'wait.usuallyAbout': 'Usually a minute or two',
+  'wait.secondPass': 'Taking one more pass to get this right.',
+  'wait.note.kept': 'We keep your home as it is. Only the decorations are new.',
+  'wait.note.keptRelit': 'We keep your home as it is. Only the decorations and the light are new.',
+  'wait.note.checked': 'Every preview is checked against your photo before you see it.',
+  'wait.note.evening':
+    'An evening look is usually made in two passes: the decorations first, then the evening light.',
+  'wait.note.bright': 'A dim room gets two passes: the decorations first, then brighter light.',
+  'wait.note.sharpen':
+    'Street photos are sharpened first, so the decorations sit on a clean picture.',
+  'wait.note.leave': 'You can leave this page. Your preview will be here when you come back.',
+  'wait.note.leaveFor':
+    "You can leave this page. We'll keep your preview here for {anonymousRetention}.",
+  'wait.note.compare': "When it's ready, drag the divider to compare before and after.",
+  'wait.note.gallery': 'Every look you make appears in your Gallery.',
+  'wait.note.save': 'Save a place to come back to it on any device.',
   'wait.sourceUnavailable':
     "The street photo of this place is no longer available. We'll look for a new one.",
   'wait.sourceUnavailableUpload': 'Your photo is no longer available. Upload it again to continue.',
@@ -166,6 +205,8 @@ const uploadSceneAndWaiting = {
     "We couldn't find anything to decorate in this photo, like a door, window, porch, railing, mantel or table. Try a wider or closer view, or another photo.",
   'wait.wrongHouse':
     'This street photo may not show the right house. Choose another view or upload a photo.',
+  'wait.noClearView':
+    "We couldn't get a clear view of your home from the street. Choose another view or upload a photo.",
   'wait.ownerBlurred':
     "This home's Street View image is blurred at the owner's request. Upload your own photo to see it decorated.",
   'wait.policyDeclined': "We can't decorate this photo. Try a different photo.",
@@ -177,6 +218,7 @@ const resultControlsAndAllowance = {
   'result.aiPreview': 'AI preview',
   'result.yourPhoto': 'Your photo',
   'result.holidayLabel': '{holiday} · {style} · {lighting}',
+  'result.holidayStyleLabel': '{holiday} · {style}',
   'result.save': 'Save',
   'result.share': 'Share',
   'result.download': 'Download',
@@ -189,17 +231,28 @@ const resultControlsAndAllowance = {
     'This photo already had decorations. We kept them and added the {holiday} look.',
   'result.stalePhoto':
     'The street photo of this place has changed since this preview was made. New looks will use the new photo.',
+  'result.eveningUnavailable':
+    "The evening light didn't come out this time, so here is the look in daylight.",
+  'result.eveningAgain': 'Try the evening light again',
+  'result.brightUnavailable':
+    "The brighter light didn't come out this time, so here is the look as photographed.",
+  'result.brightAgain': 'Try the brighter light again',
+  'result.lookUnfinished':
+    "We couldn't finish this look. Nothing was counted against your looks today.",
   'result.thanksgivingInvite':
     'Hosting this year? Upload a photo of your dining room or table to see it set for Thanksgiving.',
   'result.decoratingLook': 'Decorating the {holiday} look…',
-  'result.shareUnavailable': "Sharing isn't available for street photos yet.",
+  'result.shareUnavailable': "Sharing isn't available for this street photo.",
   'result.downloadNote': 'Downloads include the AI preview label.',
   'result.report': 'Report this image',
+  'result.feedbackHeading': 'How does it look?',
   'controls.style.subtle': 'Subtle',
   'controls.style.classic': 'Classic',
   'controls.style.abundant': 'Abundant',
   'controls.lighting.source': 'As photographed',
   'controls.lighting.evening': 'Evening',
+  'controls.lighting.bright': 'Bright',
+  'controls.locked': 'You can pick another look when this one is ready.',
   'allowance.counter': '{n} more looks today',
   'allowance.counterOne': '1 more look today',
   'allowance.counterZero': 'No more looks today · more at {resetsAt}',
@@ -221,6 +274,8 @@ const resultControlsAndAllowance = {
   'feedback.other': 'Something else',
   'feedback.thanks': 'Thanks, that helps.',
   'shop.heading': 'Shop the look',
+  'shop.summary': '{n} items',
+  'shop.summaryOne': '1 item',
   'commerce.noOffers': "Matching decorations aren't available for this look yet.",
   'commerce.offSeason': 'Plan ahead: decorations for {holiday} appear here closer to the season.',
   'commerce.relationship.similar': 'Similar item',
@@ -237,7 +292,6 @@ const resultControlsAndAllowance = {
   'common.tryAgain': 'Try again',
   'common.useAnotherPhoto': 'Use another photo',
   'common.useAnotherView': 'Use another view',
-  'common.showAsPhotographed': 'Show it as photographed',
   'common.gotIt': 'Got it',
   'common.cancel': 'Cancel',
 } as const;
@@ -246,9 +300,11 @@ const savingSharingReportingFooter = {
   'save.heading': 'Save this place',
   'save.body':
     "Enter your email and we'll send a sign-in link. Saving keeps this project for {savedRetention} and lets you return on any device.",
+  'save.bodyKept':
+    "Enter your email and we'll send a sign-in link. Saving lets you return to your places on any device.",
   'save.emailLabel': 'Email',
   'save.send': 'Send link',
-  'save.sent': 'Check your email for a link from Holiday. It works for {linkLifetime}.',
+  'save.sent': 'Check your email for a link from Hailiday. It works for {linkLifetime}.',
   'save.done': 'Saved. Find it any time under Your places.',
   'auth.linkInvalid': 'That link has expired. Request a new one.',
   'auth.confirmHeading': 'Sign in as {emailHint}?',
@@ -259,6 +315,15 @@ const savingSharingReportingFooter = {
   'places.uploadedPhoto': 'Uploaded photo',
   'places.expires': 'Kept until {date}',
   'places.empty': 'Nothing saved yet. Decorate a place and tap Save.',
+  'places.looks': '{n} looks',
+  'places.looksOne': '1 look',
+  'gallery.title': 'Gallery',
+  'gallery.empty': 'No looks yet. Decorate a place and every look you make appears here.',
+  'gallery.loadMore': 'Load more',
+  'gallery.openPlace': 'Open this place',
+  'gallery.position': '{n} of {total}',
+  'gallery.previous': 'Previous look',
+  'gallery.next': 'Next look',
   'account.signOut': 'Sign out',
   'account.delete': 'Delete my account',
   'account.deleteConfirm':
@@ -272,7 +337,7 @@ const savingSharingReportingFooter = {
   'share.stop': 'Stop sharing',
   'share.stopConfirm':
     "Stop sharing? People with the link will no longer see it. Copies already saved can't be recalled.",
-  'share.caption': 'A holiday preview made with Holiday',
+  'share.caption': 'A holiday preview made with Hailiday',
   'share.cta': 'See your place for the holidays',
   'share.report': 'Report this image',
   'delete.confirm':
@@ -326,7 +391,7 @@ const errorEntries = {
   'error.NEEDS_CONFIRMATION': 'Is this the right place?',
   'error.NEEDS_PHOTO': 'Upload a photo of the place to decorate it.',
   'error.SOURCE_NOT_EDITABLE':
-    'This street photo can be shown but not decorated. Upload your own photo to see it decorated.',
+    "We can't decorate this photo. Upload your own photo of the place to see it decorated.",
   'error.UPLOAD_UNSUPPORTED_FORMAT':
     "We couldn't read that file. Use a photo in one of these formats: {formats}.",
   'error.UPLOAD_TOO_LARGE': 'That photo is too large. The limit is {maxFileSize}.',
@@ -336,8 +401,7 @@ const errorEntries = {
   'error.IDEMPOTENCY_CONFLICT': 'Something went wrong. Try again.',
   'error.PROVIDER_UNAVAILABLE':
     'Our decorating service is having trouble. Try again in a few minutes.',
-  'error.RENDER_REJECTED':
-    "We couldn't make a preview we're happy with from this photo. Try another look or another photo.",
+  'error.RENDER_REJECTED': "We couldn't finish this look. Try again, or use another photo.",
   'error.NOT_FOUND': "We couldn't find that. It may have expired or been removed.",
   'error.FORBIDDEN': "You don't have access to this.",
   'error.SHARE_REVOKED': 'This preview is no longer shared.',
@@ -345,8 +409,9 @@ const errorEntries = {
 
 /** Interface supplements: text the deck leaves to the implementation, in the deck's voice. */
 const interfaceSupplements = {
-  'app.wordmark': 'Holiday',
-  'app.home': 'Holiday home',
+  'app.wordmark': 'Hailiday',
+  'app.home': 'Hailiday home',
+  'app.navLabel': 'Site',
   'app.skipToContent': 'Skip to content',
   'app.fixtureBadge': 'Fixture',
   'app.fixtureBadgeLabel': 'Fixture image for development, not a real photo of this place',
@@ -354,7 +419,7 @@ const interfaceSupplements = {
   'common.back': 'Back',
   'common.loading': 'Loading…',
   'common.backHome': 'Back to the start',
-  'pageTitle.template': '{page} · Holiday',
+  'pageTitle.template': '{page} · Hailiday',
   'pageTitle.project': 'Your place',
   'pageTitle.signIn': 'Sign in',
   'landing.subheadOffSeason': 'Pick a holiday to see your place decorated.',
@@ -366,11 +431,12 @@ const interfaceSupplements = {
   'example.afterAlt': 'Example AI preview: a {sceneTypeLabel} decorated for {holiday}',
   'example.beforeAlt': 'Example photo: the same {sceneTypeLabel} before decorating',
   'capacity.ready': 'You can try again now.',
-  'landing.unavailable': "We couldn't load Holiday just now. Check your connection and try again.",
+  'landing.unavailable': "We couldn't load Hailiday just now. Check your connection and try again.",
   'address.poweredByGoogle': 'Powered by Google',
   'address.suggestionsCount': '{n} suggestions',
   'address.oneSuggestion': '1 suggestion',
   'address.noMatchesShort': 'No matches',
+  'address.noMatchesSample': 'No matches. Sample places are available.',
   'address.searching': 'Searching',
   'address.manualSubmit': 'Find this address',
   'address.searchInstead': 'Search for the address instead',
@@ -416,6 +482,12 @@ const interfaceSupplements = {
   'scene.typeLabel.interior': 'A room inside',
   'wait.heading': 'Decorating your place',
   'wait.canceling': 'Canceling…',
+  'wait.notesLabel': 'While you wait',
+  'wait.nextNote': 'Next note',
+  'trail.label': 'Steps so far',
+  'trail.done': 'done',
+  'trail.current': 'in progress',
+  'trail.earlier': 'earlier steps done',
   'result.heading': 'Your place, ready for {holiday}',
   'result.headingNeutral': 'Your place, decorated',
   'result.streetViewAlt': 'Street View image of the selected place',
@@ -427,7 +499,6 @@ const interfaceSupplements = {
   'result.placementSummary.three': 'decorations on {first}, {second} and {third}',
   'result.compareLabel': 'Compare before and after',
   'result.compareValue': '{n}% before photo',
-  'result.errorHeading': "This look didn't work out",
   'result.controlsHeading': 'Try another look',
   'result.actionsLabel': 'Keep this preview',
   'result.more': 'More',
@@ -495,7 +566,12 @@ const interfaceSupplements = {
   'optout.addressLabel': 'The address',
   'optout.contactLabel': 'Your email, so we can confirm',
   'optout.chooseAddress': 'Choose the address from the list.',
+  'optout.noResults':
+    'No matches. Check the street number and ZIP. Address lookup covers US addresses for now.',
+  'optout.noResultsSample':
+    'No matches. This setup has no Google Maps keys, so address search only knows the sample places. Try one below.',
   'notFound.heading': "We couldn't find that",
+  'notFound.body': 'It may have been removed, or the link is wrong.',
   'legal.draftBadge': 'Draft',
   'legal.draftNotice':
     'This page is a draft placeholder. The final text is being prepared with counsel and will replace it before launch.',
@@ -508,22 +584,24 @@ const interfaceSupplements = {
   'legal.dmca.title': 'Copyright and DMCA',
   'legal.contact.title': 'Contact',
   'legal.terms.summary':
-    'Holiday shows previews of places you have the right to photograph, decorated by AI. You must be 18 or older to use it.',
+    'Hailiday shows previews of places you have the right to photograph, decorated by AI. You must be 18 or older to use it.',
   'legal.privacy.summary':
     'Your photos stay private. Unsaved projects are deleted after {anonymousRetention}; saved projects are kept until you delete them or for {savedRetention} without activity.',
+  'legal.privacy.summaryKept':
+    'Your photos stay private. We keep your places and looks until you delete them.',
   'legal.contentPolicy.summary':
     'We decorate homes, rooms, balconies and entryways. We decline photos of people, documents or anything harmful. To report an image, use "Report this image" on the preview.',
   'legal.aiDisclosure.summary':
-    'Every decorated image is an AI preview and carries an "AI preview" label. It shows an idea of the look, not a promise of how real decorations will appear.',
+    'Every decorated image is an AI preview and carries an "AI preview" label. It shows an idea of the look, not a promise of how real decorations will appear. When a preview starts from a street photo, the AI first redraws that photo sharper and cleaner and then adds the decorations, so small details of the place can differ from the photo shown as "Before".',
   'legal.affiliateDisclosure.summary':
     'Some product links are paid links: we may earn a commission when you buy through them. Paid links are labeled "Ad".',
   'legal.accessibility.summary':
-    'Holiday aims to meet WCAG 2.2 Level AA. If anything gets in your way, please tell us.',
+    'Hailiday aims to meet WCAG 2.2 Level AA. If anything gets in your way, please tell us.',
   'legal.dmca.summary':
-    'If you believe an image on Holiday infringes your copyright, report it with "Report this image" and choose Copyright.',
+    'If you believe an image on Hailiday infringes your copyright, report it with "Report this image" and choose Copyright.',
   'legal.contact.summary':
     'Questions, problems or ideas? Use "Report this image" on any preview, or the homeowner opt-out form for your address.',
-  'error.network': "We couldn't reach Holiday. Check your connection and try again.",
+  'error.network': "We couldn't reach Hailiday. Check your connection and try again.",
   'error.unknown': 'Something went wrong. Try again.',
 } as const;
 

@@ -1,4 +1,4 @@
-import type { CandidateFlag } from '@holiday/core';
+import type { CandidateFlag } from '@hailiday/core';
 import { captureGranularityOf, copyrightClassOf } from '../match.js';
 import {
   DEFAULT_VIEWPOINT_PARAMETERS,
@@ -32,6 +32,24 @@ export const METADATA_ERROR_STATUSES: readonly MetadataStatus[] = [
   'UNKNOWN_ERROR',
 ];
 
+/**
+ * Error statuses that end discovery at once (after the target's one retry): a refused key, an
+ * exhausted quota or a malformed request answers the same at every nearby point.
+ */
+export const METADATA_FATAL_STATUSES: readonly MetadataStatus[] = [
+  'OVER_QUERY_LIMIT',
+  'REQUEST_DENIED',
+  'INVALID_REQUEST',
+];
+
+/** Compass bearings of the probe cross around the target when the road bearing is unknown. */
+export const TARGET_CROSS_BEARINGS: readonly { bearingDeg: number; label: string }[] = [
+  { bearingDeg: 0, label: 'n' },
+  { bearingDeg: 90, label: 'e' },
+  { bearingDeg: 180, label: 's' },
+  { bearingDeg: 270, label: 'w' },
+];
+
 export interface DiscoverOptions {
   params?: ViewpointParameters;
   budgetMs?: number;
@@ -42,10 +60,60 @@ export interface DiscoverOptions {
 
 class BudgetExceeded extends Error {}
 
+interface ProbePoint {
+  location: LatLng;
+  label: string;
+}
+
+const offsetLabel = (offset: number) => `offset_${offset > 0 ? '+' : '-'}${Math.abs(offset)}m`;
+
+/** The point `offset` meters from `target` along `roadBearing` (negative: the other way). */
+function alongRoad(target: LatLng, roadBearing: number, offset: number): LatLng {
+  return destinationPoint(target, offset >= 0 ? roadBearing : roadBearing + 180, Math.abs(offset));
+}
+
+/**
+ * Points probed when the target itself answers `UNKNOWN_ERROR`: the alternate offsets along the
+ * road when its bearing is known, else a cross at the smallest alternate offset around the target.
+ */
+function targetFallbackPoints(input: DiscoveryInput, params: ViewpointParameters): ProbePoint[] {
+  if (input.roadBearingDeg !== null) {
+    const roadBearing = input.roadBearingDeg;
+    return params.alternateOffsetsM.map((offset) => ({
+      location: alongRoad(input.target, roadBearing, offset),
+      label: offsetLabel(offset),
+    }));
+  }
+  const distances = params.alternateOffsetsM.map(Math.abs).filter((value) => value > 0);
+  if (distances.length === 0) return [];
+  const distance = Math.min(...distances);
+  return TARGET_CROSS_BEARINGS.map(({ bearingDeg, label }) => ({
+    location: destinationPoint(input.target, bearingDeg, distance),
+    label: `cross_${label}_${distance}m`,
+  }));
+}
+
+const usable = (
+  metadata: StreetViewMetadata,
+): metadata is StreetViewMetadata & { location: LatLng } =>
+  metadata.status === 'OK' && Boolean(metadata.panoId) && metadata.location !== null;
+
 /**
  * The viewpoint algorithm: primary panorama by radius ladder, up to four alternate probes along
- * the road, per-candidate view parameters, then primary selection and ordering. Metadata errors
- * are retried once; persistent errors or an exhausted time budget end with status `error`.
+ * the road, per-candidate view parameters, then primary selection and ordering.
+ *
+ * Every metadata error at the target is retried once. When both attempts answer with an error
+ * status and either was `OVER_QUERY_LIMIT`, `REQUEST_DENIED` or `INVALID_REQUEST`, discovery ends
+ * with status `error`; a retry that answers without an error status (such as `OK` or
+ * `ZERO_RESULTS`) is taken as the answer. A persistent `UNKNOWN_ERROR` at the target
+ * (Google answers it for some small patches of the map) is followed by one probe of each
+ * fallback point at the same radius; the first `OK` panorama within the alternate distance limit
+ * becomes the primary. The step ends with `error` only when every one of its probes errors; when
+ * some answered without a usable panorama, the ladder continues. An exhausted time budget also
+ * ends with `error`. With the default parameters a discovery makes at most 26 metadata calls:
+ * 6 per ladder step (target, its retry, four fallback points) and 8 for the alternates (four
+ * points, each retried once; a point already probed at the same radius reuses that answer, except
+ * that a single `UNKNOWN_ERROR` there gets its one retry, so no point takes more than two calls).
  */
 export async function discoverCandidates(
   probe: MetadataProbe,
@@ -59,17 +127,50 @@ export async function discoverCandidates(
   const budgetMs = options.budgetMs ?? 6000;
   const started = now();
   let calls = 0;
+  /** The settled answer per point and radius, with the attempts it took. */
+  const answered = new Map<string, { metadata: StreetViewMetadata; attempts: number }>();
+  const keyOf = (location: LatLng, radius: number) =>
+    `${location.latitude.toFixed(7)},${location.longitude.toFixed(7)}@${radius}`;
+  const isError = (metadata: StreetViewMetadata) =>
+    METADATA_ERROR_STATUSES.includes(metadata.status);
+  const isFatal = (metadata: StreetViewMetadata) =>
+    METADATA_FATAL_STATUSES.includes(metadata.status);
 
-  const call = async (location: LatLng, radius: number): Promise<StreetViewMetadata> => {
-    for (let attempt = 0; attempt < 2; attempt += 1) {
+  /**
+   * Probes a point with up to `attempts` attempts in all, counting attempts already made there at
+   * the same radius: a cached answer is reused unless it is an error with attempts left. When
+   * every attempt errors and any of them answered a fatal status, the fatal answer is the one
+   * returned, so a refusal is never masked by a later `UNKNOWN_ERROR`.
+   */
+  const call = async (
+    location: LatLng,
+    radius: number,
+    attempts = 2,
+  ): Promise<StreetViewMetadata> => {
+    const key = keyOf(location, radius);
+    const known = answered.get(key);
+    if (known && (!isError(known.metadata) || known.attempts >= attempts)) return known.metadata;
+    let made = known?.attempts ?? 0;
+    let last: StreetViewMetadata = known?.metadata ?? {
+      status: 'UNKNOWN_ERROR',
+      panoId: null,
+      location: null,
+      date: null,
+      copyright: null,
+    };
+    let fatal = known && isFatal(known.metadata) ? known.metadata : null;
+    while (made < attempts) {
+      if (made > 0) await sleep(options.retryDelayMs ?? 250);
       if (now() - started > budgetMs) throw new BudgetExceeded();
       calls += 1;
-      const result = await probe(location, radius);
-      if (!METADATA_ERROR_STATUSES.includes(result.status)) return result;
-      if (attempt === 0) await sleep(options.retryDelayMs ?? 250);
-      else return result;
+      made += 1;
+      last = await probe(location, radius);
+      if (!isError(last)) break;
+      if (!fatal && isFatal(last)) fatal = last;
     }
-    return { status: 'UNKNOWN_ERROR', panoId: null, location: null, date: null, copyright: null };
+    const settled = isError(last) && fatal ? fatal : last;
+    answered.set(key, { metadata: settled, attempts: made });
+    return settled;
   };
 
   const result = (
@@ -88,18 +189,38 @@ export async function discoverCandidates(
 
   try {
     // Step 1: primary panorama.
-    let primary: StreetViewMetadata | null = null;
+    let primary: (StreetViewMetadata & { location: LatLng }) | null = null;
+    let primaryProbe = 'target';
     let primaryRadius: number | null = null;
-    for (const radius of params.radiusLadderM) {
+    const fallbackPoints = targetFallbackPoints(input, params);
+    ladder: for (const radius of params.radiusLadderM) {
       const metadata = await call(input.target, radius);
-      if (METADATA_ERROR_STATUSES.includes(metadata.status)) return result('error');
-      if (metadata.status === 'OK' && metadata.panoId && metadata.location) {
+      if (METADATA_FATAL_STATUSES.includes(metadata.status)) return result('error');
+      if (usable(metadata)) {
         primary = metadata;
         primaryRadius = radius;
         break;
       }
+      if (metadata.status !== 'UNKNOWN_ERROR') continue;
+      let anyAnswer = false;
+      for (const point of fallbackPoints) {
+        const nearby = await call(point.location, radius, 1);
+        if (METADATA_FATAL_STATUSES.includes(nearby.status)) return result('error');
+        if (nearby.status === 'UNKNOWN_ERROR') continue;
+        anyAnswer = true;
+        if (
+          usable(nearby) &&
+          haversineDistanceM(nearby.location, input.target) <= params.maxAlternateDistanceM
+        ) {
+          primary = nearby;
+          primaryProbe = point.label;
+          primaryRadius = radius;
+          break ladder;
+        }
+      }
+      if (!anyAnswer) return result('error');
     }
-    if (!primary || primaryRadius === null || !primary.location) return result('no_imagery');
+    if (!primary || primaryRadius === null) return result('no_imagery');
     const deepSetback = primaryRadius > (params.radiusLadderM[0] ?? 50);
 
     // Step 2: alternates along the road bearing (perpendicular to camera→target when unknown).
@@ -107,20 +228,15 @@ export async function discoverCandidates(
       input.roadBearingDeg ??
       normalizeDegrees(initialBearingDeg(primary.location, input.target) + 90);
     const found: { metadata: StreetViewMetadata; probe: string }[] = [
-      { metadata: primary, probe: 'target' },
+      { metadata: primary, probe: primaryProbe },
     ];
     for (const offset of params.alternateOffsetsM) {
-      const point = destinationPoint(
-        input.target,
-        offset >= 0 ? roadBearing : roadBearing + 180,
-        Math.abs(offset),
-      );
-      const metadata = await call(point, primaryRadius);
-      if (metadata.status !== 'OK' || !metadata.panoId || !metadata.location) continue;
+      const metadata = await call(alongRoad(input.target, roadBearing, offset), primaryRadius);
+      if (!usable(metadata)) continue;
       if (found.some((item) => item.metadata.panoId === metadata.panoId)) continue;
       if (haversineDistanceM(metadata.location, input.target) > params.maxAlternateDistanceM)
         continue;
-      found.push({ metadata, probe: `offset_${offset > 0 ? '+' : '-'}${Math.abs(offset)}m` });
+      found.push({ metadata, probe: offsetLabel(offset) });
     }
 
     // Step 3: view parameters per candidate, aimed at the same target.

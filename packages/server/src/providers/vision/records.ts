@@ -3,20 +3,22 @@ import {
   JudgeResultSchema,
   SCENE_ANALYSIS_SCHEMA_VERSION,
   SceneAnalysisSchema,
-} from '@holiday/core';
+} from '@hailiday/core';
 import type {
   JudgeModelOutput,
   JudgeResult,
   NormalizedBox,
   SceneAnalysis,
   SceneAnalysisModelOutput,
-} from '@holiday/core';
+} from '@hailiday/core';
 import { z } from 'zod';
 import type {
   AnalyzeSceneInput,
+  EnhanceJudgeInput,
   JudgeInput,
   LocalizeAdditionsInput,
   LocalizeAdditionsResult,
+  LocateHomeResult,
 } from '../types.js';
 
 const unit = z.number().min(0).max(1);
@@ -83,6 +85,26 @@ export function toLocalizeResult(
   };
 }
 
+/** What the model that locates the home in a Street View frame returns. */
+export const LocateModelOutputSchema = z.strictObject({
+  home: LooseBoxSchema.nullable(),
+  ambiguous: z.boolean(),
+  confidence: unit,
+});
+export type LocateModelOutput = z.infer<typeof LocateModelOutputSchema>;
+
+/**
+ * Turns a locate reply into the result: the box's corners ordered, and a degenerate box read as
+ * no home.
+ */
+export function toLocateResult(output: LocateModelOutput): LocateHomeResult {
+  return {
+    home: output.home ? orderedBox(output.home) : null,
+    ambiguous: output.ambiguous,
+    confidence: output.confidence,
+  };
+}
+
 /** Wraps a model's scene output into the full record; the confirmed scene type wins. */
 export function toSceneAnalysis(
   output: SceneAnalysisModelOutput,
@@ -126,6 +148,24 @@ export function toJudgeResult(
     escalated: input.escalated ?? false,
     ...output,
     placements: output.placements.filter((placement) => ids.has(placement.placementId)),
+    elapsedMs: meta.elapsedMs,
+  });
+}
+
+/** Wraps an enhance judge's output into the full record: the enhancement ID, no placements. */
+export function toEnhanceJudgeResult(
+  output: JudgeModelOutput,
+  input: Pick<EnhanceJudgeInput, 'enhancementId'>,
+  meta: { judgeModel: string; judgePromptVersion: string; elapsedMs: number },
+): JudgeResult {
+  return JudgeResultSchema.parse({
+    schemaVersion: JUDGE_RESULT_SCHEMA_VERSION,
+    renderAttemptId: input.enhancementId,
+    judgeModel: meta.judgeModel,
+    judgePromptVersion: meta.judgePromptVersion,
+    escalated: false,
+    ...output,
+    placements: [],
     elapsedMs: meta.elapsedMs,
   });
 }

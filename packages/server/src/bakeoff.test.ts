@@ -9,7 +9,7 @@ import {
   type CompiledRequest,
   type JudgeResult,
   type SceneAnalysis,
-} from '@holiday/core';
+} from '@hailiday/core';
 import {
   BakeoffUsageError,
   CURATED_EXAMPLE_IDS,
@@ -140,7 +140,7 @@ describe('argument parsing', () => {
     const options = parseBakeoffArgs([], context);
     expect(options.arms.map((arm) => arm.id)).toEqual([...DEFAULT_ARM_SPECS]);
     expect(options.photos).toBe(CURATED_EXAMPLE_IDS.length);
-    expect(options.out).toBe(path.join('/tmp/scratch', 'holiday-bakeoff-20261109-153012'));
+    expect(options.out).toBe(path.join('/tmp/scratch', 'hailiday-bakeoff-20261109-153012'));
     expect(options).toMatchObject({ concurrency: 2, judge: true, saveRaw: false, help: false });
   });
 
@@ -316,7 +316,7 @@ describe('package scripts', () => {
     const server = scripts(path.join(root, 'packages/server/package.json'))['models:bakeoff'];
     expect(server).toBe('node --import ./dist/config/load-env/index.js dist/bakeoff.js');
     expect(scripts(path.join(root, 'package.json'))['models:bakeoff']).toBe(
-      'pnpm --filter @holiday/server models:bakeoff',
+      'pnpm --filter @hailiday/server models:bakeoff',
     );
     expect(existsSync(path.join(here, 'bakeoff.ts'))).toBe(true);
   });
@@ -335,6 +335,8 @@ function stubVision(calls: { analyze: string[]; judge: string[]; relight: string
     providerId: 'anthropic',
     mode: 'live',
     classifyUpload: () => Promise.reject(new Error('not used')),
+    judgeEnhancement: () => Promise.reject(new Error('not used')),
+    locateHome: () => Promise.reject(new Error('not used')),
     async analyzeScene(input) {
       calls.analyze.push(input.sourceAssetId);
       return {
@@ -453,10 +455,19 @@ describe('runBakeoff', () => {
   let out: string;
   beforeAll(async () => {
     content = await loadContent();
-    out = await mkdtemp(path.join(os.tmpdir(), 'holiday-bakeoff-test-'));
+    out = await mkdtemp(path.join(os.tmpdir(), 'hailiday-bakeoff-test-'));
   });
   afterAll(async () => {
     await rm(out, { recursive: true, force: true });
+  });
+
+  it('curates only examples the content defines, rooms and the entry in the bright look', () => {
+    for (const id of CURATED_EXAMPLE_IDS) {
+      const example = content.examples.find((candidate) => candidate.exampleId === id);
+      expect(example, id).toBeDefined();
+      const indoors = example?.sceneType === 'interior' || example?.sceneType === 'apartment_entry';
+      expect(example?.lightingMode === 'bright', id).toBe(indoors);
+    }
   });
 
   it('shares one analysis per photo across arms, judges every output and writes the report', async () => {

@@ -1,12 +1,12 @@
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
-import { ShareTokenSchema, isHolidayId, type Experience } from '@holiday/core';
+import { ShareTokenSchema, isHolidayId, type Experience } from '@hailiday/core';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import fastifyStatic from '@fastify/static';
-import { ANONYMOUS_AUDIENCE } from '@holiday/server/capabilities';
-import { renderFixturePanorama } from '@holiday/server/fixtures';
-import { sha256Hex } from '@holiday/server/ids';
-import { verifyFixtureDisplayQuery } from '@holiday/server/providers';
+import { ANONYMOUS_AUDIENCE } from '@hailiday/server/capabilities';
+import { renderFixturePanorama } from '@hailiday/server/fixtures';
+import { sha256Hex } from '@hailiday/server/ids';
+import { verifyFixtureDisplayQuery } from '@hailiday/server/providers';
 import type { ApiDeps } from '../deps.js';
 import type { App } from '../http/types.js';
 import { currentAuth, ipHashOf, sessionHashOf } from '../auth/session.js';
@@ -24,7 +24,7 @@ import {
   renderSharePage,
   siteImageUrl,
 } from '../html/pages.js';
-import { setHtmlSecurityHeaders } from '../html/shell.js';
+import { THEME_COLORS, setHtmlSecurityHeaders } from '../html/shell.js';
 import { enforceShareViewLimit, lookupShare, recordShareView, referrerClassOf } from './sharing.js';
 
 /** Client routes the SPA owns (experience spec, client routes). */
@@ -32,6 +32,7 @@ export const CLIENT_ROUTES = [
   '/upload',
   '/p/:projectId',
   '/places',
+  '/gallery',
   '/account',
   '/auth/verify',
   '/dont-decorate-my-home',
@@ -43,6 +44,16 @@ export const CLIENT_ROUTES = [
   '/accessibility',
   '/dmca',
 ] as const;
+
+/**
+ * Client routes that open on ink (a photograph or a picture stage): the project screens and the
+ * upload entry. Their shell carries the ink `theme-color`, so the browser bar is ink from the
+ * first paint; every other client route opens on paper.
+ */
+export const INK_CLIENT_ROUTES: ReadonlySet<(typeof CLIENT_ROUTES)[number]> = new Set([
+  '/upload',
+  '/p/:projectId',
+]);
 
 const LANDING_TTL_MS = 60_000;
 
@@ -108,7 +119,9 @@ function sendHtml(
 }
 
 async function landingViewed(deps: ApiDeps, request: FastifyRequest, experience: Experience) {
-  const auth = await currentAuth(deps, request);
+  // The landing page is publicly cacheable and never carries the session cookie, so it must not
+  // use up the session's touch: the next private response then refreshes the cookie.
+  const auth = await currentAuth(deps, request, { touch: false });
   await emitEvent(deps, deps.db, {
     name: 'landing_viewed',
     ...(auth
@@ -210,11 +223,15 @@ export function registerPageRoutes(app: App, deps: ApiDeps): void {
     },
   );
 
-  const clientRoute = async (_request: FastifyRequest, reply: FastifyReply) => {
-    const { experience } = await shellExperience(deps, null);
-    return sendHtml(deps, reply, renderClientRoute(deps, experience), { cacheControl: 'no-cache' });
-  };
-  for (const route of CLIENT_ROUTES) app.get(route, clientRoute);
+  for (const route of CLIENT_ROUTES) {
+    const themeColor = INK_CLIENT_ROUTES.has(route) ? THEME_COLORS.ink : THEME_COLORS.paper;
+    app.get(route, async (_request, reply) => {
+      const { experience } = await shellExperience(deps, null);
+      return sendHtml(deps, reply, renderClientRoute(deps, experience, themeColor), {
+        cacheControl: 'no-cache',
+      });
+    });
+  }
 
   app.get('/healthz', async () => ({ status: 'ok' }));
 
@@ -255,10 +272,13 @@ export function registerPageRoutes(app: App, deps: ApiDeps): void {
   }
 }
 
-/** The SPA shell for a 404 on a page route (the client shows its not-found screen). */
+/**
+ * The SPA shell for a 404 on a page route: the client shows its not-found screen on the
+ * holiday's photograph, so the shell carries the ink `theme-color`.
+ */
 export async function renderNotFoundPage(deps: ApiDeps, reply: FastifyReply) {
   const { experience } = await shellExperience(deps, null);
-  return sendHtml(deps, reply, renderClientRoute(deps, experience), {
+  return sendHtml(deps, reply, renderClientRoute(deps, experience, THEME_COLORS.ink), {
     status: 404,
     cacheControl: 'no-store',
   });

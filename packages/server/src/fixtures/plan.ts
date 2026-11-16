@@ -1,4 +1,4 @@
-import { isAnchorEligible } from '@holiday/core';
+import { isAnchorEligible } from '@hailiday/core';
 import type {
   Anchor,
   HolidayId,
@@ -8,7 +8,7 @@ import type {
   SceneType,
   Style,
   StyleKit,
-} from '@holiday/core';
+} from '@hailiday/core';
 import type { FixturePlacement } from './decor.js';
 import type { FixtureSceneGeometry } from './scene.js';
 

@@ -1,4 +1,4 @@
-import type { PreservationHoldReason, PreservationHoldTargetKind } from '@holiday/core';
+import type { PreservationHoldReason, PreservationHoldTargetKind } from '@hailiday/core';
 import { toJson, type DbOrTx } from '../../db/client.js';
 import type { HeldObjectJson } from '../../db/schema.js';
 import { newId, sha256Hex } from '../../ids/index.js';
@@ -274,7 +274,7 @@ export async function placePreservationHold(
 /**
  * Copies every private object a hold covers to `held/{holdId}/{sha256(originalKey)}` (no
  * lifecycle rule, never swept) and records the copies on the hold: normalized originals, reviewer
- * copies, accepted variants and their derivatives, download files and the candidates of the
+ * copies, the enhanced pictures of Street View frames, accepted variants and their derivatives, download files and the candidates of the
  * covered jobs. Street View pixels are not copied (the storage client only writes them under an
  * evaluated permission); they are recorded as protected in place, where every sweep and deletion
  * path skips held rows. Returns the records written.
@@ -321,6 +321,23 @@ export async function copyHeldObjects(
     }
     const review = reviewObjectKeyOf(source.screening);
     if (review) wanted.push({ key: review, sourceKind: source.kind, derivative: false });
+  }
+  // A Street View frame's enhanced pictures are kept with it (in place, like the frame).
+  const sourceKinds = new Map(sources.map((source) => [source.id, source.kind]));
+  const enhanced = await deps.db
+    .selectFrom('sourceEnhancements')
+    .select(['sourceAssetId', 'objectKey'])
+    .where('sourceAssetId', 'in', sourceIds.length > 0 ? sourceIds : [NO_ID])
+    .where('objectKey', 'is not', null)
+    .orderBy('objectKey')
+    .execute();
+  for (const row of enhanced) {
+    if (!row.objectKey) continue;
+    wanted.push({
+      key: row.objectKey,
+      sourceKind: sourceKinds.get(row.sourceAssetId),
+      derivative: false,
+    });
   }
   for (const asset of assets) {
     const sourceKind = kindOf.get(asset.sourceAssetId);

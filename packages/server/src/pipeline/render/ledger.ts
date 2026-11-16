@@ -1,4 +1,4 @@
-import type { LedgerSku } from '@holiday/core';
+import type { LedgerSku } from '@hailiday/core';
 import type { Clock } from '../../clock/index.js';
 import type { DbOrTx } from '../../db/client.js';
 import type { UsageLedgerEntry } from '../../db/schema.js';
@@ -12,11 +12,20 @@ import {
   type VisionStage,
 } from '../../ledger/index.js';
 
-/** An open reservation of a job for one SKU (and stage or price where several exist). */
+/**
+ * An open reservation of a job for one SKU (and stage or price where several exist). `notStage`
+ * skips the reservations of one stage (an attempt never takes the enhancement's line).
+ */
 export async function findOpenReservation(
   db: DbOrTx,
   jobId: string,
-  filter: { sku: LedgerSku; stage?: string; unitPriceMicros?: number; exclude?: readonly string[] },
+  filter: {
+    sku: LedgerSku;
+    stage?: string;
+    notStage?: string;
+    unitPriceMicros?: number;
+    exclude?: readonly string[];
+  },
 ): Promise<UsageLedgerEntry | null> {
   const open = await openReservations(db, jobId);
   const exclude = new Set(filter.exclude ?? []);
@@ -26,6 +35,7 @@ export async function findOpenReservation(
         row.sku === filter.sku &&
         !exclude.has(row.id) &&
         (filter.stage === undefined || row.stage === filter.stage) &&
+        (filter.notStage === undefined || row.stage !== filter.notStage) &&
         (filter.unitPriceMicros === undefined || row.unitPriceMicros === filter.unitPriceMicros),
     ) ?? null
   );

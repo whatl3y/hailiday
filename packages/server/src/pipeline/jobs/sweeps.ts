@@ -1,4 +1,4 @@
-import { TERMINAL_RENDER_JOB_STATES } from '@holiday/core';
+import { TERMINAL_RENDER_JOB_STATES } from '@hailiday/core';
 import { DAY_MS, HOUR_MS, addMs } from '../../clock/index.js';
 import { keys } from '../../storage/keys.js';
 import { pipelineOptions, type PipelineDeps } from '../context.js';
@@ -46,7 +46,8 @@ export interface RetentionSweepResult {
  * The `retention_sweep` job: completes deletions that did not finish (and held ones whose holds
  * were released), expires anonymous projects (24 h after last activity, at most 7 days after
  * creation without saving) and saved projects (13 months without activity) through the deletion
- * order, purges existing Street View variants of places on the opt-out list, expires share grants (public copies deleted; a pinned variant of an expired project goes
+ * order while the runtime setting `retention.time_based_deletion` is on (while it is off, no
+ * project, source or rendering expires by age or inactivity), purges existing Street View variants of places on the opt-out list, expires share grants (public copies deleted; a pinned variant of an expired project goes
  * with its last grant), expires uploads that never completed, declines holds past their window,
  * removes expired sessions and auth tokens, clears hashed IP and device signals older than 7 days,
  * ages out resolved reports after 12 months, mirrors new tombstones outside the database and ages
@@ -80,29 +81,33 @@ export async function runRetentionSweep(
 
   result.deletionsResumed = (await resumeDeletionRequests(deps, { limit })).resumed;
 
-  const projects = await deps.db
-    .selectFrom('projects')
-    .selectAll()
-    .where('deletedAt', 'is', null)
-    .where((eb) =>
-      eb.or([
-        eb('expiresAt', '<=', now),
-        eb.and([
-          eb('savedAt', 'is', null),
+  // Expiry by age and inactivity runs only while time-based deletion is on.
+  const timeBased = await deps.settings.get('retention.time_based_deletion');
+  const projects = timeBased
+    ? await deps.db
+        .selectFrom('projects')
+        .selectAll()
+        .where('deletedAt', 'is', null)
+        .where((eb) =>
           eb.or([
-            eb('lastActivityAt', '<=', addMs(now, -RETENTION.anonymousInactivityMs)),
-            eb('createdAt', '<=', addMs(now, -RETENTION.anonymousHardCapMs)),
+            eb('expiresAt', '<=', now),
+            eb.and([
+              eb('savedAt', 'is', null),
+              eb.or([
+                eb('lastActivityAt', '<=', addMs(now, -RETENTION.anonymousInactivityMs)),
+                eb('createdAt', '<=', addMs(now, -RETENTION.anonymousHardCapMs)),
+              ]),
+            ]),
+            eb.and([
+              eb('savedAt', 'is not', null),
+              eb('lastActivityAt', '<=', addMs(now, -RETENTION.savedInactivityMs)),
+            ]),
           ]),
-        ]),
-        eb.and([
-          eb('savedAt', 'is not', null),
-          eb('lastActivityAt', '<=', addMs(now, -RETENTION.savedInactivityMs)),
-        ]),
-      ]),
-    )
-    .orderBy('lastActivityAt')
-    .limit(limit)
-    .execute();
+        )
+        .orderBy('lastActivityAt')
+        .limit(limit)
+        .execute()
+    : [];
   for (const project of projects) {
     const outcome = await deleteProject(deps, {
       project,

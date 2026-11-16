@@ -1,8 +1,8 @@
-import type { LedgerSku } from '@holiday/core';
-import { budgetPaused } from '@holiday/server/errors';
-import { charge, unitPriceFor } from '@holiday/server/ledger';
-import { checkSpend } from '@holiday/server/limits';
-import type { DbOrTx } from '@holiday/server/db';
+import type { LedgerSku } from '@hailiday/core';
+import { budgetPaused } from '@hailiday/server/errors';
+import { charge, unitPriceFor } from '@hailiday/server/ledger';
+import { checkSpend } from '@hailiday/server/limits';
+import type { DbOrTx } from '@hailiday/server/db';
 import type { ApiDeps } from '../deps.js';
 
 /**
@@ -14,11 +14,32 @@ export async function assertSpendAllowed(
   skus: readonly LedgerSku[],
   isFixture: boolean,
 ): Promise<void> {
+  const now = deps.clock.now();
+  const block = await spendBlockOf(deps, skus, isFixture, now);
+  if (block) throw budgetPaused(block.reason, block.resumesAt, now);
+}
+
+/**
+ * Whether the global pause and the spend ceilings allow paid calls of `skus` now: the check of
+ * `assertSpendAllowed`, answered instead of thrown, for a read that leaves a paid item out.
+ */
+export async function spendAllowed(
+  deps: Pick<ApiDeps, 'db' | 'settings' | 'clock'>,
+  skus: readonly LedgerSku[],
+  isFixture: boolean,
+): Promise<boolean> {
+  return (await spendBlockOf(deps, skus, isFixture, deps.clock.now())) === null;
+}
+
+async function spendBlockOf(
+  deps: Pick<ApiDeps, 'db' | 'settings'>,
+  skus: readonly LedgerSku[],
+  isFixture: boolean,
+  now: Date,
+) {
   const additional = new Map<LedgerSku, number>();
   for (const sku of skus) additional.set(sku, (additional.get(sku) ?? 0) + unitPriceFor(sku));
-  const now = deps.clock.now();
-  const block = await checkSpend(deps.db, deps.settings, { now, additional, isFixture });
-  if (block) throw budgetPaused(block.reason, block.resumesAt, now);
+  return checkSpend(deps.db, deps.settings, { now, additional, isFixture });
 }
 
 /** Ledgers one address-path provider call as a `charge` row. */

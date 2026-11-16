@@ -8,8 +8,8 @@ import {
   ViewpointResponseSchema,
   type Project,
   type SourceDiscoveryResponse,
-} from '@holiday/core';
-import { newId } from '@holiday/server/ids';
+} from '@hailiday/core';
+import { newId } from '@hailiday/server/ids';
 import { createHarness, json, type Harness, type TestClient } from './test/harness.js';
 import { placesTokenForClient } from './test/places-token.js';
 
@@ -100,7 +100,7 @@ describe('address entry', () => {
     });
   });
 
-  it('resolves a place into a project with the transient formatted address', async () => {
+  it('resolves a place into a project and keeps its Geocoding address for later reads', async () => {
     const client = await sessionClient();
     const response = await resolve(client, PLACES.autoStart);
     expect(response.statusCode).toBe(201);
@@ -110,8 +110,11 @@ describe('address entry', () => {
     expect(project.property?.formattedAddress).toContain('Lantern Hill');
     expect(project.property?.precision).toBe('rooftop_equivalent');
 
+    // Time-based deletion is off by default, so the Geocoding address is stored for the gallery.
     const reread = await client.get(`/v1/projects/${project.id}`);
-    expect((reread.json() as { project: Project }).project.property?.formattedAddress).toBeNull();
+    expect((reread.json() as { project: Project }).project.property?.formattedAddress).toBe(
+      '14 Lantern Hill Rd, Maplebrook, VT 05341, USA',
+    );
     const ledger = await harness.context.db
       .selectFrom('usageLedger')
       .select(['sku', 'isFixture'])
@@ -329,5 +332,177 @@ describe('source discovery', () => {
       expect(render.statusCode).toBe(409);
       expect(json(render).error).toMatchObject({ code: 'NEEDS_PHOTO' });
     }
+  });
+});
+
+describe('resolving a place the owner already has', () => {
+  /** An existing project at the place with no stored address (made before addresses were kept). */
+  async function unlabeledProject(client: TestClient, placeId: string): Promise<Project> {
+    const first = await resolve(client, placeId);
+    expect(first.statusCode).toBe(201);
+    const project = ProjectSchema.parse(json<{ project: unknown }>(first).project);
+    await harness.context.db
+      .updateTable('properties')
+      .set({
+        displayAddress: null,
+        displayAddressBasis: 'autocomplete_transient',
+        displayAddressStoredAt: null,
+      })
+      .where('id', '=', project.property?.id as string)
+      .execute();
+    return project;
+  }
+
+  it('opens the known project without a label when the label lookup fails', async () => {
+    const client = await sessionClient();
+    const project = await unlabeledProject(client, PLACES.autoStart);
+    const providers = [
+      harness.server.deps.providers.address,
+      harness.server.deps.providers.fixtures.address,
+    ];
+    const originals = providers.map((provider) => provider.geocodeByPlaceId);
+    let calls = 0;
+    for (const provider of providers) {
+      provider.geocodeByPlaceId = () => {
+        calls += 1;
+        return Promise.reject(new Error('geocoding is down'));
+      };
+    }
+    try {
+      const again = await resolve(client, PLACES.autoStart);
+      expect(again.statusCode).toBe(200);
+      const reused = ProjectSchema.parse(json<{ project: unknown }>(again).project);
+      expect(reused.id).toBe(project.id);
+      expect(reused.property?.formattedAddress).toBeNull();
+      expect(calls).toBe(1);
+    } finally {
+      providers.forEach((provider, index) => {
+        provider.geocodeByPlaceId = originals[index] as typeof provider.geocodeByPlaceId;
+      });
+    }
+    // Nothing was charged for the failed lookup.
+    const charged = await harness.context.db
+      .selectFrom('usageLedger')
+      .select('id')
+      .where('projectId', '=', project.id)
+      .where('sku', '=', 'geocoding')
+      .execute();
+    expect(charged).toHaveLength(1);
+    // With the lookup working again, the label is found and stored.
+    const labeled = await resolve(client, PLACES.autoStart);
+    expect(
+      ProjectSchema.parse(json<{ project: unknown }>(labeled).project).property?.formattedAddress,
+    ).toContain('Lantern Hill');
+  });
+
+  it("starts a returning visit with the place's display budget as of now", async () => {
+    const client = await sessionClient();
+    const first = await resolve(client, PLACES.confirm);
+    const project = ProjectSchema.parse(json<{ project: unknown }>(first).project);
+    const propertyId = project.property?.id as string;
+    const spent = (startedAt: Date) =>
+      harness.context.db
+        .updateTable('properties')
+        .set({ displayLoadsIssued: 6, displayLoadsWindowStartedAt: startedAt })
+        .where('id', '=', propertyId)
+        .execute();
+    const stored = () =>
+      harness.context.db
+        .selectFrom('properties')
+        .select('displayLoadsIssued')
+        .where('id', '=', propertyId)
+        .executeTakeFirstOrThrow();
+
+    await spent(new Date(Date.now() - 60 * 60_000));
+    expect((await resolve(client, PLACES.confirm)).statusCode).toBe(200);
+    expect(await stored()).toEqual({ displayLoadsIssued: 6 });
+
+    await spent(new Date(Date.now() - 25 * 60 * 60_000));
+    expect((await resolve(client, PLACES.confirm)).statusCode).toBe(200);
+    expect(await stored()).toEqual({ displayLoadsIssued: 0 });
+  });
+
+  it('issues a seventh view at an address a day after the sixth', async () => {
+    const client = await sessionClient();
+    const { project } = (await resolve(client, PLACES.confirm)).json() as { project: Project };
+    const result = await discover(client, project);
+    const alternate = result.discovery.candidates.find((candidate) => !candidate.isPrimary);
+    expect(alternate).toBeDefined();
+    const propertyId = project.property?.id as string;
+    const spent = (startedAt: Date) =>
+      harness.context.db
+        .updateTable('properties')
+        .set({ displayLoadsIssued: 6, displayLoadsWindowStartedAt: startedAt })
+        .where('id', '=', propertyId)
+        .execute();
+    const view = () =>
+      client.put(`/v1/projects/${project.id}/viewpoint`, {
+        projectVersion: 0,
+        candidateId: alternate?.candidateId,
+      });
+
+    // Six views issued within the last day: the seventh is refused.
+    await spent(new Date(Date.now() - 60 * 60_000));
+    const refused = await view();
+    expect(refused.statusCode).toBe(429);
+    expect(json(refused).error).toMatchObject({
+      code: 'RATE_LIMITED',
+      details: { scope: 'viewpoints' },
+    });
+
+    // A day after the window opened, the seventh view is issued and opens a new window.
+    await spent(new Date(Date.now() - 24 * 60 * 60_000 - 60_000));
+    const issued = await view();
+    expect(issued.statusCode).toBe(200);
+    expect(ViewpointResponseSchema.parse(issued.json()).remainingDisplayLoads).toBe(5);
+    const property = await harness.context.db
+      .selectFrom('properties')
+      .select(['displayLoadsIssued', 'displayLoadsWindowStartedAt'])
+      .where('id', '=', propertyId)
+      .executeTakeFirstOrThrow();
+    expect(property.displayLoadsIssued).toBe(1);
+    expect(Date.now() - (property.displayLoadsWindowStartedAt?.getTime() ?? 0)).toBeLessThan(
+      60_000,
+    );
+  });
+
+  it("reports the place's remaining views as of now wherever a project is read", async () => {
+    const client = await sessionClient();
+    const { project } = (await resolve(client, PLACES.confirm)).json() as { project: Project };
+    const result = await discover(client, project);
+    const primary = result.discovery.candidates.find((candidate) => candidate.isPrimary);
+    expect(primary).toBeDefined();
+    const propertyId = project.property?.id as string;
+    const spent = (startedAt: Date) =>
+      harness.context.db
+        .updateTable('properties')
+        .set({ displayLoadsIssued: 6, displayLoadsWindowStartedAt: startedAt })
+        .where('id', '=', propertyId)
+        .execute();
+    // The project read by id, a replay of its discovery and a view already issued: none of them
+    // issues a view or opens a window.
+    const remaining = async () => {
+      const opened = await client.get(`/v1/projects/${project.id}`);
+      expect(opened.statusCode).toBe(200);
+      const replayed = await discover(client, project);
+      const reused = await client.put(`/v1/projects/${project.id}/viewpoint`, {
+        projectVersion: 0,
+        candidateId: primary?.candidateId,
+      });
+      expect(reused.statusCode).toBe(200);
+      return [
+        ProjectSchema.parse(json<{ project: unknown }>(opened).project).discovery
+          ?.remainingDisplayLoads,
+        replayed.discovery.remainingDisplayLoads,
+        ViewpointResponseSchema.parse(reused.json()).remainingDisplayLoads,
+      ];
+    };
+
+    await spent(new Date(Date.now() - 60 * 60_000));
+    expect(await remaining()).toEqual([0, 0, 0]);
+
+    // A day after the window opened, the whole budget is available again.
+    await spent(new Date(Date.now() - 24 * 60 * 60_000 - 60_000));
+    expect(await remaining()).toEqual([6, 6, 6]);
   });
 });

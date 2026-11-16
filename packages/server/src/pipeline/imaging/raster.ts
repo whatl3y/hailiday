@@ -1,5 +1,5 @@
 import sharp from 'sharp';
-import type { NormalizedBox } from '@holiday/core';
+import type { NormalizedBox } from '@hailiday/core';
 import { sha256Hex } from '../../ids/index.js';
 
 /** An 8-bit sRGB image held in memory without alpha (three interleaved channels). */

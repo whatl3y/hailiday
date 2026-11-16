@@ -7,7 +7,7 @@ import {
   straightenBoxBounds,
   straightenScale,
   type NormalizedBox,
-} from '@holiday/core';
+} from '@hailiday/core';
 import { toJson, toJsonOrNull, type DbOrTx } from '../../db/client.js';
 import type { BoxJson, SourceAsset } from '../../db/schema.js';
 import { newId, sha256Hex } from '../../ids/index.js';

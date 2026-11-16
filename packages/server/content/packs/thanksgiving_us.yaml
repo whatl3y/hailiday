@@ -1,5 +1,5 @@
 # Holiday pack thanksgiving_us.US (Thanksgiving).
-# Normative schema: docs/specs/holidays-and-content.md, "Pack schema". Validated by HolidayPackSchema in @holiday/core.
+# Normative schema: docs/specs/holidays-and-content.md, "Pack schema". Validated by HolidayPackSchema in @hailiday/core.
 # quantity: { <style>: [min, max] } counts instances (runs for lights and garland) per style;
 # required lists the styles in which the archetype must appear whenever one of its anchors is eligible.
 # priority is omitted: list order is the placement priority (1 = first).
@@ -7,7 +7,7 @@
 # Any change that can alter a decoration plan or compiled instruction is at least a MINOR version bump.
 
 id: thanksgiving_us.US
-version: 1.0.1
+version: 2.0.0
 holidayId: thanksgiving_us
 region: US
 displayName: Thanksgiving
@@ -15,11 +15,11 @@ journeyEmphasis: interior
 traditionNotes: 'Harvest and gathering: autumn-leaf wreaths and garland, pumpkins and gourds, chrysanthemums, wheat and corn stalks outdoors, and a set table with flameless candlelight indoors. No Pilgrim, Native American or other costume or caricature imagery; no electric lights outdoors; no Christmas or Halloween items.'
 lightingPolicy:
   bySceneType:
-    house_exterior: { default: source, offered: [source] }
-    apartment_entry: { default: source, offered: [source] }
-    balcony: { default: source, offered: [source] }
-    interior: { default: source, offered: [source, evening] }
-  eveningGuidance: 'Interiors only. Daylight at the windows falls to dusk; flameless candles and existing lamps carry the room with warm, low light across the table and soft contact light on the runner and centerpiece; no other light source.'
+    house_exterior: { default: evening, offered: [source, evening] }
+    apartment_entry: { default: bright, offered: [bright] }
+    balcony: { default: evening, offered: [source, evening] }
+    interior: { default: bright, offered: [bright] }
+  eveningGuidance: 'Early dusk falls on the home: the existing porch light and a soft amber glow in the existing windows carry the scene, and any lanterns and flameless candles named in the placements are lit with warm, low light; the wreath, garland, pumpkins and mums take only that light; no electric lights are added and nothing is added to the sky.'
 climateRule:
   sourcePrecedence: [scene_analysis, address_region, neutral]
   snow: only_if_visible_in_source
@@ -341,22 +341,18 @@ exampleRefs:
     sceneType: house_exterior
     style: classic
     lightingMode: source
-  - exampleAssetId: example.thanksgiving_us.apartment_entry.classic.source.v1
+  - exampleAssetId: example.thanksgiving_us.apartment_entry.classic.bright.v1
     sceneType: apartment_entry
     style: classic
-    lightingMode: source
+    lightingMode: bright
   - exampleAssetId: example.thanksgiving_us.balcony.classic.source.v1
     sceneType: balcony
     style: classic
     lightingMode: source
-  - exampleAssetId: example.thanksgiving_us.interior.classic.source.v1
+  - exampleAssetId: example.thanksgiving_us.interior.classic.bright.v1
     sceneType: interior
     style: classic
-    lightingMode: source
-  - exampleAssetId: example.thanksgiving_us.interior.classic.evening.v1
-    sceneType: interior
-    style: classic
-    lightingMode: evening
+    lightingMode: bright
 review:
   checklistVersion: 1
   approvedBy: [editorial_lead, second_approver]

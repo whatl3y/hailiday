@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { t } from '../copy';
 
-/** The document title for a page: "{page} · Holiday", or the bare name for the landing page. */
+/** The document title for a page: "{page} · Hailiday", or the bare name for the landing page. */
 export function pageTitle(page?: string | null): string {
   return page ? t('pageTitle.template', { page }) : t('app.wordmark');
 }

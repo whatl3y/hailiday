@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { AddressSuggestion } from '@holiday/core';
+import type { AddressSuggestion } from '@hailiday/core';
 import type { Logger } from '../../logger/index.js';
 import {
   diagnosticFields,

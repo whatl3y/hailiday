@@ -12,7 +12,7 @@ import {
   type SceneAnalysis,
   type SceneType,
   type Style,
-} from '@holiday/core';
+} from '@hailiday/core';
 import { loadContent, type Content } from '../../content/load.js';
 import { ANCHOR_GLOSSES, analysisUserPrompt } from '../../providers/vision/prompts.js';
 import {

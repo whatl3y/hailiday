@@ -6,3 +6,7 @@ export * from './registration.js';
 export * from './checks.js';
 export * from './label.js';
 export * from './relight.js';
+export * from './attribution.js';
+export * from './embedded-attribution.js';
+export * from './surround.js';
+export * from './enhancement.js';

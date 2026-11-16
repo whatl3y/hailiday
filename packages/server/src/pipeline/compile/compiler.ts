@@ -6,7 +6,8 @@ import {
   type DecorationPlan,
   type FailureCode,
   type PromptFragments,
-} from '@holiday/core';
+  type RelightLightingMode,
+} from '@hailiday/core';
 import {
   DEFAULT_IMAGE_EDIT_SETTINGS,
   type GeminiThinkingLevel,
@@ -197,6 +198,40 @@ export function placementSentence(
 export const EVENING_KEEP =
   'Every existing door, window, piece of furniture and object stays exactly as it is, in the same place, with the same shape, material and color; nothing is removed, replaced, moved or restyled. Only the lighting changes, and only the planned decorations below are added.';
 
+/** The keep sentence of every decorate request that is not the exterior of a house. */
+export const KEEP_MARKS =
+  'Do not alter or cover house numbers, signs, logos or existing decorations.';
+
+/**
+ * The keep sentence outside a house: text is never altered or covered, and a listed decoration
+ * may take the place of a removable item at its spot (the Christmas wreath where a spring wreath
+ * hangs), which reads better than both crowded together.
+ */
+export const KEEP_MARKS_EXTERIOR =
+  'Do not alter or cover house numbers, signs or logos. A listed decoration may replace an existing wreath, planter or hanging basket at its spot.';
+
+/** How many recorded house numbers get a sentence of their own. */
+const HOUSE_NUMBER_SENTENCES = 2;
+
+/**
+ * One sentence per recorded house number, saying where it is: an editor that is only told not to
+ * cover house numbers still wraps a garland around the column or post that carries one.
+ */
+export function houseNumberSentences(plan: Pick<PlanDraft, 'preserve'>): string[] {
+  return plan.preserve.regions
+    .filter((region) => region.kind === 'house_number')
+    .slice(0, HOUSE_NUMBER_SENTENCES)
+    .map(
+      (region) =>
+        `The house number ${positionWords(region.box)} stays fully visible: put no decoration on or in front of it.`,
+    );
+}
+
+/** What a decorate request keeps untouched besides the building, by scene type. */
+export function keepMarksSentence(sceneType: PlanDraft['sceneType']): string {
+  return sceneType === 'house_exterior' ? KEEP_MARKS_EXTERIOR : KEEP_MARKS;
+}
+
 /**
  * The preserve block: the pack fragment in `source` mode; in `evening`, shape and position plus
  * the keep clause.
@@ -222,13 +257,16 @@ export function compilePlan(
   options: CompileOptions,
 ): CompileResult {
   const evening = plan.lightingMode === 'evening';
+  // A decorate request is compiled as photographed unless it is the legacy combined evening plan.
+  const decorateLighting = evening ? 'evening' : 'source';
   const scope = `Edit only the target ${SUBJECT_WORDS[plan.sceneType]} in the attached photo to show ${content.fragments.scene.trim().replace(/[.\s]+$/, '')}, ${evening ? 'shifted to early dusk' : 'in the lighting of the original photograph'}.`;
   const preserve = preserveBlock(plan, content);
   const realism = `Use believable scale, secure attachments and contact shadows that match the ${evening ? 'dusk light' : 'existing light'}.`;
   const negatives = [
     sentence(content.fragments.negative),
     plan.negatives.length > 0 ? `Also add no ${joinList(plan.negatives)}.` : '',
-    'Do not alter house numbers, logos or existing decorations.',
+    keepMarksSentence(plan.sceneType),
+    ...houseNumberSentences(plan),
     ...(plan.repairConstraints ?? []).map((constraint) => sentence(constraint.instruction)),
   ]
     .filter(Boolean)
@@ -236,7 +274,7 @@ export function compilePlan(
   const output = evening
     ? 'Return the same photograph with only these decorations added and the light shifted to early dusk; everything else in the photograph stays as it is.'
     : 'Return the same photograph with only these decorations added.';
-  const cap = (options.caps ?? PIPELINE_DEFAULTS.instructionCaps)[plan.lightingMode];
+  const cap = (options.caps ?? PIPELINE_DEFAULTS.instructionCaps)[decorateLighting];
 
   const placements = [...plan.placements].sort((a, b) => a.priority - b.priority);
   const sentenceOf = new Map(
@@ -245,7 +283,7 @@ export function compilePlan(
       placementSentence(
         placement,
         content.attachments[placement.kitItemId] ?? 'placed',
-        plan.lightingMode,
+        decorateLighting,
       ),
     ]),
   );
@@ -349,9 +387,26 @@ export const RELIGHT_KEEP =
 export const RELIGHT_REPAIR_KEEP =
   'The previous relight changed the photograph itself. Change nothing but the light: every edge, object, decoration, window and door must line up exactly with the input photograph, and nothing may be added, removed, redrawn or restyled.';
 
-/** The relight repair sentence after the first relight's light looked artificial. */
+/** The relight repair sentence after the first evening relight's light looked artificial. */
 export const RELIGHT_REPAIR_LIGHT =
   'The previous relight looked artificial. Keep the dusk natural and believable: soft ambient blue light, a warm glow only from the existing bulbs, lamps and windows, and no glowing outlines or flat colored areas.';
+
+/** The relight repair sentence after the first bright relight's light looked artificial. */
+export const RELIGHT_REPAIR_BRIGHT_LIGHT =
+  'The previous relight looked artificial. Keep the light natural and believable: soft daylight and the clean warm glow of the existing lamps and fixtures, no haze, no blown-out highlights and no flat or painted-looking areas.';
+
+/**
+ * The bright relight's scope, light and exposure sentences (measured live on a dim decorated
+ * hallway: both GPT image 2.5 models kept every object and decoration and brightened the room).
+ */
+export const BRIGHT_RELIGHT_SCOPE =
+  'Relight this exact photograph so the space is bright, airy and cheerful, as on a sunny day with every light on.';
+export const BRIGHT_RELIGHT_LIGHT =
+  'Fuller, soft natural daylight; the existing ceiling lights, lamps and fixtures switched on with a clean warm glow; shadows lifted; fresh, natural white balance and true colors.';
+export const BRIGHT_RELIGHT_KEEP =
+  'Every existing object, decoration, door, wall, floor, fixture and architectural detail stays exactly as it is, in the same place, with the same shape, material and color. Nothing is added, removed, moved, replaced or restyled, and the camera position, lens and framing do not change. Only the lighting changes.';
+export const BRIGHT_RELIGHT_EXPOSURE =
+  'Photorealistic, natural exposure as photographed with a good camera; no haze, no blown-out highlights.';
 
 /** Codes a relight repair answers with the lighting sentence alone. */
 const RELIGHT_LIGHT_CODES: readonly FailureCode[] = ['lighting_implausible'];
@@ -365,6 +420,8 @@ export interface RelightRepair {
 }
 
 export interface RelightCompileInput {
+  /** The light the relight produces: early evening, or the bright look. */
+  target: RelightLightingMode;
   /** The accepted daylight plan whose decorations the relight keeps (and names when lit). */
   basePlan: Pick<DecorationPlan, 'sceneType' | 'placements' | 'compilerVersion'>;
   provider: CompilerProvider;
@@ -395,24 +452,43 @@ function interiorScene(sceneType: DecorationPlan['sceneType']): boolean {
   return sceneType === 'interior';
 }
 
-/**
- * Compiles the relight of an accepted daylight variant (render spec, lighting modes): the editor
- * receives the decorated daylight image, no mask and an instruction that changes only the light
- * (dusk ambient light, the decorations' own bulbs glowing, warm windows, porch or room lights on)
- * and keeps every object and decoration. A repair adds a stronger keep clause (or, for implausible
- * light alone, a natural-light sentence) and may lower the quality one step. The request is marked
- * as a relight (`kind` and `parameters.relight`), which the fixture editor answers with the
- * deterministic evening grade. Deterministic: the same input compiles to byte-identical output.
- */
-export function compileRelightRequest(input: RelightCompileInput): CompiledRequest {
-  const interior = interiorScene(input.basePlan.sceneType);
+/** The lit decorations a relight names: decoration and anchor, at most six, in priority order. */
+function litDecorationNames(basePlan: Pick<DecorationPlan, 'placements'>): string[] {
   const named: string[] = [];
-  for (const placement of [...input.basePlan.placements].sort((a, b) => a.priority - b.priority)) {
+  for (const placement of [...basePlan.placements].sort((a, b) => a.priority - b.priority)) {
     if (!placement.lit) continue;
     const name = `the ${decorationName(placement.specText)} on the ${ANCHOR_WORDS[placement.anchorCategory]}`;
     if (!named.includes(name)) named.push(name);
     if (named.length >= RELIGHT_MAX_NAMED) break;
   }
+  return named;
+}
+
+/** A list in prose: "a", "a and b", "a, b and c". */
+function proseList(items: readonly string[]): string {
+  return items.length === 1
+    ? (items[0] as string)
+    : `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
+}
+
+/** The repair sentence of a relight repair (none on a first relight). */
+function relightRepairSentence(target: RelightLightingMode, codes: readonly FailureCode[]): string {
+  if (codes.length === 0) return '';
+  const light = target === 'bright' ? RELIGHT_REPAIR_BRIGHT_LIGHT : RELIGHT_REPAIR_LIGHT;
+  if (codes.every((code) => RELIGHT_LIGHT_CODES.includes(code))) return light;
+  if (codes.some((code) => RELIGHT_LIGHT_CODES.includes(code))) {
+    return `${RELIGHT_REPAIR_KEEP} ${light}`;
+  }
+  return RELIGHT_REPAIR_KEEP;
+}
+
+/** The instruction blocks of an evening relight. */
+function eveningRelightBlocks(
+  sceneType: DecorationPlan['sceneType'],
+  named: readonly string[],
+  repair: string,
+): string[] {
+  const interior = interiorScene(sceneType);
   const scope = interior
     ? 'Relight this exact photograph of a room to early evening: dusk outside the windows and the room lit warmly by its own lamps.'
     : 'Relight this exact photograph to early evening at blue hour, about twenty minutes after sunset.';
@@ -421,21 +497,12 @@ export function compileRelightRequest(input: RelightCompileInput): CompiledReque
     : 'Only the lighting changes: the ambient light becomes a deep dusk blue and the scene is darker overall.';
   const decorations =
     named.length > 0
-      ? `The lights already on the decorations glow warmly and cast soft light on nearby surfaces: ${named.length === 1 ? named[0] : `${named.slice(0, -1).join(', ')} and ${named[named.length - 1]}`}; any other bulbs, candles and lanterns already on the decorations glow too.`
+      ? `The lights already on the decorations glow warmly and cast soft light on nearby surfaces: ${proseList(named)}; any other bulbs, candles and lanterns already on the decorations glow too.`
       : 'Any bulbs, candles and lanterns already on the decorations glow warmly and cast soft light on nearby surfaces.';
   const fixtures = interior
     ? 'The existing lamps and ceiling fixtures are on.'
-    : 'The existing porch and entry lights are on, and warm interior light shows through the existing windows.';
-  const codes = input.repair?.codes ?? [];
-  const repair =
-    codes.length === 0
-      ? ''
-      : codes.every((code) => RELIGHT_LIGHT_CODES.includes(code))
-        ? RELIGHT_REPAIR_LIGHT
-        : codes.some((code) => RELIGHT_LIGHT_CODES.includes(code))
-          ? `${RELIGHT_REPAIR_KEEP} ${RELIGHT_REPAIR_LIGHT}`
-          : RELIGHT_REPAIR_KEEP;
-  const instructionText = [
+    : 'On the decorated home the existing porch and entry lights are on and warm interior light shows through its existing windows. Other buildings in the photograph get no new light: their windows and lamps stay as they are.';
+  return [
     scope,
     RELIGHT_KEEP,
     repair,
@@ -443,6 +510,45 @@ export function compileRelightRequest(input: RelightCompileInput): CompiledReque
     decorations,
     fixtures,
     'Photorealistic, natural dusk exposure as photographed with a good camera.',
+  ];
+}
+
+/** The instruction blocks of a bright relight (the tested instruction, with the lit decorations named). */
+function brightRelightBlocks(named: readonly string[], repair: string): string[] {
+  const decorations =
+    named.length > 0
+      ? `The lights on the holiday decorations stay on and glow: ${proseList(named)}; any other bulbs, candles and lanterns on the decorations stay lit too.`
+      : 'The lights on the holiday decorations stay on and glow.';
+  return [
+    BRIGHT_RELIGHT_SCOPE,
+    BRIGHT_RELIGHT_LIGHT,
+    decorations,
+    BRIGHT_RELIGHT_KEEP,
+    repair,
+    BRIGHT_RELIGHT_EXPOSURE,
+  ];
+}
+
+/**
+ * Compiles the relight of a decorated photo (render spec, lighting modes): the editor receives the
+ * decorated image, no mask and an instruction that changes only the light and keeps every object
+ * and decoration. `evening`: dusk ambient light, the decorations' own bulbs glowing, warm windows,
+ * porch or room lights on. `bright`: the space bright, airy and cheerful as on a sunny day with
+ * every light on, shadows lifted, the decorations' lights still glowing, no haze or blown-out
+ * highlights. Both name the base plan's lit decorations (at most six). A repair adds a stronger
+ * keep clause (or, for implausible light alone, a natural-light sentence for the target) and may
+ * lower the quality one step. The request is marked as a relight (`kind`, `parameters.relight`)
+ * with its target (`parameters.relight_target`), which the fixture editor answers with the
+ * deterministic grade of that target. Deterministic: the same input compiles to byte-identical
+ * output.
+ */
+export function compileRelightRequest(input: RelightCompileInput): CompiledRequest {
+  const named = litDecorationNames(input.basePlan);
+  const repair = relightRepairSentence(input.target, input.repair?.codes ?? []);
+  const instructionText = [
+    ...(input.target === 'bright'
+      ? brightRelightBlocks(named, repair)
+      : eveningRelightBlocks(input.basePlan.sceneType, named, repair)),
     PROTECT,
     'Return the same photograph with only the light changed.',
   ]
@@ -456,6 +562,7 @@ export function compileRelightRequest(input: RelightCompileInput): CompiledReque
       resolveImageEditSettings(input.settings),
     ),
     relight: true,
+    relight_target: input.target,
   };
   const compilerVersion = input.compilerVersion ?? input.basePlan.compilerVersion;
   const settingsHash = `sha256:${sha256Hex(
@@ -480,6 +587,89 @@ export function compileRelightRequest(input: RelightCompileInput): CompiledReque
     parameters,
     settingsHash,
   });
+}
+
+/** The enhance instruction: what the request is. */
+export const ENHANCE_SCOPE =
+  'Re-photograph this exact scene with a professional full-frame camera and a sharp lens.';
+/** The enhance instruction: what must not change. */
+export const ENHANCE_KEEP =
+  'Keep everything exactly as it is: the same house and every other building, the same windows, doors, roofline, siding, colors and materials, the same trees, plants, vehicles, objects, signs and text, in the same places, and the same camera position, framing, perspective, season, weather and time of day. Nothing is added, removed, moved, replaced or restyled.';
+/** The enhance instruction: what may change. */
+export const ENHANCE_QUALITY =
+  'Only the image quality changes: crisp fine detail, clean natural color with gentle contrast, balanced exposure with detail in the highlights and the shadows, soft pleasant daylight, and no haze, blur, noise, compression artifacts, stitching seams or lens smear.';
+/** The enhance instruction: the look of the result. */
+export const ENHANCE_STYLE = 'Photorealistic, like a well-exposed real-estate photograph.';
+/** The enhance instruction: blurred areas and unreadable lettering stay as they are. */
+export const ENHANCE_PROTECT =
+  'Faces, people and license plates, and every area that is blurred or pixelated in the photograph, stay exactly as blurred as they are: do not sharpen, reconstruct or replace them. Lettering that cannot be read in the photograph (house numbers, street signs, plates) stays as it is: do not redraw it or invent characters.';
+
+export interface EnhanceCompileInput {
+  provider: CompilerProvider;
+  /** Configured request settings; unset fields take `DEFAULT_IMAGE_EDIT_SETTINGS`. */
+  settings?: Partial<ImageEditSettings>;
+  modelSnapshot: string;
+  /** The Street View frame on the working grid: the provider input. */
+  image: { width: number; height: number; checksum: string };
+  compilerVersion: string;
+}
+
+/**
+ * Compiles the enhance request of a stored Street View frame: one fixed instruction (the five
+ * `ENHANCE_*` sentences in order), no mask, the frame as the only image, and the provider's
+ * parameters at the configured quality. The request is marked as an enhancement (`kind`,
+ * `parameters.enhance`), which the fixture editor answers with its deterministic sharpening; live
+ * adapters ignore the marker. Deterministic: the same input compiles to byte-identical output.
+ */
+export function compileEnhanceRequest(input: EnhanceCompileInput): CompiledRequest {
+  const instructionText = [
+    ENHANCE_SCOPE,
+    ENHANCE_KEEP,
+    ENHANCE_QUALITY,
+    ENHANCE_STYLE,
+    ENHANCE_PROTECT,
+  ].join(' ');
+  const parameters = {
+    ...providerParameters(
+      input.provider,
+      input.image,
+      false,
+      resolveImageEditSettings(input.settings),
+    ),
+    enhance: true,
+  };
+  const settingsHash = `sha256:${sha256Hex(
+    stableJson({
+      provider: input.provider,
+      modelSnapshot: input.modelSnapshot,
+      compilerVersion: input.compilerVersion,
+      kind: 'enhance',
+      parameters,
+      mask: false,
+      referenceOrder: [],
+    }),
+  )}`;
+  return CompiledRequestSchema.parse({
+    schemaVersion: COMPILED_REQUEST_SCHEMA_VERSION,
+    compilerVersion: input.compilerVersion,
+    kind: 'enhance',
+    provider: input.provider,
+    modelSnapshot: input.modelSnapshot,
+    images: [{ role: 'source', ...input.image }],
+    instructionText,
+    parameters,
+    settingsHash,
+  });
+}
+
+/** Whether a compiled request is the enhancement of a Street View frame. */
+export function isEnhanceRequest(request: Pick<CompiledRequest, 'kind' | 'parameters'>): boolean {
+  return request.kind === 'enhance' || request.parameters.enhance === true;
+}
+
+/** The light a relight request produces (`evening` for requests written before the target). */
+export function relightTargetOf(request: Pick<CompiledRequest, 'parameters'>): RelightLightingMode {
+  return request.parameters.relight_target === 'bright' ? 'bright' : 'evening';
 }
 
 /** Whether a compiled request is a relight of an accepted daylight variant. */

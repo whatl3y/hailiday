@@ -4,7 +4,7 @@ import {
   isErrorCode,
   type ErrorCode,
   type ErrorDetails,
-} from '@holiday/core';
+} from '@hailiday/core';
 import type { CopyKey } from '../copy';
 
 export type ApiErrorKind = 'http' | 'network' | 'invalid_response' | 'aborted';
@@ -91,7 +91,7 @@ export class ApiError extends Error {
 /**
  * The failure of starting the session, marked as such. An API error keeps its code, details
  * and wait (`retryAfterSeconds` overrides the wait when given); anything else (a bot check
- * that could not run, a request that timed out) reads as a failure to reach Holiday.
+ * that could not run, a request that timed out) reads as a failure to reach Hailiday.
  */
 export function sessionError(error: unknown, retryAfterSeconds?: number | null): ApiError {
   if (error instanceof ApiError) {

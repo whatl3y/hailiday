@@ -1,4 +1,6 @@
 import {
+  DEFAULT_LIGHTING_MODE,
+  DEFAULT_STYLE,
   NON_TERMINAL_RENDER_JOB_STATES,
   packOfferFor,
   projectSkipReason,
@@ -6,15 +8,23 @@ import {
   type LightingMode,
   type OfferedSet,
   type Project as ProjectDto,
-} from '@holiday/core';
-import { addMs } from '@holiday/server/clock';
-import type { DbOrTx, Project, SourceAsset } from '@holiday/server/db';
-import { notFound } from '@holiday/server/errors';
-import { RETENTION, terminateRenderJob } from '@holiday/server/pipeline';
+  type Style,
+} from '@hailiday/core';
+import type { Audience } from '@hailiday/server/capabilities';
+import { addMs } from '@hailiday/server/clock';
+import type { DbOrTx, Project, SourceAsset } from '@hailiday/server/db';
+import { notFound } from '@hailiday/server/errors';
+import { displayLoadsRemaining } from '@hailiday/server/limits';
+import { RETENTION, terminateRenderJob } from '@hailiday/server/pipeline';
+import { framingOf } from '@hailiday/server/providers';
 import type { ApiDeps } from '../deps.js';
 import type { AuthState } from '../auth/session.js';
 import { allowanceFor } from './allowance.js';
-import { displayUrlForViewpoint } from './sources.js';
+import {
+  displayUrlForViewpoint,
+  framedDisplayUrlOf,
+  streetViewSourcePermissions,
+} from './sources.js';
 
 /** Expiry of a project from its activity and save state (privacy retention schedule). */
 export function projectExpiry(
@@ -88,7 +98,9 @@ async function sourceIsDaylight(deps: Pick<ApiDeps, 'db'>, sourceAssetId: string
 /**
  * The project's `offered` set for a holiday: the pack's offer for the scene type, intersected
  * with the source-kind configuration (`evening` on Street View needs an AI-capable source mode)
- * and with `evening` only when the source's analysis reports daylight. Null without a scene type.
+ * and with `evening` only when the source's analysis reports daylight. The defaults are the
+ * pack's, after those filters: a default lighting mode they removed becomes `source`. Null
+ * without a scene type.
  */
 export async function offeredFor(
   deps: Pick<ApiDeps, 'db' | 'content'>,
@@ -100,7 +112,14 @@ export async function offeredFor(
   if (!sceneType) return null;
   const pack = deps.content.packFor(holidayId);
   const offer = pack ? packOfferFor(pack.pack, sceneType) : null;
-  if (!offer) return { styles: [], lightingModes: [] };
+  if (!offer) {
+    return {
+      styles: [],
+      defaultStyle: DEFAULT_STYLE,
+      lightingModes: [],
+      defaultLightingMode: DEFAULT_LIGHTING_MODE,
+    };
+  }
   let lightingModes: LightingMode[] = [...offer.lightingModes];
   if (source?.kind === 'street_view') {
     const editable = source.streetViewMode === 'persist' || source.streetViewMode === 'transient';
@@ -110,7 +129,32 @@ export async function offeredFor(
     const daylight = await sourceIsDaylight(deps, source.id);
     if (daylight === false) lightingModes = lightingModes.filter((mode) => mode !== 'evening');
   }
-  return { styles: [...offer.styles], lightingModes };
+  return {
+    styles: [...offer.styles],
+    defaultStyle: offer.styles.includes(offer.defaultStyle) ? offer.defaultStyle : DEFAULT_STYLE,
+    lightingModes,
+    defaultLightingMode: lightingModes.includes(offer.defaultLightingMode)
+      ? offer.defaultLightingMode
+      : DEFAULT_LIGHTING_MODE,
+  };
+}
+
+/**
+ * The look a project starts from for its scene type and holiday: the defaults of its `offered`
+ * set (the pack's defaults after the source filters). Without a scene type it is the default
+ * style in as-photographed lighting. Set whenever the scene type is set or changes.
+ */
+export async function startingLookFor(
+  deps: Pick<ApiDeps, 'db' | 'content'>,
+  project: Pick<Project, 'sceneType'>,
+  source: SourceAsset | null,
+  holidayId: HolidayId,
+): Promise<{ style: Style; lightingMode: LightingMode }> {
+  const offered = await offeredFor(deps, project, source, holidayId);
+  return {
+    style: offered?.defaultStyle ?? DEFAULT_STYLE,
+    lightingMode: offered?.defaultLightingMode ?? DEFAULT_LIGHTING_MODE,
+  };
 }
 
 /** The project's non-terminal render job, if any. */
@@ -153,6 +197,30 @@ export function discoveredCandidates(candidates: readonly Record<string, unknown
 }
 
 /**
+ * The picture of a Street View source zoomed in on its home, from its stored frame: a signed URL
+ * of that frame while one is kept and the source's policy still allows storing it (as a variant's
+ * "Before" shows it). Null for a source that is not framed or keeps no frame it may show, which
+ * shows the provider's display URL instead (for a framed view, counted and ledgered once per
+ * source: `framedDisplayUrlOf`).
+ */
+async function storedFramedPicture(
+  deps: ApiDeps,
+  audience: Audience,
+  source: SourceAsset,
+): Promise<string | null> {
+  if (source.kind !== 'street_view' || framingOf(source.viewpoint)?.status !== 'framed') {
+    return null;
+  }
+  if (!source.objectKey || source.state === 'deleted') return null;
+  const { store } = await streetViewSourcePermissions(deps, audience, {
+    policyId: source.assetPolicyId,
+    isGoogleImagery: source.isGoogleImagery,
+    copyright: source.copyright,
+  });
+  return store ? deps.storage.presignGet('private', source.objectKey) : null;
+}
+
+/**
  * The shared `Project` object. `formattedAddress` is passed only by the resolve response (the
  * transient Place Details text); later reads show a stored display address only for a stored basis.
  */
@@ -182,7 +250,11 @@ export async function projectDto(
     .executeTakeFirstOrThrow();
 
   let displayUrl: string | null = null;
-  if (source?.kind === 'street_view' || (source?.kind === 'fixture' && source.viewpoint)) {
+  if (source?.kind === 'street_view' && framingOf(source.viewpoint)?.status === 'framed') {
+    displayUrl =
+      (await storedFramedPicture(deps, auth.audience, source)) ??
+      (await framedDisplayUrlOf(deps, auth, source));
+  } else if (source?.kind === 'street_view' || (source?.kind === 'fixture' && source.viewpoint)) {
     displayUrl = await displayUrlForViewpoint(deps, auth.audience, source.viewpoint);
   } else if (source?.objectKey && source.state === 'ready') {
     displayUrl = await deps.storage.presignGet('private', source.objectKey);
@@ -236,14 +308,17 @@ export async function projectDto(
           reason: projectSkipReason(discovery.reason),
           sourceMode: discovery.sourceMode,
           candidateCount: discoveredCandidates(discovery.candidates).length,
-          remainingDisplayLoads: Math.max(0, displayLimit - (property?.displayLoadsIssued ?? 0)),
+          remainingDisplayLoads: displayLoadsRemaining(property, displayLimit, deps.clock.now()),
         }
       : null,
     offered: await offeredFor(deps, project, source, project.holidayId),
     activeRenderJobId: active?.id ?? null,
     variantCount: Number(variantCount.count),
     saved: project.savedAt !== null,
-    expiresAt: project.expiresAt ? project.expiresAt.toISOString() : null,
+    expiresAt:
+      project.expiresAt && (await deps.settings.get('retention.time_based_deletion'))
+        ? project.expiresAt.toISOString()
+        : null,
     lastActivityAt: project.lastActivityAt.toISOString(),
     allowance: await allowanceFor(deps, auth.ownerId),
   };

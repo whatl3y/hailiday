@@ -31,12 +31,33 @@ export type RoomType = z.infer<typeof RoomTypeSchema>;
 export const STYLES = ['subtle', 'classic', 'abundant'] as const;
 export const StyleSchema = z.enum(STYLES);
 export type Style = z.infer<typeof StyleSchema>;
-export const DEFAULT_STYLE: Style = 'classic';
+/** The style of every first look, in every pack and scene type. */
+export const DEFAULT_STYLE: Style = 'abundant';
 
-/** Whether a render keeps the photo's light or relights it for evening. */
-export const LIGHTING_MODES = ['source', 'evening'] as const;
+/**
+ * The light of a render: the photo's own light (`source`, as photographed), relit to early
+ * evening (`evening`), or relit to a bright, airy, cheerful version of the same space (`bright`).
+ */
+export const LIGHTING_MODES = ['source', 'evening', 'bright'] as const;
 export const LightingModeSchema = z.enum(LIGHTING_MODES);
 export type LightingMode = z.infer<typeof LightingModeSchema>;
+
+/**
+ * The lighting modes rendered in two steps: the photo is decorated as photographed, then the
+ * decorated photo is relit.
+ */
+export const RELIGHT_LIGHTING_MODES = ['evening', 'bright'] as const;
+export const RelightLightingModeSchema = z.enum(RELIGHT_LIGHTING_MODES);
+export type RelightLightingMode = z.infer<typeof RelightLightingModeSchema>;
+
+/** Whether a lighting mode is rendered by relighting the photo decorated as photographed. */
+export function isRelightLightingMode(mode: LightingMode): mode is RelightLightingMode {
+  return (RELIGHT_LIGHTING_MODES as readonly string[]).includes(mode);
+}
+/**
+ * The lighting used when a scene type has no pack policy, or when the pack's default lighting is
+ * not offered for the project's source (as photographed).
+ */
 export const DEFAULT_LIGHTING_MODE: LightingMode = 'source';
 
 /** Which path the landing and result screens invite more strongly for a holiday. */

@@ -99,6 +99,8 @@ export interface ViewpointParameters {
   fovMin: number;
   fovMax: number;
   facadeMarginM: number;
+  /** The facade width assumed when the address has no building outline. */
+  defaultFacadeWidthM: number;
   pitchMin: number;
   pitchMax: number;
   facadeMidHeightM: number;
@@ -117,6 +119,7 @@ export const DEFAULT_VIEWPOINT_PARAMETERS: ViewpointParameters = Object.freeze({
   fovMin: 60,
   fovMax: 90,
   facadeMarginM: 2,
+  defaultFacadeWidthM: 12,
   pitchMin: 0,
   pitchMax: 10,
   facadeMidHeightM: 3.5,
@@ -127,14 +130,19 @@ export const DEFAULT_VIEWPOINT_PARAMETERS: ViewpointParameters = Object.freeze({
   primaryReplacementMaxDistanceM: 40,
 });
 
-/** `fov = clamp(2 · atan((W/2 + m) / d), 60, 90)` when W is known, else 90. */
+/**
+ * `fov = clamp(2 · atan((W/2 + m) / d), 60, 90)`. When W is unknown it is taken as
+ * `defaultFacadeWidthM`, the frontage of a typical detached house, so a house across a street
+ * fills the frame instead of standing small in a 90 degree view.
+ */
 export function viewFovDeg(
   facadeWidthM: number | null | undefined,
   distanceM: number,
   params: ViewpointParameters = DEFAULT_VIEWPOINT_PARAMETERS,
 ): number {
-  if (!facadeWidthM || facadeWidthM <= 0 || distanceM <= 0) return params.fovMax;
-  const raw = 2 * toDeg(Math.atan((facadeWidthM / 2 + params.facadeMarginM) / distanceM));
+  if (distanceM <= 0) return params.fovMax;
+  const width = facadeWidthM && facadeWidthM > 0 ? facadeWidthM : params.defaultFacadeWidthM;
+  const raw = 2 * toDeg(Math.atan((width / 2 + params.facadeMarginM) / distanceM));
   return clamp(raw, params.fovMin, params.fovMax);
 }
 

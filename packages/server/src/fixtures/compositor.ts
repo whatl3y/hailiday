@@ -1,5 +1,5 @@
 import sharp from 'sharp';
-import type { HolidayId, LightingMode, NormalizedBox, SceneType, Style } from '@holiday/core';
+import type { HolidayId, LightingMode, NormalizedBox, SceneType, Style } from '@hailiday/core';
 import { eveningGradeLinear, eveningWindowLights } from '../pipeline/imaging/relight.js';
 import { archetypeFor, type DecorArchetype } from './archetypes.js';
 import {

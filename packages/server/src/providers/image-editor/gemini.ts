@@ -1,5 +1,5 @@
 import sharp from 'sharp';
-import type { CompiledRequest } from '@holiday/core';
+import type { CompiledRequest } from '@hailiday/core';
 import type { Logger } from '../../logger/index.js';
 import {
   diagnosticFields,

@@ -28,6 +28,11 @@ describe('object keys', () => {
     expect(keys.example(asset, 'before', 'jpg')).toBe(`examples/${asset}/before.jpg`);
     expect(isHeldKey(keys.held(job, 'a'))).toBe(true);
     expect(keys.tombstoneLog('2026-11-09', job)).toBe(`tombstones/2026-11-09/${job}.jsonl`);
+    expect(keys.enhancedPrefix(owner, asset)).toBe(`enhanced/${owner}/${asset}/`);
+    expect(keys.enhanced(owner, asset, job)).toBe(`enhanced/${owner}/${asset}/${job}.png`);
+    expect(keys.enhanced(owner, asset, job).startsWith(keys.enhancedPrefix(owner, asset))).toBe(
+      true,
+    );
   });
 
   it('refuses anything that is not an opaque identifier', () => {
@@ -38,6 +43,9 @@ describe('object keys', () => {
     expect(() => keys.hero(asset, 'landscape', 'w1', 'gif')).toThrow(UnsafeKeyError);
     expect(() => keys.tombstoneLog('2026-11-9', job)).toThrow(UnsafeKeyError);
     expect(() => keys.tombstoneLog('2026-11-09', '../x')).toThrow(UnsafeKeyError);
+    expect(() => keys.enhancedPrefix('owner', asset)).toThrow(UnsafeKeyError);
+    expect(() => keys.enhanced(owner, '../x', job)).toThrow(UnsafeKeyError);
+    expect(() => keys.enhanced(owner, asset, 'enhanced')).toThrow(UnsafeKeyError);
   });
 });
 
@@ -61,6 +69,7 @@ describe('Street View write refusal', () => {
     policy,
     capabilityState: 'live_private',
     appEnv: 'staging',
+    contributorImagery: 'decorate',
     now,
   });
   const write = (provenance: Parameters<typeof storage.put>[0]['provenance']) =>

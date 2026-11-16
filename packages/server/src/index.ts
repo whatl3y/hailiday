@@ -75,7 +75,7 @@ export function createServerContext(
   const db = createDb({
     connectionString: config.database.url,
     max: config.database.poolMax,
-    applicationName: `holiday-${options.name ?? 'server'}`,
+    applicationName: `hailiday-${options.name ?? 'server'}`,
     logger,
   });
   const storage = createStorage(config, { logger });

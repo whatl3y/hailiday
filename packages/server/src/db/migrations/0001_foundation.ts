@@ -8,7 +8,7 @@ import {
   PRESERVATION_HOLD_REASONS,
   PRESERVATION_HOLD_TARGET_KINDS,
   USER_ROLES,
-} from '@holiday/core';
+} from '@hailiday/core';
 import {
   ID_AND_CREATED,
   ID_CREATED_UPDATED,

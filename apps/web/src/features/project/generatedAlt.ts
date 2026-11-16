@@ -1,4 +1,4 @@
-import type { AnchorCategory, Variant } from '@holiday/core';
+import type { AnchorCategory, Variant } from '@hailiday/core';
 import { holidayName, t, type CopyKey } from '../../copy';
 
 /** How many placements the alt text names. */

@@ -1,5 +1,6 @@
-import type { NormalizedBox } from '@holiday/core';
+import type { LightingMode, NormalizedBox } from '@hailiday/core';
 import { PIPELINE_DEFAULTS } from '../versions.js';
+import { restoreAttributionRelit, type AttributionRestoreMode } from './attribution.js';
 import { attributionRegionsOf, medianDeltaE } from './checks.js';
 import { featherBand, neighbourhood, type CompositeMask } from './mask.js';
 import { copyRect, toRect, type Raster } from './raster.js';
@@ -357,7 +358,7 @@ export function edgeSeamDeltaE(working: Raster, candidate: Raster, mask: Composi
 export interface AlignedComposite {
   /** The provider output on the working grid (resampled and warped when registration applied). */
   raw: Raster;
-  /** The candidate: pasted back in `source` mode, the aligned output in `evening`. */
+  /** The candidate: pasted back in `source` mode, the aligned output in a relight. */
   candidate: Raster;
   alignment: AlignmentRecord;
   /** Whether photometric alignment changed the output before paste-back. */
@@ -365,6 +366,55 @@ export interface AlignedComposite {
   /** Photometric alignment record (`source` mode with a mask). */
   photometric: PhotometricRecord | null;
   attributionRestored: boolean;
+  /** How each attribution rectangle was restored, in order (empty when there are none). */
+  attribution: AttributionRestoreRecord[];
+}
+
+/** One attribution rectangle's restoration (stored with the compositing checks on the attempt). */
+export interface AttributionRestoreRecord {
+  mode: AttributionRestoreMode;
+  /** The stroke share found in the rectangle (a relight); null in `source` mode. */
+  share: number | null;
+  /** The relight's per-channel gain in linear light (adapted only). */
+  gain: [number, number, number] | null;
+}
+
+/**
+ * Restores the attribution rectangles and the padding into a candidate. In `source` mode both are
+ * copied verbatim from the working image. In a relight each attribution rectangle keeps the
+ * working image's logo and copyright strokes while the ground behind them follows the new light
+ * (`restoreAttributionRelit`, verbatim when the strokes are not found reliably); padding stays
+ * verbatim.
+ */
+export function restoreProtectedRectangles(input: {
+  candidate: Raster;
+  working: Raster;
+  lightingMode: LightingMode;
+  attribution: readonly NormalizedBox[];
+  padRegions?: readonly NormalizedBox[];
+}): { candidate: Raster; attribution: AttributionRestoreRecord[] } {
+  const { working, attribution } = input;
+  const pads = input.padRegions ?? [];
+  let candidate = input.candidate;
+  const records: AttributionRestoreRecord[] = [];
+  for (const [index, box] of attribution.entries()) {
+    if (input.lightingMode === 'source') {
+      candidate = restoreRegion(candidate, working, box);
+      records.push({ mode: 'verbatim', share: null, gain: null });
+      continue;
+    }
+    const restored = restoreAttributionRelit(candidate, working, box, {
+      ringExclude: [...attribution.filter((_, other) => other !== index), ...pads],
+    });
+    candidate = restored.raster;
+    records.push({
+      mode: restored.mode,
+      share: Math.round(restored.share * 10_000) / 10_000,
+      gain: restored.gain,
+    });
+  }
+  for (const pad of pads) candidate = restoreRegion(candidate, working, pad);
+  return { candidate, attribution: records };
 }
 
 const round2 = (value: number) => Math.round(value * 100) / 100;
@@ -372,14 +422,15 @@ const round2 = (value: number) => Math.round(value * 100) / 100;
 /**
  * Registration of a delivered output to a reference image (render spec, registration): the
  * similarity transform estimated over pixels outside `exclude`, applied when within the limits.
- * In `evening` mode, where nothing is pasted back, a warp that leaves an uncovered strip deeper
- * than `maxUncoveredInsetFraction` of the long edge is rejected (`reason: 'uncovered'`, which the
- * checks report as `camera_changed`). A rejected registration has no aligned raster.
+ * In a relight (`evening` or `bright`), where nothing is pasted back, a warp that leaves an
+ * uncovered strip deeper than `maxUncoveredInsetFraction` of the long edge is rejected
+ * (`reason: 'uncovered'`, which the checks report as `camera_changed`). A rejected registration
+ * has no aligned raster.
  */
 export async function registerDelivered(input: {
   working: Raster;
   delivered: Raster;
-  lightingMode: 'source' | 'evening';
+  lightingMode: LightingMode;
   exclude: Uint8Array | null;
   fallbackPx: number;
   maxUncoveredInsetFraction?: number;
@@ -393,7 +444,7 @@ export async function registerDelivered(input: {
   const maxInset =
     (input.maxUncoveredInsetFraction ?? PIPELINE_DEFAULTS.checks.maxUncoveredInsetFraction) * long;
   if (
-    input.lightingMode === 'evening' &&
+    input.lightingMode !== 'source' &&
     registered.record.applied &&
     (registered.record.uncoveredInsetPx ?? 0) > maxInset
   ) {
@@ -410,23 +461,24 @@ export async function registerDelivered(input: {
  * render job and the example renderer: the delivered output is registered to the working image
  * over pixels outside the placement shapes (`exclude`) and warped into alignment when the
  * transform is within the limits (`registerDelivered`, or a registration passed in). In `source`
- * mode the output's color and brightness are matched
- * to the working image over the unedited ring around the mask (`photometricAlign`; also forced
- * when the seam would otherwise exceed `seamDeltaE`), then the original pixels are pasted back
- * outside the feathered mask. In `evening` mode nothing is pasted back, so a warp that leaves an
- * uncovered strip deeper than `maxUncoveredInsetFraction` of the long edge is rejected
- * (`reason: 'uncovered'`, which the checks report as `camera_changed`); a thinner strip is kept,
- * filled by reflection. In both modes the attribution rectangles and padding are restored
- * verbatim. A rejected registration returns the delivered output unchanged with
- * `alignment.accepted` false.
+ * mode the output's color and brightness are matched to the working image over the unedited ring
+ * around the mask (`photometricAlign`; also forced when the seam would otherwise exceed
+ * `seamDeltaE`), then the original pixels are pasted back outside the feathered mask. In a
+ * relight nothing is pasted back, so a warp that leaves an uncovered strip deeper than
+ * `maxUncoveredInsetFraction` of the long edge is rejected (`reason: 'uncovered'`, which the
+ * checks report as `camera_changed`); a thinner strip is kept, filled by reflection. Padding is
+ * restored verbatim in both modes, and so are the attribution rectangles in `source` mode; in a
+ * relight each attribution rectangle keeps the working image's logo and copyright strokes over a
+ * relit ground (`restoreProtectedRectangles`). A rejected registration returns the delivered
+ * output unchanged with `alignment.accepted` false.
  */
 export async function alignAndComposite(input: {
   working: Raster;
   delivered: Raster;
-  lightingMode: 'source' | 'evening';
+  lightingMode: LightingMode;
   mask: CompositeMask | null;
   exclude: Uint8Array | null;
-  /** The embedded attribution rectangle(s), restored verbatim in both modes. */
+  /** The embedded attribution rectangle(s): verbatim in `source` mode, strokes kept in a relight. */
   attributionRegion?: NormalizedBox | readonly NormalizedBox[] | null;
   padRegions?: readonly NormalizedBox[];
   seamDeltaE: number;
@@ -434,7 +486,7 @@ export async function alignAndComposite(input: {
   fallbackPx: number;
   /** Photometric alignment settings (defaults: `PIPELINE_DEFAULTS.photometric`); false disables. */
   photometric?: false | Partial<(typeof PIPELINE_DEFAULTS)['photometric']>;
-  /** Deepest accepted uncovered strip in `evening` (default from `PIPELINE_DEFAULTS.checks`). */
+  /** Deepest accepted uncovered strip in a relight (default from `PIPELINE_DEFAULTS.checks`). */
   maxUncoveredInsetFraction?: number;
   /**
    * A registration already done on `delivered` (`registerDelivered`), for callers that look at the
@@ -465,6 +517,7 @@ export async function alignAndComposite(input: {
       exposureMatched: false,
       photometric: null,
       attributionRestored: false,
+      attribution: [],
     };
   }
   const raw = registered.aligned;
@@ -511,14 +564,20 @@ export async function alignAndComposite(input: {
       }
     }
   }
-  for (const box of attribution) candidate = restoreRegion(candidate, working, box);
-  for (const pad of input.padRegions ?? []) candidate = restoreRegion(candidate, working, pad);
+  const restored = restoreProtectedRectangles({
+    candidate,
+    working,
+    lightingMode: input.lightingMode,
+    attribution,
+    ...(input.padRegions ? { padRegions: input.padRegions } : {}),
+  });
   return {
     raw,
-    candidate,
+    candidate: restored.candidate,
     alignment: registered.record,
     exposureMatched: photometric?.applied ?? false,
     photometric,
     attributionRestored: attribution.length > 0,
+    attribution: restored.attribution,
   };
 }

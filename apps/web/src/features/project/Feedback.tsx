@@ -5,7 +5,7 @@ import {
   FEEDBACK_REASON_LABEL_KEYS,
   type FeedbackReason,
   type FeedbackVerdict,
-} from '@holiday/core';
+} from '@hailiday/core';
 import { createFeedback } from '../../api/endpoints';
 import { presentError } from '../../api/present';
 import { t, tDynamic } from '../../copy';

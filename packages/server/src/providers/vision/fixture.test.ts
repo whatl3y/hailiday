@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { loadFixtureData } from '../../fixtures/data.js';
-import { createFixtureVisionModel, hintedScene } from './fixture.js';
+import { FIXTURE_LOCATE_CONFIDENCE, createFixtureVisionModel, hintedScene } from './fixture.js';
+import { FRAME_PROMPT_VERSION } from './prompts.js';
 
 const vision = createFixtureVisionModel();
 const image = { bytes: new Uint8Array([1]), width: 1024, height: 768 };
@@ -50,5 +51,38 @@ describe('fixture upload triage', () => {
       sceneTypeConfidence: 0.2,
       roomType: null,
     });
+  });
+});
+
+describe('fixture home location', () => {
+  it('reports the target facade and ambiguity the scene analysis reports for the frame', async () => {
+    const scene = {
+      kind: 'street_view' as const,
+      panoId: 'fxSvOldQuarryRoa19p1Sv',
+      heading: 90,
+      fov: 60,
+      pitch: 1,
+    };
+    const frame = { bytes: new Uint8Array([1]), width: 640, height: 640 };
+    const located = await vision.locateHome({
+      image: frame,
+      sourceAssetId: 'source-1',
+      fixture: { scene },
+    });
+    const analysis = await vision.analyzeScene({
+      image: { ...frame, checksum: 'abc' },
+      sourceAssetId: 'source-1',
+      sourceKind: 'street_view',
+      sceneType: 'house_exterior',
+      fixture: { scene },
+    });
+    expect(located.result).toEqual({
+      home: analysis.result.targetFacade,
+      ambiguous: analysis.result.targetFacadeAmbiguous,
+      confidence: FIXTURE_LOCATE_CONFIDENCE,
+    });
+    expect(located.result.home).not.toBeNull();
+    expect(located.promptVersion).toBe(FRAME_PROMPT_VERSION);
+    expect(located.providerMode).toBe('fixture');
   });
 });

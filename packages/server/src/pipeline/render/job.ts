@@ -1,3 +1,4 @@
+import { sql } from 'kysely';
 import { z } from 'zod';
 import {
   BuildingFormSchema,
@@ -6,14 +7,18 @@ import {
   DecorationPlanSchema,
   JudgeResultSchema,
   LocalizationRecordSchema,
+  MAX_RENDER_ATTEMPTS,
   RelightBaseSchema,
   RoomTypeSchema,
   SceneAnalysisSchema,
   SceneTypeSchema,
+  STANDARD_RENDER_ATTEMPTS,
   SpecAttributesSchema,
   TERMINAL_RENDER_JOB_STATES,
   isCriticalFailureCode,
+  isRelightLightingMode,
   isTerminalRenderJobState,
+  JobEnhancementRecordSchema,
   type BuildingForm,
   type CompiledRequest,
   type DecorationPlan,
@@ -21,23 +26,29 @@ import {
   type FailureDetail,
   type FailureKind,
   type HolidayPack,
+  type JobEnhancementRecord,
   type JudgeResult,
   type LightingMode,
   type LocalizationRecord,
   type LocalizedAdditionRecord,
+  type MajorFailureCode,
   type NormalizedBox,
   type ProviderMode,
   type RelightAttemptRecord,
   type RelightBase,
+  type RelightFallbackRecord,
+  type RelightLightingMode,
+  type RelightSkippedRecord,
+  type RenderAttemptNumber,
   type RenderJobState,
   type RoomType,
   type SceneAnalysis,
   type SceneType,
   type SpecAttributes,
   type UserRole,
-} from '@holiday/core';
+} from '@hailiday/core';
 import { readPackByRef } from '../../content/load.js';
-import { toJson } from '../../db/client.js';
+import { toJson, type DbOrTx, type Tx } from '../../db/client.js';
 import type {
   Project,
   RenderAsset,
@@ -49,14 +60,21 @@ import type {
 import { FIXTURE_COMPOSITOR_VERSION } from '../../fixtures/compositor.js';
 import { newId } from '../../ids/index.js';
 import {
+  ENHANCE_LEDGER_STAGE,
   VISION_PRICES_MICROS,
   release,
   unitPriceFor,
   usageCostMicros,
   type ReportedUsage,
 } from '../../ledger/index.js';
-import { attemptQuota } from '../../limits/index.js';
-import { evaluateAndRecord, isEditable, type AssetPermission } from '../../policy/index.js';
+import { attemptQuota, lockOwnerAllowance } from '../../limits/index.js';
+import {
+  evaluateAndRecord,
+  isEditable,
+  isPropertyBlocked,
+  permissionSettingsOf,
+  type AssetPermission,
+} from '../../policy/index.js';
 import { isProviderError, ProviderError } from '../../providers/errors.js';
 import type {
   EditOutcome,
@@ -71,6 +89,7 @@ import { FIXTURE_VISION_MODEL } from '../../providers/vision/fixture.js';
 import { keys } from '../../storage/keys.js';
 import { emitServerEvent } from '../analytics.js';
 import {
+  RELIGHT_REPAIR_BRIGHT_LIGHT,
   RELIGHT_REPAIR_KEEP,
   RELIGHT_REPAIR_LIGHT,
   compileRelightRequest,
@@ -86,6 +105,12 @@ import {
   type PipelineOptions,
   type ProviderLegs,
 } from '../context.js';
+import { EnhancementRunStopped, resolveEnhancement, type EnhanceContext } from '../enhance/run.js';
+import { loadEnhancedWorking } from '../enhance/store.js';
+import {
+  copyrightLabelRegions,
+  embeddedAttributionRegions,
+} from '../imaging/embedded-attribution.js';
 import { runLengthEncode, type CompositeMask } from '../imaging/mask.js';
 import {
   checksumOf,
@@ -97,6 +122,7 @@ import {
   type Raster,
 } from '../imaging/raster.js';
 import { registrationRecord } from '../imaging/registration.js';
+import { medianLuma } from '../imaging/relight.js';
 import {
   nativeBoxesOnWorkingGrid,
   prepareWorkingImage,
@@ -111,7 +137,14 @@ import {
   type RepairInput,
 } from '../plan/index.js';
 import { COMPILER_RELEASE, PIPELINE_DEFAULTS } from '../versions.js';
-import { JobAborted, JobFailure, sleep } from './errors.js';
+import {
+  JobAborted,
+  JobFailure,
+  NO_IMAGE,
+  sleep,
+  unreadableAnswer,
+  vendorAnswered,
+} from './errors.js';
 import {
   fixtureAttributionRegion,
   fixtureContextFor,
@@ -123,12 +156,19 @@ import {
   releaseRemaining,
   settleCall,
 } from './ledger.js';
-import { localizedKeepMask, renderCompositeMask } from './mask.js';
+import {
+  protectedCompositing,
+  renderCompositeMask,
+  type ProtectedCompositing,
+  type TextMarkModeOf,
+} from './mask.js';
 import {
   buildDeliverables,
+  holdBaseVariant,
   holdForReview,
   publishAccepted,
   publishBaseVariant,
+  type StagedBaseVariant,
 } from './publish.js';
 import {
   callJudge,
@@ -140,12 +180,27 @@ import {
   deterministicJudgeResult,
   judgeDecision,
   localizationRecords,
+  openTextMarkHints,
   registerOutput,
   restoredChangeHints,
+  uncertainDeliverable,
   type AttemptVerdict,
   type CompositeResult,
   type JudgeClassification,
 } from './quality.js';
+import { frameStreetViewSource, keepWideFrame } from './framing.js';
+import {
+  criticalSpotsOnly,
+  decorationsLeft,
+  doubtedSpots,
+  enoughDecorationsLeft,
+  objectedSpots,
+  withRestoredSpots,
+  type DecorationsLeft,
+  type JudgedSpots,
+  type ObjectedSpots,
+  type RestoredRecord,
+} from './last-resort.js';
 import { loadSourcePixels, type LoadedSource } from './source.js';
 import { LostRaceError, readJob, transitionJob, type JobPatch } from './transitions.js';
 
@@ -186,6 +241,18 @@ class RunStopped extends Error {
   }
 }
 
+/**
+ * The owner's paid-attempt cap, checked under the owner's allowance lock, refused the next
+ * attempt. The job fails `policy_denied` unless the refused attempt relights a base the job
+ * decorated itself (`deliverBaseAfterRefusedRelight`).
+ */
+class AttemptCapReached extends JobFailure {
+  constructor() {
+    super('policy_denied', null, 'paid-attempt cap reached');
+    this.name = 'AttemptCapReached';
+  }
+}
+
 const packCache = new Map<string, HolidayPack>();
 
 /**
@@ -199,24 +266,22 @@ const SETTLED_ATTEMPT_FAILURES: Partial<Record<RenderAttempt['outcome'], Failure
   qa_rejected: 'internal_error',
 };
 
-/** The editor answered with a reply that carries no image (nothing billed for an image). */
-const NO_IMAGE = 'no_image';
-
 /**
- * Whether a failed edit carries the vendor's answer (an HTTP status, or a reply without an
- * image). A failure without one (connection loss, unreadable body, client timeout, a status
- * query a provider cannot answer) may have been billed.
+ * The failure an attempt recorded when its edit ended without an output: `timeout` or
+ * `provider_error` (already settled), or `canceled` before it was sent (a paused provider, or too
+ * little time left for a relight's edit). A redelivery that finds the job already in `checking`
+ * (a fallback after the failed edit moved it there: to a relight's base, or to the attempt kept
+ * through a repair) ends the job with that failure. Null for any other attempt.
  */
-function vendorAnswered(outcome: Extract<EditOutcome, { status: 'failed' }>): boolean {
-  return outcome.httpStatus !== undefined || outcome.providerCode === NO_IMAGE;
-}
-
-/**
- * A 200 response whose body could not be read: the vendor most likely rendered and billed the
- * image, so the outcome is unknown rather than an unbilled provider error.
- */
-function unreadableAnswer(outcome: Extract<EditOutcome, { status: 'failed' }>): boolean {
-  return outcome.httpStatus === 200 && outcome.providerCode === 'invalid_json';
+function unfinishedEditFailure(attempt: RenderAttempt): JobFailure | null {
+  if (attempt.outcome === 'timeout' || attempt.outcome === 'provider_error') {
+    return new JobFailure(attempt.outcome, null, 'attempt outcome already recorded');
+  }
+  if (attempt.outcome === 'canceled' && attempt.providerOperationId === null) {
+    const paused = (attempt.errorDetail as { paused?: unknown } | null)?.paused === true;
+    return new JobFailure(paused ? 'provider_error' : 'timeout', null, 'relight edit not sent');
+  }
+  return null;
 }
 
 /** A vision call's reported token usage, for settlement from usage. */
@@ -229,7 +294,7 @@ function visionUsage(call: Pick<VisionCallResult<unknown>, 'usage'>): ReportedUs
   };
 }
 
-/** The daylight image an evening relight starts from, loaded on the working grid. */
+/** The decorated base a relight starts from, loaded on the working grid. */
 interface RelightInput {
   base: RelightBase;
   /** The accepted daylight plan (its placements are the decorations the relight keeps). */
@@ -249,6 +314,8 @@ interface LocalizedComposite {
   mask: CompositeMask;
   keptRegions: NormalizedBox[];
   hints: string[];
+  /** House numbers left open: the deterministic comparison skips them. */
+  openHouseNumbers: NormalizedBox[];
 }
 
 /** One judge call's result before it is recorded. */
@@ -258,11 +325,73 @@ interface JudgeCall {
   call: VisionCallResult<JudgeResult> | null;
 }
 
-/** Where an evening job's own daylight base is stored when it is not published (review mode). */
+/**
+ * Where a relight-mode job's own decorated base is stored when it is not published (a bright job
+ * always; an evening job in pre-delivery review).
+ */
 const RELIGHT_BASE_FILE = 'relight-base.png';
+
+/**
+ * Failures of a relight (its edit, decoding its output, its judge) after which a bright job
+ * delivers its decorated base and an evening job that decorated its own base ends with it as the
+ * daylight variant.
+ */
+const RELIGHT_FALLBACK_FAILURES: readonly FailureKind[] = ['provider_error', 'timeout'];
+
+/**
+ * What a job's `repair_constraints` carries between its attempts: the derived repair of a
+ * rejected decorate attempt (with the codes and verdict that rejected it); the decorated base the
+ * next attempt relights (with the verdict that accepted it, and for a repaired base the codes and
+ * verdict that rejected the first one); or, with `relight`, the codes of a
+ * rejected relight that the next attempt repairs (keeping the base and its verdict when the job
+ * decorated that base itself).
+ */
+interface StoredAttemptState {
+  constraints?: unknown;
+  adjustments?: unknown;
+  codes?: FailureCode[];
+  verdict?: AttemptVerdict['verdict'];
+  relight?: boolean;
+  relightBase?: unknown;
+  baseVerdict?: AttemptVerdict['verdict'];
+}
 
 function sameItem(a: LocalizedAdditionRecord, b: LocalizedAdditionRecord): boolean {
   return a.label === b.label && a.placementId === b.placementId && a.box.join() === b.box.join();
+}
+
+/**
+ * A checked decorate attempt: what the job needs to go on with it, and how to composite it again
+ * with spots put back from the original.
+ */
+interface CheckedAttempt {
+  attemptNo: RenderAttemptNumber;
+  attempt: RenderAttempt;
+  plan: DecorationPlan;
+  judge: JudgeResult;
+  candidate: Raster;
+  verdict: AttemptVerdict;
+  /** The deterministic codes of the composite as checked. */
+  deterministic: FailureCode[];
+  /** The decorations the composite keeps: the localized items kept, else the plan's regions. */
+  decorations: NormalizedBox[];
+  /**
+   * Composites the attempt again exactly as it was checked, with `boxes` (grown) restored from the
+   * original; null when the output was not registered.
+   */
+  restore: ((boxes: readonly NormalizedBox[]) => Promise<CompositeResult>) | null;
+}
+
+/**
+ * A decorate attempt kept in memory while its repair runs (never across a redelivery), as the
+ * job's picture should the repair end without an accepted one: a deliverable doubt (`doubt`); an
+ * attempt rejected only because a repair was open, kept with the passing verdict it has with no
+ * repair after it, its confident majors recorded (`passing`); or a rejected attempt whose objected
+ * spots qualify for the last resort (`objected`). An attempt is kept as one of them, in that order.
+ */
+interface KeptAttempt {
+  checked: CheckedAttempt;
+  as: 'doubt' | 'passing' | 'objected';
 }
 
 interface PlannedRun {
@@ -294,7 +423,10 @@ class RenderRun {
   private legs!: ProviderLegs;
   private permission!: AssetPermission;
   private loaded!: LoadedSource;
+  /** The image every attempt works on: the frame, or its accepted enhancement. */
   private working!: WorkingImage;
+  /** The source on the working grid as loaded (for Street View, Google's frame). */
+  private frame!: WorkingImage;
   private fixture!: SourceFixtureContext;
   /** Embedded attribution rectangles on the working grid (restored and checked verbatim). */
   private attributionRegions: NormalizedBox[] = [];
@@ -308,10 +440,14 @@ class RenderRun {
   private kitAttributes = new Map<string, SpecAttributes>();
   private planned: PlannedRun | null = null;
   private rawOutput: Uint8Array | null = null;
-  /** The daylight image of the current evening relight, once loaded. */
+  /** The decorated base of the current relight, once loaded. */
   private relightInput: RelightInput | null = null;
-  /** This job's own accepted daylight composite, when an evening job rendered its base first. */
+  /** This job's own accepted decorated base, when a relight-mode job rendered it first. */
   private baseComposite: { attemptId: string; raster: Raster } | null = null;
+  /** Median luma of the working image's content area, once measured. */
+  private contentLuma: number | null = null;
+  /** The decorate attempt kept while its repair runs (`KeptAttempt`). */
+  private kept: KeptAttempt | null = null;
 
   constructor(
     private readonly deps: PipelineDeps,
@@ -447,9 +583,10 @@ class RenderRun {
       sourceAssetId: this.source.id,
       context: 'pre_call',
       capabilityState,
-      appEnv: this.deps.config.appEnv,
+      ...permissionSettingsOf(this.deps.config),
       sourceKind: this.source.kind,
       isGoogleImagery: this.source.isGoogleImagery,
+      copyright: this.source.copyright,
       jobId: this.job.id,
       stage,
       clock: this.deps.clock,
@@ -460,7 +597,7 @@ class RenderRun {
 
   private async prepare(): Promise<void> {
     await this.ensureActive();
-    const source = await this.deps.db
+    let source = await this.deps.db
       .selectFrom('sourceAssets')
       .selectAll()
       .where('id', '=', this.job.sourceAssetId)
@@ -495,6 +632,10 @@ class RenderRun {
 
     if (source.kind === 'street_view') {
       await this.assertNotPaused(this.legs.mode === 'live' ? 'google' : 'fixture');
+      // A place on the opt-out list is never decorated, also by a job queued before the block.
+      if (await isPropertyBlocked(this.deps.db, this.project.propertyId, this.now())) {
+        throw new JobFailure('source_rejected', null, 'Place is on the opt-out list');
+      }
     }
     this.loaded = await loadSourcePixels(this.deps, {
       job: this.job,
@@ -504,11 +645,40 @@ class RenderRun {
       signal: this.signal,
     });
     this.checkAbort();
+    // A Street View source with no framing recorded is zoomed in on its home here; the job goes on
+    // with the frame and the source row as they stand afterwards.
+    const framed = await frameStreetViewSource(this.deps, {
+      job: this.job,
+      source,
+      loaded: this.loaded,
+      permission,
+      legs: this.legs,
+      sceneType: this.sceneType,
+      signal: this.signal,
+      log: this.log,
+      checkAbort: () => this.checkAbort(),
+      isPaused: (provider) => this.isPaused(provider),
+      visionProvider: () => this.visionProvider(),
+    });
+    this.loaded = framed.loaded;
+    this.source = framed.source;
+    source = framed.source;
+    this.checkAbort();
+    await this.useLoadedFrame(source, permission);
+    if (this.job.state === 'preparing') await this.advance('analyzing');
+  }
+
+  /**
+   * Makes the loaded frame the job's working image: decoded onto the working grid, stored where
+   * the source may be stored (never `transient`), and recorded on the job row.
+   */
+  private async useLoadedFrame(source: SourceAsset, permission: AssetPermission): Promise<void> {
     try {
       this.working = await prepareWorkingImage(this.loaded.bytes, source.kind);
     } catch {
       throw new JobFailure('source_unavailable', null, 'source image could not be decoded');
     }
+    this.frame = this.working;
     this.fixture = fixtureContextFor(source, this.deps.content, {
       width: this.working.width,
       height: this.working.height,
@@ -527,12 +697,14 @@ class RenderRun {
         provenance: { sourceKind: source.kind, permission },
       });
     }
+    // Past `analyzing` the job has committed the checksum of the image its attempts use.
+    const uncommitted = this.job.state === 'preparing' || this.job.state === 'analyzing';
     await this.deps.db
       .updateTable('renderJobs')
       .set({
         workingWidth: this.working.width,
         workingHeight: this.working.height,
-        workingChecksumSha256: this.working.checksum,
+        ...(uncommitted ? { workingChecksumSha256: this.working.checksum } : {}),
         resampler: this.working.resampler,
         workingCropBox: this.working.cropBox ? toJson(this.working.cropBox) : null,
         workingPadBox: this.working.contentBox ? toJson(this.working.contentBox) : null,
@@ -541,22 +713,38 @@ class RenderRun {
       })
       .where('id', '=', this.job.id)
       .execute();
-    if (this.job.state === 'preparing') await this.advance('analyzing');
   }
 
   /**
-   * The embedded attribution rectangles of a Street View-origin source on the working grid: for a
-   * live frame, the rectangles configured for its requested size (`STREET_VIEW_ATTRIBUTION_REGIONS`,
-   * normalized to the Static image) mapped through the aspect crop and the padding; for a fixture
-   * frame, the rectangle its renderer drew. Other sources have none.
+   * The embedded attribution rectangles of a source on the working grid: for a live Street View
+   * frame, the rectangles configured for its requested size (`STREET_VIEW_ATTRIBUTION_REGIONS`,
+   * normalized to the Static image), the copyright label's widened for the frame's own copyright
+   * line when the imagery is not attributed to Google (`copyrightLabelRegions`), mapped through
+   * the aspect crop and the padding; for a fixture
+   * Street View frame, the rectangle its renderer drew. An upload (or a fixture source that is not
+   * a Street View frame) whose picture is a whole Street View Static frame carrying both marks
+   * gets the rectangles configured for its native size (`embeddedAttributionRegions`, decided
+   * from the working image's own pixels); the source row stays an upload. Other sources have none.
    */
   private attributionRegionsOf(source: SourceAsset): NormalizedBox[] {
+    if (source.kind === 'upload' || (source.kind === 'fixture' && !source.viewpoint)) {
+      return embeddedAttributionRegions(
+        this.working,
+        this.deps.config.streetView.attributionRegions,
+      );
+    }
     if (source.kind === 'street_view' && this.legs.mode === 'live') {
       const viewpoint = source.viewpoint;
       if (!viewpoint) return [];
       const configured =
         this.deps.config.streetView.attributionRegions[`${viewpoint.width}x${viewpoint.height}`];
-      return configured ? nativeBoxesOnWorkingGrid(configured, this.working) : [];
+      if (!configured) return [];
+      const fitted = copyrightLabelRegions(configured, {
+        frameWidth: viewpoint.width,
+        copyright: source.copyright,
+        isGoogleImagery: source.isGoogleImagery,
+      });
+      return nativeBoxesOnWorkingGrid(fitted, this.working);
     }
     if (source.kind === 'street_view' || (source.kind === 'fixture' && source.viewpoint)) {
       const region = fixtureAttributionRegion(this.fixture);
@@ -611,11 +799,19 @@ class RenderRun {
     }
   }
 
+  /**
+   * Declines the source while it is `ready`. A refusal that holds for every run of the source (its
+   * owner's blur, a provider's refusal of the picture) declines it whatever became of the run's
+   * job. With `whileActive` (a refusal a later run may answer by taking a framing back) it
+   * declines only while the run's job is still active: a job another actor ended (canceled,
+   * superseded) declines nothing, the run stops, and the job that replaced it decides.
+   */
   private async declineSource(
     reason: 'provider_refused' | null,
     extra: { providerRefusedAt?: Date } = {},
+    options: { whileActive?: boolean } = {},
   ): Promise<void> {
-    await this.deps.db
+    const declined = await this.deps.db
       .updateTable('sourceAssets')
       .set({
         state: 'declined',
@@ -630,7 +826,21 @@ class RenderRun {
       })
       .where('id', '=', this.source.id)
       .where('state', '=', 'ready')
-      .execute();
+      .$if(options.whileActive === true, (query) =>
+        query.where((eb) =>
+          eb.exists(
+            eb
+              .selectFrom('renderJobs')
+              .select('renderJobs.id')
+              .where('renderJobs.id', '=', this.job.id)
+              .where('renderJobs.state', 'not in', [...TERMINAL_RENDER_JOB_STATES]),
+          ),
+        ),
+      )
+      .executeTakeFirst();
+    if (!options.whileActive || declined.numUpdatedRows > 0n) return;
+    const current = await readJob(this.deps.db, this.job.id);
+    if (!current || isTerminalRenderJobState(current.state)) throw new RunStopped();
   }
 
   private async analyze(): Promise<void> {
@@ -756,8 +966,117 @@ class RenderRun {
       .set({ sceneAnalysisId: this.sceneAnalysisId })
       .where('id', '=', this.job.id)
       .execute();
+    if (await this.takeBackRefusedFraming()) return this.analyze();
     await this.sourceChecks();
-    if (this.job.state === 'analyzing') await this.advance('planning');
+    if (this.job.state === 'analyzing') {
+      const result = await resolveEnhancement(this.enhanceContext());
+      if (result.working) {
+        this.working = result.working;
+        this.contentLuma = null;
+      }
+      await this.advance('planning', {
+        workingChecksumSha256: this.working.checksum,
+        enhancement: result.record ? toJson(result.record) : null,
+      });
+    } else {
+      await this.restoreEnhancedWorking();
+    }
+  }
+
+  /**
+   * An analysis that finds no single home in a framed frame takes the framing back
+   * (`keepWideFrame`, decided from the source row): the run's frame becomes the wide frame again,
+   * which is then analyzed from the start. False when nothing was taken back (the source checks
+   * decide as before). A job no longer active stops the run, which then neither fetches nor
+   * declines.
+   */
+  private async takeBackRefusedFraming(): Promise<boolean> {
+    const refused = !this.analysis.targetFacade || this.analysis.targetFacadeAmbiguous;
+    if (!refused || this.sceneType !== 'house_exterior') return false;
+    const wide = await keepWideFrame(this.deps, {
+      job: this.job,
+      source: this.source,
+      loaded: this.loaded,
+      permission: this.permission,
+      legs: this.legs,
+      sceneType: this.sceneType,
+      signal: this.signal,
+      log: this.log,
+      checkAbort: () => this.checkAbort(),
+      isPaused: (provider) => this.isPaused(provider),
+      visionProvider: () => this.visionProvider(),
+    });
+    if (wide.outcome === 'stopped') throw new RunStopped();
+    if (wide.outcome === 'refused') return false;
+    this.loaded = wide.loaded;
+    this.source = wide.source;
+    this.contentLuma = null;
+    await this.useLoadedFrame(wide.source, this.permission);
+    return true;
+  }
+
+  /** What the enhancement step needs from this run. */
+  private enhanceContext(): EnhanceContext {
+    return {
+      deps: this.deps,
+      options: this.options,
+      job: this.job,
+      project: this.project,
+      source: this.source,
+      legs: this.legs,
+      frame: this.frame,
+      loaded: this.loaded,
+      analysis: this.analysis,
+      sceneType: this.sceneType,
+      attributionRegions: this.attributionRegions,
+      fixtureHint: this.fixture.hint,
+      signal: this.signal,
+      deadlineHit: () => this.deadlineHit,
+      now: () => this.now(),
+      log: this.log,
+      permission: () => this.permission,
+      evaluate: (stage) => this.evaluate(stage),
+      isPaused: (provider) => this.isPaused(provider),
+      visionProvider: () => this.visionProvider(),
+      compilerFamily: () => this.compilerFamily(),
+      modelSnapshot: () => this.modelSnapshot(),
+      providerMode: () => this.providerMode(),
+      withVisionRetries: (call) => this.withVisionRetries(call),
+    };
+  }
+
+  /**
+   * A job redelivered past `analyzing` whose record says it uses an enhancement (`made` or
+   * `reused`) works on that picture again: the row must still be accepted with the job's working
+   * checksum and its picture intact, else the job fails `source_unavailable` (the frame and its
+   * enhancement were removed while the job ran).
+   */
+  private async restoreEnhancedWorking(): Promise<void> {
+    const parsed = JobEnhancementRecordSchema.safeParse(this.job.enhancement);
+    const used: JobEnhancementRecord | null =
+      parsed.success && (parsed.data.outcome === 'made' || parsed.data.outcome === 'reused')
+        ? parsed.data
+        : null;
+    if (!used) return;
+    const row = used.enhancementId
+      ? await this.deps.db
+          .selectFrom('sourceEnhancements')
+          .selectAll()
+          .where('id', '=', used.enhancementId)
+          .executeTakeFirst()
+      : undefined;
+    const working =
+      row &&
+      row.status === 'accepted' &&
+      row.enhancedChecksumSha256 !== null &&
+      row.enhancedChecksumSha256 === this.job.workingChecksumSha256
+        ? await loadEnhancedWorking(this.deps, { row, frame: this.frame })
+        : null;
+    if (!working) {
+      throw new JobFailure('source_unavailable', null, 'enhanced working image unavailable');
+    }
+    this.working = working;
+    this.contentLuma = null;
   }
 
   /** Street View refusals before any paid edit (render spec rule 4a; address spec blur rules). */
@@ -767,7 +1086,7 @@ class RenderRun {
     if (streetView && this.sceneType === 'house_exterior') {
       const facade = analysis.targetFacade;
       if (!facade || analysis.targetFacadeAmbiguous) {
-        await this.declineSource(null);
+        await this.declineSource(null, {}, { whileActive: true });
         throw new JobFailure('source_rejected', 'facade_not_in_frame');
       }
       const coverage = Math.max(
@@ -788,9 +1107,69 @@ class RenderRun {
         throw new JobFailure('source_rejected', 'owner_blurred');
       }
     }
-    if (this.job.lightingMode === 'evening' && !analysis.lighting.isDaylight) {
-      throw new JobFailure('source_rejected', null, 'evening needs a daylight source');
+    const skip = this.relightSkip();
+    if (skip) {
+      this.log.info(
+        skip,
+        skip.reason === 'not_daylight'
+          ? 'evening requested for a photo that is not in daylight; decorating it as photographed'
+          : 'bright requested for a photo that is already bright; decorating it as photographed',
+      );
     }
+  }
+
+  /** The relit look this job renders (`evening` or `bright`), or null for `source`. */
+  private relightTarget(): RelightLightingMode | null {
+    return isRelightLightingMode(this.job.lightingMode) ? this.job.lightingMode : null;
+  }
+
+  /** Median luma of the working image over its content area (padding excluded). */
+  private photoMedianLuma(): number {
+    this.contentLuma ??= medianLuma(this.working.raster, this.working.contentBox);
+    return this.contentLuma;
+  }
+
+  /**
+   * Why this relight-mode job decorates the photo in its own light and delivers that as its
+   * result, with no relight (and no daylight companion): an evening look of a photo the scene
+   * analysis reports is not in daylight (dusk or night), or a bright look of a photo that is
+   * already bright (median luma over its content area at or above
+   * `PIPELINE_DEFAULTS.brightMedianLuma`). Null when the job relights or is not a relight mode.
+   */
+  private relightSkip(): RelightSkippedRecord | null {
+    const target = this.relightTarget();
+    if (target === 'evening' && !this.analysis.lighting.isDaylight) {
+      return {
+        kind: 'relight_skipped',
+        reason: 'not_daylight',
+        timeOfDay: this.analysis.lighting.timeOfDay,
+      };
+    }
+    if (target === 'bright') {
+      const luma = this.photoMedianLuma();
+      const threshold = PIPELINE_DEFAULTS.brightMedianLuma;
+      if (luma >= threshold) {
+        return { kind: 'relight_skipped', reason: 'already_bright', medianLuma: luma, threshold };
+      }
+    }
+    return null;
+  }
+
+  /** Whether this job decorates a base and relights it (a relight mode that is not skipped). */
+  private relights(): boolean {
+    return this.relightTarget() !== null && this.relightSkip() === null;
+  }
+
+  /** The attempt state stored on the job between attempts. */
+  private storedState(): StoredAttemptState {
+    return (this.job.repairConstraints ?? {}) as StoredAttemptState;
+  }
+
+  /** The `render_attempts.fallback` record of an attempt of this job, when it has one. */
+  private attemptRecord(plan: DecorationPlan): Record<string, unknown> | null {
+    if (plan.relightOf)
+      return { kind: 'relight', ...plan.relightOf } satisfies RelightAttemptRecord;
+    return this.relightSkip();
   }
 
   private async flagOwnerBlur(): Promise<void> {
@@ -803,16 +1182,36 @@ class RenderRun {
       .returning('placeId')
       .executeTakeFirst();
     if (!property) return;
+    // An active block keeps its own record; a removed or expired one is listed again as this
+    // detection.
+    const evidenceRef = `render_job:${this.job.id}`;
     await this.deps.db
       .insertInto('blockedAddresses')
       .values({
         id: newId(),
         placeId: property.placeId,
         source: 'google_blur_detected',
-        evidenceRef: `render_job:${this.job.id}`,
+        evidenceRef,
         createdBy: null,
       })
-      .onConflict((oc) => oc.column('placeId').doNothing())
+      .onConflict((oc) =>
+        oc
+          .column('placeId')
+          .doUpdateSet({
+            removedAt: null,
+            expiresAt: null,
+            source: 'google_blur_detected',
+            evidenceRef,
+            createdBy: null,
+            reportId: null,
+          })
+          .where((eb) =>
+            eb.or([
+              eb('blockedAddresses.removedAt', 'is not', null),
+              eb('blockedAddresses.expiresAt', '<=', now),
+            ]),
+          ),
+      )
       .execute();
   }
 
@@ -820,23 +1219,51 @@ class RenderRun {
 
   private async runAttempts(): Promise<void> {
     const attempts = await this.attemptRows();
-    let attemptNo: 1 | 2;
+    let attemptNo: RenderAttemptNumber;
     const latest = attempts[attempts.length - 1];
     if (this.job.state === 'planning') {
       attemptNo =
         latest && latest.outcome === 'pending' && !latest.providerOperationId
-          ? (latest.attemptNo as 1 | 2)
-          : (Math.min(2, attempts.length + 1) as 1 | 2);
+          ? (latest.attemptNo as RenderAttemptNumber)
+          : (Math.min(MAX_RENDER_ATTEMPTS, attempts.length + 1) as RenderAttemptNumber);
     } else {
-      attemptNo = (latest?.attemptNo ?? 1) as 1 | 2;
+      attemptNo = (latest?.attemptNo ?? 1) as RenderAttemptNumber;
     }
     for (;;) {
-      if (this.job.state === 'planning') await this.planAttempt(attemptNo);
-      if (this.job.state === 'rendering') await this.renderAttempt(attemptNo);
+      if (this.job.state === 'planning') {
+        try {
+          await this.planAttempt(attemptNo);
+        } catch (error) {
+          if (error instanceof AttemptCapReached) {
+            if (await this.deliverBaseAfterRefusedRelight(attemptNo)) return;
+          }
+          if (await this.goOnWithKeptAfterFailedRepair(attemptNo, error)) return;
+          throw error;
+        }
+      }
+      if (this.job.state === 'rendering') {
+        try {
+          await this.renderAttempt(attemptNo);
+        } catch (error) {
+          if (await this.deliverBaseAfterFailedRelight(attemptNo, error)) return;
+          if (await this.goOnWithKeptAfterFailedRepair(attemptNo, error)) return;
+          throw error;
+        }
+      }
       if (this.job.state === 'checking') {
-        const next = await this.checkAttempt(attemptNo);
-        if (next === 'repair') {
-          attemptNo = 2;
+        let next: 'next' | 'done';
+        try {
+          next = await this.checkAttempt(attemptNo);
+        } catch (error) {
+          if (await this.deliverBaseAfterFailedRelight(attemptNo, error)) return;
+          if (await this.goOnWithKeptAfterFailedRepair(attemptNo, error)) return;
+          throw error;
+        }
+        if (next === 'next') {
+          if (attemptNo >= MAX_RENDER_ATTEMPTS) {
+            throw new JobFailure('internal_error', null, 'no attempt left');
+          }
+          attemptNo = (attemptNo + 1) as RenderAttemptNumber;
           this.planned = null;
           this.rawOutput = null;
           continue;
@@ -920,13 +1347,19 @@ class RenderRun {
     return { pack, kit };
   }
 
-  /** The attempt's composite mask: bands at the band dilation, boxes at `dilationFraction`. */
+  /**
+   * The attempt's composite mask: bands at the band dilation, boxes at `dilationFraction`; a
+   * repair's restore boxes are excluded so their pixels stay the original's. Text marks are grown
+   * unless the decisions of the edited output (`textMarks`) say otherwise.
+   */
   private maskFor(
     placements: readonly Pick<
       DecorationPlan['placements'][number],
       'anchorId' | 'placementRule' | 'region' | 'maskShapes'
     >[],
     dilationFraction: number,
+    restoreBoxes: readonly NormalizedBox[] = [],
+    textMarks?: readonly TextMarkModeOf[],
   ): CompositeMask {
     return renderCompositeMask({
       analysis: this.analysis,
@@ -938,24 +1371,23 @@ class RenderRun {
       dilationFraction,
       bandDilationFraction: PIPELINE_DEFAULTS.bandDilationFraction,
       featherFraction: this.options.featherFraction,
+      restoreBoxes,
+      ...(textMarks ? { textMarks } : {}),
     });
   }
 
   /**
-   * The lighting a decorate attempt is planned and composited in: always `source`. An evening job
-   * relights an accepted daylight variant, and renders that daylight base itself first when none
-   * exists.
+   * The lighting a decorate attempt is planned and composited in: always `source`. A relight-mode
+   * job (`evening`, `bright`) relights a decorated base: an accepted daylight variant (evening), or
+   * the base it renders itself first.
    */
   private attemptLighting(): LightingMode {
     return 'source';
   }
 
   private repairInput(): RepairInput | null {
-    const stored = this.job.repairConstraints as {
-      constraints?: unknown;
-      adjustments?: unknown;
-    } | null;
-    if (!stored?.constraints || !stored.adjustments) return null;
+    const stored = this.storedState();
+    if (!stored.constraints || !stored.adjustments) return null;
     return stored as unknown as RepairInput;
   }
 
@@ -976,7 +1408,7 @@ class RenderRun {
     return this.legs.imageEditor.mode === 'fixture' ? 'fixture' : 'live';
   }
 
-  private async planAttempt(attemptNo: 1 | 2): Promise<void> {
+  private async planAttempt(attemptNo: RenderAttemptNumber): Promise<void> {
     await this.ensureActive();
     const { pack, kit } = await this.loadContent();
     const existingPlan = await this.deps.db
@@ -988,19 +1420,22 @@ class RenderRun {
 
     let planned: PlannedRun;
     let planRowId: string;
-    const relight =
-      !existingPlan && this.job.lightingMode === 'evening'
-        ? await this.relightBaseFor(attemptNo)
-        : null;
+    const relight = !existingPlan && this.relights() ? await this.relightBaseFor(attemptNo) : null;
     if (existingPlan) {
       planned = this.restorePlanned(existingPlan.document, existingPlan.validatorResult);
       planRowId = existingPlan.id;
     } else if (relight) {
       ({ planned, planRowId } = await this.planRelight(attemptNo, relight.base, relight.codes));
+    } else if (attemptNo > STANDARD_RENDER_ATTEMPTS) {
+      // Only a relight is ever a third attempt.
+      throw new JobFailure('internal_error', null, 'third attempt without a relight base');
     } else {
       const lighting = this.attemptLighting();
       const repair = attemptNo === 2 ? this.repairInput() : null;
       const dilation = repair?.adjustments.dilationFraction ?? this.options.dilationFraction;
+      // The repair of a decorate step pastes the judge's small evidence boxes back from the
+      // original (a relight has no keep-mask and never gets here).
+      const restoreBoxes = repair?.adjustments.restoreBoxes ?? [];
       const masks = new Map<string, CompositeMask>();
       const maskOf = (placements: DecorationPlan['placements']) => {
         const key = placements
@@ -1008,7 +1443,7 @@ class RenderRun {
           .join('|');
         let mask = masks.get(key);
         if (!mask) {
-          mask = this.maskFor(placements, dilation);
+          mask = this.maskFor(placements, dilation, restoreBoxes);
           masks.set(key, mask);
         }
         return mask;
@@ -1018,7 +1453,7 @@ class RenderRun {
         result = planAndCompile(
           {
             renderJobId: this.job.id,
-            planVersion: attemptNo,
+            planVersion: attemptNo as 1 | 2,
             sourceAssetId: this.source.id,
             sceneAnalysisId: this.sceneAnalysisId,
             analysis: this.analysis,
@@ -1100,6 +1535,7 @@ class RenderRun {
             featherFraction: this.options.featherFraction,
           }),
           ...(maskObjectKey ? { objectKey: maskObjectKey } : {}),
+          ...(restoreBoxes.length > 0 ? { restoreBoxes } : {}),
         },
         compiled: result.compile.compiled,
       });
@@ -1134,8 +1570,9 @@ class RenderRun {
         .execute();
     }
     this.planned = planned;
-    // A repair is an attempt planned with repair constraints. The relight of a daylight base this
-    // job rendered itself is attempt 2 but carries none, so it uses no repair.
+    // A repair is an attempt planned with repair constraints. The relight of a base this job
+    // rendered itself (attempt 2, or attempt 3 after the base's repair) carries none, so it uses
+    // no repair.
     const repairPlanned = (planned.plan.repairConstraints?.length ?? 0) > 0;
 
     // Guard: remaining time.
@@ -1148,64 +1585,73 @@ class RenderRun {
 
     const existingAttempt = (await this.attemptRows()).find((row) => row.attemptNo === attemptNo);
     if (!existingAttempt) {
-      // Guard: the owner's paid-attempt cap allows one more attempt.
-      if (!(await this.attemptCapAllows())) {
-        throw new JobFailure('policy_denied', null, 'paid-attempt cap reached');
-      }
       const linked = (await this.attemptRows())
         .map((row) => row.reservationEntryId)
         .filter((id): id is string => id !== null);
       const reservation = await findOpenReservation(this.deps.db, this.job.id, {
         sku: 'image_edit_attempt',
+        notStage: ENHANCE_LEDGER_STAGE,
         exclude: linked,
       });
       // Kill switches, immediately before the attempt row (the paid-attempt cap counts rows).
       await this.assertNotPaused(this.compilerFamily());
       const attemptId = newId();
-      await this.deps.db
-        .insertInto('renderAttempts')
-        .values({
-          id: attemptId,
-          jobId: this.job.id,
-          attemptNo,
-          isRepair: repairPlanned,
-          decorationPlanId: planRowId,
-          sceneAnalysisId: this.sceneAnalysisId,
-          permissionEvaluationId: evaluation.evaluationId,
-          provider: this.legs.imageEditor.providerId,
-          modelSnapshot: planned.request.modelSnapshot,
-          promptVersion: COMPILER_RELEASE,
-          compilerVersion: this.job.compilerVersion,
-          settingsHash: planned.request.settingsHash,
-          providerMode: this.providerMode(),
-          sourceChecksumSha256: this.loaded.checksum,
-          workingChecksumSha256: this.working.checksum,
-          fidelityMode: planned.plan.fidelityMode,
-          requestedWidth: this.working.width,
-          requestedHeight: this.working.height,
-          compositeMask: planned.mask
-            ? toJson({
-                ...(planned.plan.compositeMask?.objectKey
-                  ? { objectKey: planned.plan.compositeMask.objectKey }
-                  : {
-                      rle: runLengthEncode(planned.mask.hard),
-                      width: planned.mask.width,
-                      height: planned.mask.height,
-                    }),
-                dilationPx: planned.mask.dilationPx,
-                bandDilationPx: planned.mask.bandDilationPx,
-                featherPx: planned.mask.featherPx,
-              })
-            : null,
-          dilationFraction: planned.plan.compositeMask?.dilationFraction ?? null,
-          featherFraction: planned.plan.compositeMask?.featherFraction ?? null,
-          outcome: 'pending',
-          reservationEntryId: reservation?.id ?? null,
-          fallback: planned.plan.relightOf
-            ? toJson({ kind: 'relight', ...planned.plan.relightOf } satisfies RelightAttemptRecord)
-            : null,
-        })
-        .execute();
+      const attemptRecord = this.attemptRecord(planned.plan);
+      const capLimit = await this.deps.settings.get('quota.attempts_per_owner_24h');
+      // Guard: the owner's paid-attempt cap allows one more attempt. The check and the insert
+      // run under the owner's allowance lock, so two jobs of one owner (or a job and an
+      // admission) cannot both take the last attempt.
+      const inserted = await this.deps.db.transaction().execute(async (trx) => {
+        await lockOwnerAllowance(trx, this.job.ownerId);
+        if (!(await this.attemptCapAllows(trx, capLimit))) return false;
+        await trx
+          .insertInto('renderAttempts')
+          .values({
+            id: attemptId,
+            jobId: this.job.id,
+            attemptNo,
+            isRepair: repairPlanned,
+            decorationPlanId: planRowId,
+            sceneAnalysisId: this.sceneAnalysisId,
+            permissionEvaluationId: evaluation.evaluationId,
+            provider: this.legs.imageEditor.providerId,
+            modelSnapshot: planned.request.modelSnapshot,
+            promptVersion: COMPILER_RELEASE,
+            compilerVersion: this.job.compilerVersion,
+            settingsHash: planned.request.settingsHash,
+            providerMode: this.providerMode(),
+            sourceChecksumSha256: this.loaded.checksum,
+            workingChecksumSha256: this.working.checksum,
+            fidelityMode: planned.plan.fidelityMode,
+            requestedWidth: this.working.width,
+            requestedHeight: this.working.height,
+            compositeMask: planned.mask
+              ? toJson({
+                  ...(planned.plan.compositeMask?.objectKey
+                    ? { objectKey: planned.plan.compositeMask.objectKey }
+                    : {
+                        rle: runLengthEncode(planned.mask.hard),
+                        width: planned.mask.width,
+                        height: planned.mask.height,
+                      }),
+                  dilationPx: planned.mask.dilationPx,
+                  bandDilationPx: planned.mask.bandDilationPx,
+                  featherPx: planned.mask.featherPx,
+                  ...(planned.plan.compositeMask?.restoreBoxes?.length
+                    ? { restoreBoxes: planned.plan.compositeMask.restoreBoxes }
+                    : {}),
+                })
+              : null,
+            dilationFraction: planned.plan.compositeMask?.dilationFraction ?? null,
+            featherFraction: planned.plan.compositeMask?.featherFraction ?? null,
+            outcome: 'pending',
+            reservationEntryId: reservation?.id ?? null,
+            fallback: attemptRecord ? toJson(attemptRecord) : null,
+          })
+          .execute();
+        return true;
+      });
+      if (!inserted) throw new AttemptCapReached();
       await this.deps.db
         .updateTable('permissionEvaluations')
         .set({ attemptId })
@@ -1215,7 +1661,9 @@ class RenderRun {
     await this.advance('rendering', {
       renderStartedAt: this.now(),
       attemptCount: attemptNo,
-      repairUsed: repairPlanned,
+      subStage: planned.plan.relightOf ? 'relight' : null,
+      // A job keeps its one repair once used: a relight after a repaired base is not one.
+      repairUsed: this.job.repairUsed || repairPlanned,
     });
   }
 
@@ -1231,6 +1679,7 @@ class RenderRun {
         ? this.maskFor(
             plan.placements,
             plan.compositeMask?.dilationFraction ?? this.options.dilationFraction,
+            plan.compositeMask?.restoreBoxes ?? [],
           )
         : null;
     const parsedRequest = CompiledRequestSchema.safeParse(stored.request);
@@ -1263,7 +1712,7 @@ class RenderRun {
     };
   }
 
-  private async currentPlanned(attemptNo: 1 | 2): Promise<PlannedRun> {
+  private async currentPlanned(attemptNo: RenderAttemptNumber): Promise<PlannedRun> {
     if (this.planned) return this.planned;
     const row = await this.deps.db
       .selectFrom('decorationPlans')
@@ -1282,44 +1731,45 @@ class RenderRun {
     return this.planned;
   }
 
-  // ---- evening relight -----------------------------------------------------------------------
+  // ---- relight (evening, bright) --------------------------------------------------------------
 
   /**
-   * The daylight variant an evening attempt relights (render spec, lighting modes). Attempt 1
-   * relights the accepted `source` variant of the same key, or (none existing) renders that
-   * daylight base itself and returns null. Attempt 2 is the repair of a rejected relight (same
-   * base, the rejecting codes) or the relight of the base attempt 1 rendered and published.
+   * The decorated base a relight attempt relights (render spec, lighting modes), or null when the
+   * attempt decorates. Attempt 1 of an evening job relights the accepted `source` variant of the
+   * same key; with none (and always for a bright job) attempt 1 renders the base itself. A later
+   * attempt is the repair of the rejected relight before it (same base, the rejecting codes), the
+   * relight of the base this job decorated (attempt 2 after an accepted base, attempt 3 after a
+   * repaired one), or, with no base recorded (the first base was rejected and is repaired), a
+   * decorate attempt.
    */
   private async relightBaseFor(
-    attemptNo: 1 | 2,
+    attemptNo: RenderAttemptNumber,
   ): Promise<{ base: RelightBase; codes: FailureCode[] } | null> {
     if (attemptNo === 1) {
+      if (this.relightTarget() !== 'evening') return null;
       const variant = await this.acceptedSourceVariant();
       return variant ? { base: variant, codes: [] } : null;
     }
-    const first = await this.deps.db
+    const stored = this.storedState();
+    const previous = await this.deps.db
       .selectFrom('decorationPlans')
       .select('document')
       .where('jobId', '=', this.job.id)
-      .where('attemptNo', '=', 1)
+      .where('attemptNo', '=', attemptNo - 1)
       .executeTakeFirst();
-    const firstPlan = DecorationPlanSchema.safeParse(first?.document);
-    const stored = (this.job.repairConstraints ?? {}) as {
-      codes?: FailureCode[];
-      relightBase?: unknown;
-    };
-    if (firstPlan.success && firstPlan.data.relightOf) {
-      return { base: firstPlan.data.relightOf, codes: stored.codes ?? [] };
+    const previousPlan = DecorationPlanSchema.safeParse(previous?.document);
+    if (previousPlan.success && previousPlan.data.relightOf) {
+      // Only a rejected relight is followed by another attempt: its repair.
+      return { base: previousPlan.data.relightOf, codes: stored.codes ?? [] };
     }
     const base = RelightBaseSchema.safeParse(stored.relightBase);
-    if (!base.success) throw new JobFailure('internal_error', null, 'relight base not recorded');
-    return { base: base.data, codes: [] };
+    return base.success ? { base: base.data, codes: [] } : null;
   }
 
   /**
-   * Loads the daylight image a relight starts from on the working grid: the published variant's
-   * delivered image, or this job's own daylight composite (in memory, or stored when the job runs
-   * in pre-delivery review and did not publish it).
+   * Loads the decorated base a relight starts from on the working grid: the published variant's
+   * delivered image, or this job's own decorated composite (in memory, or stored when it was not
+   * published: a bright job's base, or an evening base in pre-delivery review).
    */
   private async loadRelightInput(base: RelightBase): Promise<RelightInput> {
     if (this.relightInput?.base.baseAttemptId === base.baseAttemptId) return this.relightInput;
@@ -1386,17 +1836,20 @@ class RenderRun {
   }
 
   /**
-   * Plans an evening relight attempt: the base plan's decorations and preserve set, in `evening`
-   * lighting as `global_relight`, with the compiled relight request (no mask) and the base it
-   * relights. A repair carries the rejecting codes as constraints of the stronger instruction.
+   * Plans a relight attempt: the base plan's decorations and preserve set, in the job's relit
+   * lighting (`evening` or `bright`) as `global_relight`, with the compiled relight request (no
+   * mask) and the base it relights. A repair carries the rejecting codes as constraints of the
+   * stronger instruction.
    */
   private async planRelight(
-    attemptNo: 1 | 2,
+    attemptNo: RenderAttemptNumber,
     base: RelightBase,
     codes: FailureCode[],
   ): Promise<{ planned: PlannedRun; planRowId: string }> {
+    const target = this.relightTarget() ?? 'evening';
     const input = await this.loadRelightInput(base);
     const request = compileRelightRequest({
+      target,
       basePlan: input.plan,
       provider: this.compilerFamily(),
       settings: this.deps.config.imageEdit,
@@ -1418,20 +1871,27 @@ class RenderRun {
       renderJobId: this.job.id,
       planVersion: attemptNo,
       attemptNumber: attemptNo,
-      lightingMode: 'evening',
+      lightingMode: target,
       fidelityMode: 'global_relight',
       compilerVersion: this.job.compilerVersion,
       permissionEvaluationId: this.job.permissionEvaluationId,
       lightingInstruction: {
-        mode: 'evening',
-        text: 'Relight the accepted daylight variant to early evening: dusk ambient light, the decorations’ own lights glowing, existing windows and porch or room lights on; nothing else changes.',
+        mode: target,
+        text:
+          target === 'bright'
+            ? 'Relight the decorated photo to the bright look: bright, airy and cheerful as on a sunny day with every light on, shadows lifted, the decorations’ own lights glowing; nothing else changes.'
+            : 'Relight the accepted daylight variant to early evening: dusk ambient light, the decorations’ own lights glowing, existing windows and porch or room lights on; nothing else changes.',
       },
       ...(codes.length > 0
         ? {
             repairConstraints: codes.map((code) => ({
               code,
               instruction:
-                code === 'lighting_implausible' ? RELIGHT_REPAIR_LIGHT : RELIGHT_REPAIR_KEEP,
+                code === 'lighting_implausible'
+                  ? target === 'bright'
+                    ? RELIGHT_REPAIR_BRIGHT_LIGHT
+                    : RELIGHT_REPAIR_LIGHT
+                  : RELIGHT_REPAIR_KEEP,
               placementIds: [],
             })),
           }
@@ -1528,15 +1988,21 @@ class RenderRun {
     }
   }
 
-  private async renderAttempt(attemptNo: 1 | 2): Promise<void> {
+  private async renderAttempt(attemptNo: RenderAttemptNumber): Promise<void> {
     await this.ensureActive();
     const planned = await this.currentPlanned(attemptNo);
     let attempt = await this.currentAttempt(attemptNo);
     const editor = this.legs.imageEditor;
     const family = this.compilerFamily();
-    const callDeadline = this.now().getTime() + this.options.renderTimeoutMs;
-    const fixture = editor.mode === 'fixture' ? this.fixtureEditContext(planned) : undefined;
     const relightOf = planned.plan.relightOf;
+    // A relight's edit, and a repair's while the job keeps an attempt to fall back on, is bounded
+    // by the job's time left, so a slow edit ends as an attempt timeout with time left to fall
+    // back to the base or the kept attempt.
+    const bounded = Boolean(relightOf) || this.keptBefore(attemptNo) !== null;
+    const editTimeoutMs = () =>
+      bounded ? this.boundedEditTimeoutMs() : this.options.renderTimeoutMs;
+    const callDeadline = this.now().getTime() + editTimeoutMs();
+    const fixture = editor.mode === 'fixture' ? this.fixtureEditContext(planned) : undefined;
     const input = {
       image: relightOf ? (await this.loadRelightInput(relightOf)).png : this.working.png,
       ...(planned.maskPng && planned.request.mask ? { mask: planned.maskPng } : {}),
@@ -1580,13 +2046,15 @@ class RenderRun {
         ...(reopen ? { outcome: 'pending' as const, completedAt: null } : {}),
       };
     };
-    const editOnce = (reopen = false) =>
-      editor.edit(planned.request, input, {
+    const editOnce = (reopen = false) => {
+      const timeoutMs = editTimeoutMs();
+      return editor.edit(planned.request, input, {
         attemptId: attempt.id,
-        timeoutMs: this.options.renderTimeoutMs,
-        signal: AbortSignal.any([this.signal, AbortSignal.timeout(this.options.renderTimeoutMs)]),
+        timeoutMs,
+        signal: AbortSignal.any([this.signal, AbortSignal.timeout(timeoutMs)]),
         onOperation: (operationId) => persistOperation(operationId, reopen),
       });
+    };
     const started = this.now().getTime();
     let latencyMs = 0;
     const reservationOf = async () =>
@@ -1637,6 +2105,21 @@ class RenderRun {
         if (reservation) await release(this.deps.db, reservation.id, this.deps.clock);
         throw new JobFailure('provider_error', null, 'paused');
       }
+      const boundedTimeLeftMs = bounded ? this.editTimeLeftMs() : null;
+      if (
+        boundedTimeLeftMs !== null &&
+        boundedTimeLeftMs < PIPELINE_DEFAULTS.relightMinDispatchMs
+      ) {
+        // Too little time left for a bounded edit to finish: it is never sent, nothing is billed,
+        // and the job falls back to its base or its kept attempt as an attempt timeout.
+        await finishAttempt({
+          outcome: 'canceled',
+          errorDetail: toJson({ notDispatched: 'deadline', timeLeftMs: boundedTimeLeftMs }),
+        });
+        const reservation = await reservationOf();
+        if (reservation) await release(this.deps.db, reservation.id, this.deps.clock);
+        throw new JobFailure('timeout', null, 'too little time left to send the edit');
+      }
       outcome = await editOnce();
     }
     let retries = attempt.transportRetries;
@@ -1660,6 +2143,16 @@ class RenderRun {
           outcome = recovered;
           break;
         }
+      }
+      // A bounded edit is sent again only when, after the retry's delay, the job's time left for
+      // an edit is still at least `relightMinDispatchMs`; otherwise the attempt ends with this
+      // outcome and the job falls back to its base or its kept attempt.
+      if (
+        bounded &&
+        this.editTimeLeftMs() - this.options.retryDelayMs(retries + 1) <
+          PIPELINE_DEFAULTS.relightMinDispatchMs
+      ) {
+        break;
       }
       if (await this.isPaused(family)) {
         paused = true;
@@ -2027,7 +2520,10 @@ class RenderRun {
     relight: { base: ImageInput } | null,
   ): Promise<{ judge: JudgeResult; classification: JudgeClassification | null }> {
     const deterministic = composite.deterministic;
-    if (deterministic.codes.some((code) => isCriticalFailureCode(code))) {
+    if (
+      deterministic.codes.some((code) => isCriticalFailureCode(code)) ||
+      (deterministic.decisive?.length ?? 0) > 0
+    ) {
       const judge = deterministicJudgeResult(attempt.id, deterministic.codes);
       await this.recordJudge(
         attempt.id,
@@ -2089,18 +2585,23 @@ class RenderRun {
     return parsed.success ? parsed.data : null;
   }
 
-  /** Writes the localization onto the attempt's composite-mask record. */
+  /**
+   * Writes the localization and the protected-box decisions onto the attempt's composite-mask
+   * record (either may be left as recorded).
+   */
   private async writeLocalization(
     db: Pick<PipelineDeps['db'], 'updateTable'>,
     attempt: RenderAttempt,
-    record: LocalizationRecord,
+    record: LocalizationRecord | null,
+    protection: ProtectedCompositing,
   ): Promise<void> {
     await db
       .updateTable('renderAttempts')
       .set({
         compositeMask: toJson({
           ...((attempt.compositeMask as Record<string, unknown> | null) ?? {}),
-          localization: record,
+          ...(record ? { localization: record } : {}),
+          protectedBoxes: protection.decisions,
         }),
       })
       .where('id', '=', attempt.id)
@@ -2109,12 +2610,17 @@ class RenderRun {
 
   /**
    * Localized compositing (render spec, compositing algorithm): after registration the vision
-   * model localizes the decorations the editor added in the aligned output, and the keep-mask is
-   * the plan's mask united with each localized box (dilated, minus the privacy and legal
-   * exclusions, capped). The result (items, other changes, model, prompt version, usage,
-   * coverage, what the cap dropped) is recorded on the attempt in the same transaction as the
-   * call's settlement, and a redelivery reuses it without a second paid call. A call that fails
-   * after its retries falls back to the plan mask, recorded as such.
+   * model localizes the decorations the editor added in the aligned output; then the protected
+   * boxes are decided on the aligned output with those items (`protectedCompositing`: text marks
+   * grown, exact or open, restore boxes applied or skipped), the plan mask is rebuilt when a
+   * decision changes it, and the keep-mask is that mask united with each localized box (dilated,
+   * minus the privacy and legal exclusions, capped). The result (items, other changes, model,
+   * prompt version, usage, coverage, what the cap dropped) and the decisions (`protectedBoxes`)
+   * are recorded on the attempt in one write, in the same transaction as the call's settlement;
+   * a redelivery reuses the recorded items without a second paid call and recomputes the same
+   * decisions. A call that fails after its retries falls back to the plan mask, decided with the
+   * plan's shapes as the decorations and recorded as such. Every text mark left open reaches the
+   * judge as a hint.
    */
   private async localize(
     attempt: RenderAttempt,
@@ -2122,25 +2628,50 @@ class RenderRun {
     planMask: CompositeMask,
     aligned: Raster,
   ): Promise<LocalizedComposite> {
-    const keepFrom = (items: readonly LocalizedAdditionRecord[]) =>
-      localizedKeepMask({
+    const dilation = plan.compositeMask?.dilationFraction ?? this.options.dilationFraction;
+    const protect = (items: readonly LocalizedAdditionRecord[] | null) =>
+      protectedCompositing({
+        working: this.working.raster,
+        aligned,
+        analysis: this.analysis,
+        restoreBoxes: plan.compositeMask?.restoreBoxes ?? [],
+        padRegions: this.working.padRegions,
+        attributionRegions: this.attributionRegions,
         planMask,
         items,
-        analysis: this.analysis,
-        attributionRegions: this.attributionRegions,
-        padRegions: this.working.padRegions,
+        placements: plan.placements,
+        buildMask: ({ restoreBoxes, textMarks }) =>
+          this.maskFor(plan.placements, dilation, restoreBoxes, textMarks),
+        // On a street photo the number on the house is never the editor's.
+        keepHouseNumbers: this.source.kind === 'street_view',
       });
-    const composite = (record: LocalizationRecord): LocalizedComposite => {
-      if (record.status !== 'localized') return { mask: planMask, keptRegions: [], hints: [] };
-      const keep = keepFrom(record.items);
+    const composite = (
+      record: LocalizationRecord,
+      protection: ProtectedCompositing,
+    ): LocalizedComposite => {
+      const marks = openTextMarkHints(protection.decisions.textMarks);
+      const { openHouseNumbers } = protection;
+      if (record.status !== 'localized' || !protection.keep) {
+        return { mask: protection.mask, keptRegions: [], hints: marks, openHouseNumbers };
+      }
+      const keep = protection.keep;
       return {
         mask: keep.mask,
         keptRegions: keep.kept.map((item) => item.box),
-        hints: restoredChangeHints(record.otherChanges, keep.mask),
+        hints: [...restoredChangeHints(record.otherChanges, keep.mask), ...marks],
+        openHouseNumbers,
       };
     };
     const recorded = this.recordedLocalization(attempt);
-    if (recorded) return composite(recorded);
+    if (recorded) {
+      // A redelivery recomputes the same decisions from the recorded items; they are written
+      // when missing.
+      const protection = protect(recorded.status === 'localized' ? recorded.items : null);
+      if (!(attempt.compositeMask as { protectedBoxes?: unknown } | null)?.protectedBoxes) {
+        await this.writeLocalization(this.deps.db, attempt, null, protection);
+      }
+      return composite(recorded, protection);
+    }
 
     const evaluation = await this.evaluate('checking');
     if (!evaluation.permission.aiProcess) throw new JobFailure('policy_denied');
@@ -2178,14 +2709,17 @@ class RenderRun {
         elapsedMs: null,
         fallbackReason: reason,
       };
-      await this.writeLocalization(this.deps.db, attempt, fallback);
-      return composite(fallback);
+      const protection = protect(null);
+      await this.writeLocalization(this.deps.db, attempt, fallback, protection);
+      return composite(fallback, protection);
     }
     const { items, otherChanges } = localizationRecords(
       call.result,
       plan.placements.map((placement) => placement.id),
     );
-    const keep = keepFrom(items);
+    const protection = protect(items);
+    const keep = protection.keep;
+    if (!keep) throw new Error('A localized output has no keep-mask');
     const round = (value: number) => Math.round(value * 10_000) / 10_000;
     const record: LocalizationRecord = {
       status: 'localized',
@@ -2220,24 +2754,26 @@ class RenderRun {
         clock: this.deps.clock,
       });
       record.ledgerEntryId = ledgerEntryId;
-      await this.writeLocalization(trx, attempt, record);
+      await this.writeLocalization(trx, attempt, record, protection);
     });
-    return {
-      mask: keep.mask,
-      keptRegions: keep.kept.map((item) => item.box),
-      hints: restoredChangeHints(otherChanges, keep.mask),
-    };
+    return composite(record, protection);
   }
 
   // ---- checking ------------------------------------------------------------------------------
 
-  private async checkAttempt(attemptNo: 1 | 2): Promise<'repair' | 'done'> {
+  private async checkAttempt(attemptNo: RenderAttemptNumber): Promise<'next' | 'done'> {
     await this.ensureActive();
     const planned = await this.currentPlanned(attemptNo);
     if (planned.plan.relightOf)
       return this.checkRelight(attemptNo, planned, planned.plan.relightOf);
     const plan = planned.plan;
     let attempt = await this.currentAttempt(attemptNo);
+    if (!this.rawOutput && !attempt.candidateObjectKey) {
+      // A redelivery of a job whose fallback to the attempt it kept through a repair had moved it
+      // to `checking` after the repair's edit failed.
+      const recorded = unfinishedEditFailure(attempt);
+      if (recorded) throw recorded;
+    }
     const rawBytes = await this.loadRawOutput(attempt);
     // Encoding sanity: an undecodable output is an attempt failure.
     const undecodable = (error: unknown): never => {
@@ -2252,11 +2788,15 @@ class RenderRun {
       glowRegions: this.glowRegions(),
     }).catch(undecodable);
     let localized: LocalizedComposite | null = null;
-    if (plan.lightingMode === 'source' && planned.mask && registration.registered.aligned) {
-      localized = await this.localize(attempt, plan, planned.mask, registration.registered.aligned);
+    const aligned = registration.registered.aligned;
+    if (plan.lightingMode === 'source' && planned.mask && aligned) {
+      // How the text marks and the repair's restore boxes are composited follows how much the
+      // editor changed their surroundings and where it put decorations; the mask sent to the
+      // editor stays as it was.
+      localized = await this.localize(attempt, plan, planned.mask, aligned);
       attempt = await this.currentAttempt(attemptNo);
     }
-    const composite = await compositeAndCheck({
+    const compositeInput = {
       working: this.working,
       rawBytes,
       registration,
@@ -2265,9 +2805,11 @@ class RenderRun {
       analysis: this.analysis,
       mask: localized?.mask ?? planned.mask,
       ...(localized ? { keptRegions: localized.keptRegions } : {}),
+      openHouseNumbers: localized?.openHouseNumbers ?? [],
       attributionRegion: this.attributionRegions,
       glowRegions: this.glowRegions(),
-    }).catch(undecodable);
+    };
+    const composite = await compositeAndCheck(compositeInput).catch(undecodable);
     await this.deps.db
       .updateTable('renderAttempts')
       .set({
@@ -2285,71 +2827,504 @@ class RenderRun {
       hints,
       null,
     );
-    const verdict = decideAttempt({
-      attemptNumber: attemptNo,
-      deterministic: composite.deterministic.codes,
-      judge: classification,
-    });
+    // A repair is open only while the job has it, an attempt is left, and the time budget and the
+    // paid-attempt cap allow one; otherwise confident majors are recorded, not rejected.
+    const repairOpen =
+      this.repairLeft(attemptNo, this.relights() ? MAX_RENDER_ATTEMPTS : null) &&
+      (await this.repairAllowed());
+    // The base of a relit look that is short on time keeps what is left for its relight: its
+    // confident majors are recorded as on an attempt with no repair after it. A critical finding
+    // is still repaired while a repair is open.
+    const majorsRepaired = repairOpen && !(this.relights() && this.shortForRepairAndRelight());
+    const decide = (repairLeft: boolean) =>
+      decideAttempt({
+        attemptNumber: attemptNo,
+        repairLeft,
+        deterministic: composite.deterministic.codes,
+        judge: classification,
+        ...(composite.deterministic.decisive ? { decisive: composite.deterministic.decisive } : {}),
+      });
+    const verdict = decide(majorsRepaired);
     await this.ensureActive();
 
+    const checkedMask = compositeInput.mask;
+    const checked: CheckedAttempt = {
+      attemptNo,
+      attempt,
+      plan,
+      judge,
+      candidate: composite.candidate,
+      verdict,
+      deterministic: composite.deterministic.codes,
+      decorations:
+        localized && localized.keptRegions.length > 0
+          ? localized.keptRegions
+          : plan.placements.map((placement) => placement.region),
+      restore:
+        aligned && checkedMask
+          ? (boxes) =>
+              compositeAndCheck({ ...compositeInput, mask: withRestoredSpots(checkedMask, boxes) })
+          : null,
+    };
     const accepted =
       verdict.verdict === 'pass' ||
-      (verdict.verdict === 'uncertain' && this.job.reviewMode === 'pre_delivery');
-    if (accepted && this.job.lightingMode === 'evening' && plan.lightingMode === 'source') {
-      return this.acceptRelightBase(attempt, plan, judge, composite.candidate, verdict);
-    }
+      (verdict.verdict === 'uncertain' &&
+        (this.job.reviewMode === 'pre_delivery' ||
+          this.deliversUncertain(verdict, repairOpen, this.relights())));
     if (accepted) {
-      await this.deliver(attempt, plan, judge, composite.candidate, verdict);
-      return 'done';
+      // A doubt delivered as it stands has its doubted spots put back when that costs little.
+      const doubted = verdict.verdict === 'uncertain' && this.job.reviewMode !== 'pre_delivery';
+      return this.goOnAccepted({
+        ...checked,
+        candidate: doubted ? await this.restoreDoubts(checked) : checked.candidate,
+      });
     }
 
     // Failed (or uncertain in sampled audit mode).
-    await this.deps.db
-      .updateTable('renderAttempts')
-      .set({ outcome: 'qa_rejected' })
-      .where('id', '=', attempt.id)
-      .execute();
+    const rejectAttempt = () =>
+      this.deps.db
+        .updateTable('renderAttempts')
+        .set({ outcome: 'qa_rejected' })
+        .where('id', '=', attempt.id)
+        .execute();
     const codes = verdict.codes;
-    // An evening job's own daylight base is never repaired: a rejected base rejects the job, so
-    // a home whose structure changed is never relit and delivered.
-    if (
-      this.job.lightingMode !== 'evening' &&
-      attemptNo === 1 &&
-      isRepairable(codes) &&
-      (await this.repairAllowed())
-    ) {
-      const thresholds = this.options.judgeThresholds;
-      const findings = findingsFrom(judge, composite.deterministic.codes, thresholds);
+    // A first decorate attempt with repairable codes is repaired once, the decorated base of a
+    // relight-mode job included (its relight then takes the third attempt). An attempt whose
+    // verdict is a deliverable doubt, that would pass with no repair after it, or whose objected
+    // spots qualify for the last resort, is kept as the job's picture should the repair end
+    // without an accepted one.
+    if (repairOpen && isRepairable(codes)) {
+      await rejectAttempt();
+      this.kept = this.keepable(checked, majorsRepaired ? decide(false) : verdict);
+      const { critical, uncertain, major } = this.options.judgeThresholds;
+      // An uncertain rejection carries the boxes of its findings at or above the uncertainty
+      // floor, so the repair can restore them.
+      const findings = findingsFrom(
+        judge,
+        composite.deterministic.codes,
+        verdict.verdict === 'uncertain' ? { critical, uncertain, major } : { critical, major },
+      );
       if (verdict.verdict === 'uncertain') {
         for (const code of codes)
           if (!findings.some((f) => f.code === code)) findings.push({ code });
       }
       const repair = deriveRepair(plan, planned.placementKeys, findings, judge);
       await this.advance('planning', {
-        repairConstraints: toJson({ ...repair, codes }),
+        repairConstraints: toJson({ ...repair, codes, verdict: verdict.verdict }),
       });
-      return 'repair';
+      return 'next';
     }
+    // The repair of a kept attempt was rejected. A kept deliverable doubt goes on as an accepted
+    // doubt, and a kept passing attempt as it stands with its majors recorded, before the
+    // repair's own spots are considered.
+    const kept = this.keptBefore(attemptNo);
+    this.kept = null;
+    if (kept?.as === 'doubt' || kept?.as === 'passing') {
+      await rejectAttempt();
+      this.log.info(
+        {
+          keptAttemptId: kept.checked.attempt.id,
+          keptAs: kept.as,
+          codes,
+          recordedMajors: kept.checked.verdict.recordedMajors,
+        },
+        'repair rejected; the kept attempt goes on',
+      );
+      return this.goOnAccepted(
+        kept.as === 'doubt'
+          ? { ...kept.checked, candidate: await this.restoreDoubts(kept.checked) }
+          : kept.checked,
+        attemptNo,
+      );
+    }
+    // The last resort: every spot the judge objected to is put back from the original, and the
+    // attempt goes on as a doubt when enough decorations remain; failing that, the same on the
+    // first attempt the job kept through this repair.
+    const restored = await this.restoreObjections(checked);
+    if (restored) return this.goOnAccepted(restored);
+    const keptRestored = kept ? await this.restoreObjections(kept.checked) : null;
+    if (kept && keptRestored) {
+      await rejectAttempt();
+      this.log.info(
+        { keptAttemptId: kept.checked.attempt.id, codes },
+        'repair rejected; the kept attempt goes on with its objected spots put back',
+      );
+      return this.goOnAccepted(keptRestored, attemptNo);
+    }
+    await rejectAttempt();
     await this.reject(attemptNo, attempt, verdict);
     return 'done';
   }
 
   /**
-   * Checks an evening relight against its daylight base (render spec, lighting modes): the relit
-   * output is registered to the base (`camera_changed` and uncovered strips as for any output),
-   * the attribution rectangles and padding are restored verbatim, the protected regions and
-   * structure are compared with the base, and the judge runs in relight mode with the base as the
-   * reference. A relight that passes is delivered as the evening variant (`global_relight`); a
-   * repairable rejection of the first relight is repaired once with the stronger keep clause;
-   * anything else rejects the job. The deterministic relight is never delivered in its place.
+   * Goes on with an accepted decorate attempt (passed, a doubt accepted, or a picture with spots
+   * put back) at the job's attempt `attemptNo`: a plain look delivers it; the decorated base of a
+   * relit look is relit by the next attempt (after attempt 1; after a later attempt only while
+   * the time budget and the paid-attempt cap allow it), and is otherwise the job's fallback.
+   */
+  private async goOnAccepted(
+    checked: CheckedAttempt,
+    attemptNo: RenderAttemptNumber = checked.attemptNo,
+  ): Promise<'next' | 'done'> {
+    this.kept = null;
+    const { attempt, plan, judge, candidate, verdict } = checked;
+    if (this.relights()) {
+      if (attemptNo === 1) return this.acceptRelightBase(attempt, plan, judge, candidate, verdict);
+      if (await this.repairAllowed()) {
+        return this.acceptRelightBase(attempt, plan, judge, candidate, verdict, { guarded: true });
+      }
+      return this.endWithRepairedBase(attempt, plan, judge, candidate, verdict);
+    }
+    await this.deliver(attempt, plan, judge, candidate, verdict);
+    return 'done';
+  }
+
+  /**
+   * The spots of a rejected decorate attempt that the last resort puts back (`objectedSpots`), or
+   * null when they do not qualify or the output was not registered.
+   */
+  private objectionsOf(checked: CheckedAttempt): ObjectedSpots | null {
+    if (!checked.restore) return null;
+    return objectedSpots({
+      judge: checked.judge,
+      deterministic: checked.deterministic,
+      verdict: checked.verdict,
+      thresholds: this.options.judgeThresholds,
+    });
+  }
+
+  /**
+   * A rejected decorate attempt with every spot the judge objected to put back from the original
+   * (`objectionsOf`), as an attempt accepted with a doubt: verdict `uncertain` with the verdict's
+   * codes, its confident majors without a box recorded. When putting back the boxes of the
+   * confident majors too would leave too little of the decorations, the boxes of the critical
+   * findings alone are put back and those majors are recorded as well (`criticalSpotsOnly`). Null
+   * when the spots do not qualify, too little of the decorations would remain either way, or the
+   * deterministic checks of the restored picture report a code. The judge is not called again.
+   */
+  private async restoreObjections(checked: CheckedAttempt): Promise<CheckedAttempt | null> {
+    const objected = this.objectionsOf(checked);
+    if (!objected) return null;
+    const criticalOnly = criticalSpotsOnly(objected);
+    const spots =
+      criticalOnly && !this.enoughLeftAfter(checked, objected.boxes, 'objected')
+        ? criticalOnly
+        : objected;
+    const candidate = await this.restoreSpots(checked, spots, 'objected');
+    if (!candidate) return null;
+    return {
+      ...checked,
+      candidate,
+      verdict: {
+        verdict: 'uncertain',
+        codes: checked.verdict.codes,
+        recordedMajors: spots.recordedMajors,
+      },
+    };
+  }
+
+  /**
+   * What the job keeps of a decorate attempt that goes to repair (`KeptAttempt`): a deliverable
+   * doubt; an attempt whose verdict with no repair after it (`passing`) is a pass, kept with that
+   * verdict; or a rejected attempt whose objected spots qualify for the last resort; else null.
+   */
+  private keepable(checked: CheckedAttempt, passing: AttemptVerdict): KeptAttempt | null {
+    const { verdict } = checked;
+    if (verdict.verdict === 'uncertain' && uncertainDeliverable(verdict.codes)) {
+      return { checked, as: 'doubt' };
+    }
+    if (passing.verdict === 'pass')
+      return { checked: { ...checked, verdict: passing }, as: 'passing' };
+    return this.objectionsOf(checked) ? { checked, as: 'objected' } : null;
+  }
+
+  /** The attempt the job kept through the repair at `attemptNo`, if any. */
+  private keptBefore(attemptNo: RenderAttemptNumber): KeptAttempt | null {
+    return this.kept && this.kept.checked.attemptNo < attemptNo ? this.kept : null;
+  }
+
+  /**
+   * The picture of a doubted decorate attempt that goes on as it stands, with its doubted spots
+   * that have a box put back from the original when that keeps enough of the decorations
+   * (`lastResort.minKeptShareDoubt`) and the deterministic checks pass; otherwise the picture as
+   * it is.
+   */
+  private async restoreDoubts(checked: CheckedAttempt): Promise<Raster> {
+    const spots = checked.restore
+      ? doubtedSpots(checked.judge, this.options.judgeThresholds)
+      : null;
+    if (!spots) return checked.candidate;
+    return (await this.restoreSpots(checked, spots, 'doubted')) ?? checked.candidate;
+  }
+
+  /** What putting `boxes` back from the original leaves of a checked attempt's decorations. */
+  private decorationsLeftAfter(
+    checked: CheckedAttempt,
+    boxes: readonly NormalizedBox[],
+  ): DecorationsLeft {
+    return decorationsLeft({
+      width: this.working.width,
+      height: this.working.height,
+      decorations: checked.decorations,
+      placements: checked.plan.placements.map((placement) => placement.region),
+      boxes,
+    });
+  }
+
+  /** Whether putting `boxes` back leaves enough of the decorations for `kind`. */
+  private enoughLeftAfter(
+    checked: CheckedAttempt,
+    boxes: readonly NormalizedBox[],
+    kind: RestoredRecord['kind'],
+  ): boolean {
+    return enoughDecorationsLeft(this.decorationsLeftAfter(checked, boxes), kind);
+  }
+
+  /**
+   * Composites a checked attempt again with `spots` restored, when enough of the decorations
+   * remains for `kind` (`enoughDecorationsLeft`) and the deterministic checks of the restored
+   * picture report no code; records what was restored on the attempt
+   * (`composite_mask.restored`). Null otherwise.
+   */
+  private async restoreSpots(
+    checked: CheckedAttempt,
+    spots: JudgedSpots & { recordedMajors?: MajorFailureCode[] },
+    kind: RestoredRecord['kind'],
+  ): Promise<Raster | null> {
+    if (!checked.restore) return null;
+    const left = this.decorationsLeftAfter(checked, spots.boxes);
+    if (!enoughDecorationsLeft(left, kind)) {
+      this.log.info({ kind, ...left }, 'too little of the decorations would remain; not restored');
+      return null;
+    }
+    let composite: CompositeResult;
+    try {
+      composite = await checked.restore(spots.boxes);
+    } catch (error) {
+      if (this.signal.aborted) throw error;
+      this.log.warn({ err: error, kind }, 'the restored picture could not be composited');
+      return null;
+    }
+    const { codes, decisive } = composite.deterministic;
+    if (codes.length > 0 || (decisive?.length ?? 0) > 0) {
+      this.log.info({ kind, codes }, 'the restored picture fails the deterministic checks');
+      return null;
+    }
+    const recordedMajors = spots.recordedMajors ?? [];
+    const record: RestoredRecord = {
+      kind,
+      codes: spots.codes,
+      boxes: spots.boxes,
+      keptShare: Math.round(left.keptShare * 10_000) / 10_000,
+      ...(recordedMajors.length > 0 ? { recordedMajors } : {}),
+    };
+    const row = await this.deps.db
+      .selectFrom('renderAttempts')
+      .select('compositeMask')
+      .where('id', '=', checked.attempt.id)
+      .executeTakeFirst();
+    await this.deps.db
+      .updateTable('renderAttempts')
+      .set({
+        compositeMask: toJson({
+          ...((row?.compositeMask as Record<string, unknown> | null) ?? {}),
+          restored: record,
+        }),
+      })
+      .where('id', '=', checked.attempt.id)
+      .execute();
+    this.log.info(record, 'spots put back from the original');
+    return composite.candidate;
+  }
+
+  /**
+   * The repair of an attempt the job kept (`KeptAttempt`) ended without a QA decision: its edit or
+   * check failed with a failure a relight falls back on (`RELIGHT_FALLBACK_FAILURES`), or the
+   * job's deadline passed after the edit was settled; or it was never sent because its planning
+   * failed (the paid-attempt cap, a pause, the time guard or the deadline, or no usable anchors
+   * after the repair's adjustments). The kept attempt is the job's picture: a deliverable doubt
+   * with its doubted spots put back when that costs little, a passing attempt as it stands with
+   * its confident majors recorded, otherwise with its objected spots put back (the last resort;
+   * when that leaves too little or fails its checks, the failure stands). A plain look delivers
+   * it; a bright job delivers it as its result and an evening job ends rejected with it as its
+   * daylight variant, neither relit (`relight_not_attempted`; a passing base as a base that passed
+   * and could not be relit). The repair
+   * attempt is marked rejected when its edit had succeeded. Returns false (the failure stands)
+   * without a kept attempt, for any other error, and for an abort while the edit may still be in
+   * flight.
+   */
+  private async goOnWithKeptAfterFailedRepair(
+    attemptNo: RenderAttemptNumber,
+    error: unknown,
+  ): Promise<boolean> {
+    const kept = this.keptBefore(attemptNo);
+    if (!kept || this.planned?.plan.relightOf) return false;
+    if (!(error instanceof JobFailure || error instanceof JobAborted)) return false;
+    const current = await readJob(this.deps.db, this.job.id);
+    if (!current) return false;
+    const planning = current.state === 'planning';
+    const afterEdit = current.state === 'checking';
+    if (!planning && !afterEdit && current.state !== 'rendering') return false;
+    let failureKind: FailureKind;
+    if (
+      error instanceof JobFailure &&
+      (RELIGHT_FALLBACK_FAILURES.includes(error.kind) ||
+        (planning &&
+          (error instanceof AttemptCapReached ||
+            (error.kind === 'source_rejected' && error.detail === 'no_usable_anchors'))))
+    ) {
+      failureKind = error.kind;
+    } else if (error instanceof JobAborted && this.deadlineHit) {
+      failureKind = 'timeout';
+    } else {
+      return false;
+    }
+    if (this.signal.aborted && !(this.deadlineHit && (afterEdit || planning))) return false;
+    // A repair whose planning failed was never written as an attempt.
+    const repair = planning ? null : await this.currentAttempt(attemptNo);
+    if (planning && (await this.attemptRows()).some((row) => row.attemptNo === attemptNo)) {
+      return false;
+    }
+    this.kept = null;
+    const picked =
+      kept.as === 'doubt'
+        ? { ...kept.checked, candidate: await this.restoreDoubts(kept.checked) }
+        : kept.as === 'passing'
+          ? kept.checked
+          : await this.restoreObjections(kept.checked);
+    if (!picked) return false;
+    this.job = current;
+    if (planning) {
+      // The delivery and the rejection start from `checking`, which the job reaches through
+      // `rendering` in one transaction.
+      this.job = await this.deps.db.transaction().execute(async (trx) => {
+        await transitionJob(trx, {
+          jobId: this.job.id,
+          from: 'planning',
+          to: 'rendering',
+          clock: this.deps.clock,
+        });
+        return transitionJob(trx, {
+          jobId: this.job.id,
+          from: 'rendering',
+          to: 'checking',
+          clock: this.deps.clock,
+        });
+      });
+    } else if (!afterEdit) {
+      await this.advance('checking', { renderCompletedAt: this.now() });
+    }
+    if (repair?.outcome === 'succeeded') {
+      await this.deps.db
+        .updateTable('renderAttempts')
+        .set({ outcome: 'qa_rejected' })
+        .where('id', '=', repair.id)
+        .execute();
+    }
+    this.log.info(
+      {
+        keptAttemptId: kept.checked.attempt.id,
+        keptAs: kept.as,
+        failureKind,
+        recordedMajors: picked.verdict.recordedMajors,
+      },
+      'repair ended without a QA decision; the kept attempt goes on',
+    );
+    const { attempt, plan, judge, candidate, verdict } = picked;
+    const baseVerdict = verdict.verdict === 'pass' ? 'pass' : 'uncertain';
+    if (!this.relights()) {
+      await this.deliver(attempt, plan, judge, candidate, verdict);
+      return true;
+    }
+    const why = {
+      reason: 'relight_not_attempted' as const,
+      relightAttemptId: null,
+      codes: verdict.codes,
+    };
+    if (this.relightTarget() === 'bright') {
+      await this.deliverBase(attempt, plan, judge, candidate, baseVerdict, why);
+      return true;
+    }
+    // An evening job with a passing base ends as one whose relight could not be attempted after
+    // its base passed; otherwise with the verdict that rejected the kept attempt.
+    const rejectedAs: AttemptVerdict =
+      kept.as === 'passing'
+        ? { verdict: 'fail', codes: [], recordedMajors: [] }
+        : kept.checked.verdict;
+    await this.endEveningWithoutRelight({
+      baseAttempt: attempt,
+      plan,
+      judge,
+      candidate,
+      baseVerdict,
+      baseRenderAssetId: null,
+      why,
+      rejectAs: repair
+        ? { attemptNo, attempt: repair, verdict: rejectedAs }
+        : { attemptNo: kept.checked.attemptNo, attempt, verdict: rejectedAs },
+    });
+    return true;
+  }
+
+  /**
+   * Whether an uncertain verdict is delivered as it stands (outside pre-delivery review, where a
+   * reviewer decides): its doubts are all about a detail of the home (`uncertainDeliverable`), and
+   * no repair can follow, or the attempt is the base of a relit look and a repair would leave too
+   * little of the job's time for the relight (`uncertainRepairWithRelightMs`). A look that may
+   * differ in a detail is delivered rather than none; with time for it, the doubt is repaired.
+   */
+  private deliversUncertain(
+    verdict: AttemptVerdict,
+    repairOpen: boolean,
+    relightAhead: boolean,
+  ): boolean {
+    if (verdict.verdict !== 'uncertain' || !uncertainDeliverable(verdict.codes)) return false;
+    if (!repairOpen || !isRepairable(verdict.codes)) return true;
+    return relightAhead && this.shortForRepairAndRelight();
+  }
+
+  /**
+   * Whether too little of the job's time is left to repair a decorated base and still relight it
+   * (`uncertainRepairWithRelightMs`).
+   */
+  private shortForRepairAndRelight(): boolean {
+    const elapsed = this.now().getTime() - (this.job.startedAt ?? this.now()).getTime();
+    return this.options.maxJobDurationMs - elapsed < PIPELINE_DEFAULTS.uncertainRepairWithRelightMs;
+  }
+
+  /**
+   * Whether a repair is still open after this attempt: the job has not used its one repair and
+   * has an attempt left. `limit` is the job's attempt count (three for a relit look that decorates
+   * its own base, two otherwise; null for two).
+   */
+  private repairLeft(attemptNo: RenderAttemptNumber, limit: number | null): boolean {
+    return !this.job.repairUsed && attemptNo < (limit ?? STANDARD_RENDER_ATTEMPTS);
+  }
+
+  /**
+   * Checks a relight against its decorated base (render spec, lighting modes): the relit output is
+   * registered to the base (`camera_changed` and uncovered strips as for any output), the
+   * attribution rectangles and padding are restored verbatim, the protected regions and structure
+   * are compared with the base, a bright relight must not be darker than the base, and the judge
+   * runs in relight mode for the target with the base as the reference. A relight that passes is
+   * delivered (`global_relight`); a repairable rejection is repaired once with the stronger keep
+   * clause while the job has its repair and an attempt left (the relight of an accepted daylight
+   * variant is attempt 1 of two; the relight of a base this job decorated is attempt 2 or 3 of
+   * three). A relight rejected for good ends an evening job rejected (its daylight variant
+   * exists) and makes a bright job deliver its decorated base as the result.
    */
   private async checkRelight(
-    attemptNo: 1 | 2,
+    attemptNo: RenderAttemptNumber,
     planned: PlannedRun,
     base: RelightBase,
-  ): Promise<'repair' | 'done'> {
+  ): Promise<'next' | 'done'> {
     const plan = planned.plan;
     const attempt = await this.currentAttempt(attemptNo);
+    if (!this.rawOutput && !attempt.candidateObjectKey) {
+      // A redelivery of a job whose fallback to its base had already moved it to `checking`.
+      const recorded = unfinishedEditFailure(attempt);
+      if (recorded) throw recorded;
+    }
     const input = await this.loadRelightInput(base);
     const rawBytes = await this.loadRawOutput(attempt);
     let composite: CompositeResult;
@@ -2390,16 +3365,34 @@ class RenderRun {
       composite.deterministic.hints,
       { base: baseImage },
     );
+    // A repair is open only while the job has it, an attempt is left, and the time budget and the
+    // paid-attempt cap allow one; otherwise confident majors are recorded, not rejected.
+    const repairOpen =
+      this.repairLeft(attemptNo, base.baseJobId === this.job.id ? MAX_RENDER_ATTEMPTS : null) &&
+      (await this.repairAllowed());
     const verdict = decideAttempt({
       attemptNumber: attemptNo,
+      repairLeft: repairOpen,
       deterministic: composite.deterministic.codes,
       judge: classification,
+      ...(composite.deterministic.decisive ? { decisive: composite.deterministic.decisive } : {}),
     });
     await this.ensureActive();
     if (
       verdict.verdict === 'pass' ||
-      (verdict.verdict === 'uncertain' && this.job.reviewMode === 'pre_delivery')
+      (verdict.verdict === 'uncertain' &&
+        (this.job.reviewMode === 'pre_delivery' ||
+          this.deliversUncertain(verdict, repairOpen, false)))
     ) {
+      // A fallback to the base that this job recorded on the base attempt before its worker
+      // stopped, while the base was being delivered, no longer holds: the relight is the result.
+      await this.deps.db
+        .updateTable('renderAttempts')
+        .set({ fallback: null })
+        .where('id', '=', base.baseAttemptId)
+        .where('jobId', '=', this.job.id)
+        .where(sql<string>`fallback->>'kind'`, '=', 'relight_fallback')
+        .execute();
       await this.deliver(attempt, plan, input.judge ?? judge, composite.candidate, verdict);
       return 'done';
     }
@@ -2409,18 +3402,44 @@ class RenderRun {
       .where('id', '=', attempt.id)
       .execute();
     const codes = verdict.codes;
-    if (attemptNo === 1 && isRepairable(codes) && (await this.repairAllowed())) {
-      await this.advance('planning', { repairConstraints: toJson({ relight: true, codes }) });
-      return 'repair';
+    if (repairOpen && isRepairable(codes)) {
+      // The base and the verdict that accepted it stay with the job for a fallback to the base.
+      await this.advance('planning', {
+        repairConstraints: toJson({ ...this.storedState(), relight: true, codes }),
+        subStage: 'relight',
+      });
+      return 'next';
+    }
+    if (plan.lightingMode === 'bright') {
+      await this.deliverRelightBase(base, input, input.judge ?? judge, {
+        reason: 'relight_rejected',
+        relightAttemptId: attempt.id,
+        codes,
+      });
+      return 'done';
+    }
+    if (base.baseJobId === this.job.id) {
+      return this.endEveningWithOwnBase(
+        base,
+        input,
+        { reason: 'relight_rejected', relightAttemptId: attempt.id, codes },
+        { attemptNo, attempt, verdict },
+      );
     }
     await this.reject(attemptNo, attempt, verdict);
     return 'done';
   }
 
   /**
-   * An evening job's own daylight base passed: it is published as the `source` variant (its own
-   * key, labels and download) unless the job runs in pre-delivery review, where it is kept
-   * unpublished for the relight. The attempt succeeded; attempt 2 relights it.
+   * The decorated base of a relight-mode job passed: attempt 1, or its repair (attempt 2). An
+   * evening job publishes it as the `source` variant (its own key, labels and download) unless the
+   * job runs in pre-delivery review; a bright job keeps it unpublished (`source` is not an offered
+   * cell of its scene types). An unpublished base is stored for the relight unless the source is
+   * transient. The attempt succeeded and the next attempt relights it, except when the time budget
+   * or the paid-attempt cap allows no further edit: a bright job then delivers the base as its
+   * result and an evening job ends rejected with the base as its daylight variant
+   * (`endEveningWithoutRelight`). `guarded`: the caller already found that the budget and the cap
+   * allow the relight.
    */
   private async acceptRelightBase(
     attempt: RenderAttempt,
@@ -2428,35 +3447,17 @@ class RenderRun {
     judge: JudgeResult,
     candidate: Raster,
     verdict: AttemptVerdict,
-  ): Promise<'repair'> {
+    options: { guarded?: boolean } = {},
+  ): Promise<'next' | 'done'> {
     this.baseComposite = { attemptId: attempt.id, raster: candidate };
+    const target = this.relightTarget();
     let baseRenderAssetId: string | null = null;
-    if (this.job.reviewMode !== 'pre_delivery' && verdict.verdict === 'pass') {
-      const deliverables = await buildDeliverables({
-        candidate,
-        contentBox: this.working.contentBox,
-        source: this.source,
-        permission: this.permission,
-        quality: this.options.deliveredJpegQuality,
-        downloadMark: this.options.downloadMark,
-      });
-      const asset = await publishBaseVariant(this.deps, {
-        job: this.job,
-        project: this.project,
-        source: this.source,
-        plan,
-        attempt,
-        judge,
-        deliverables,
-        nativeWidth: this.working.nativeWidth,
-        nativeHeight: this.working.nativeHeight,
-        scaleFactor: Math.min(99.999, this.working.scaleFactor),
-        providerMode: this.providerMode(),
-        providerWatermark: attempt.providerWatermark ?? 'unknown',
-        providerManifestCaptured: attempt.providerManifestObjectKey !== null,
-        permission: this.permission,
-      });
-      baseRenderAssetId = asset.id;
+    if (
+      target === 'evening' &&
+      this.job.reviewMode !== 'pre_delivery' &&
+      verdict.verdict === 'pass'
+    ) {
+      baseRenderAssetId = (await this.publishDaylightBase(attempt, plan, judge, candidate)).id;
     } else if (this.loaded.streetViewMode !== 'transient') {
       await this.deps.storage.put({
         bucket: 'private',
@@ -2478,15 +3479,422 @@ class RenderRun {
       .set({ outcome: 'succeeded' })
       .where('id', '=', attempt.id)
       .execute();
-    await this.advance('planning', { repairConstraints: toJson({ relightBase: base }) });
-    return 'repair';
+    if (!options.guarded && !(await this.repairAllowed())) {
+      const why = { reason: 'relight_not_attempted' as const, relightAttemptId: null, codes: [] };
+      if (target === 'bright') {
+        await this.deliverBase(attempt, plan, judge, candidate, verdict.verdict, why);
+        return 'done';
+      }
+      return this.endEveningWithoutRelight({
+        baseAttempt: attempt,
+        plan,
+        judge,
+        candidate,
+        baseVerdict: verdict.verdict,
+        baseRenderAssetId,
+        why,
+        rejectAs: {
+          attemptNo: attempt.attemptNo as RenderAttemptNumber,
+          attempt,
+          verdict: { verdict: 'fail', codes: [], recordedMajors: [] },
+        },
+      });
+    }
+    // A repaired base keeps the codes and verdict that rejected the first base, with which the
+    // job ends when its relight cannot be attempted.
+    const { codes, verdict: rejectedAs } = this.storedState();
+    await this.advance('planning', {
+      repairConstraints: toJson({
+        relightBase: base,
+        baseVerdict: verdict.verdict,
+        ...(codes ? { codes, verdict: rejectedAs } : {}),
+      }),
+      subStage: 'relight',
+    });
+    return 'next';
+  }
+
+  /** Publishes an evening job's own decorated base as the `source` variant (a companion job). */
+  private async publishDaylightBase(
+    attempt: RenderAttempt,
+    plan: DecorationPlan,
+    judge: JudgeResult | null,
+    candidate: Raster,
+  ): Promise<RenderAsset> {
+    const deliverables = await buildDeliverables({
+      candidate,
+      contentBox: this.working.contentBox,
+      source: this.source,
+      permission: this.permission,
+      quality: this.options.deliveredJpegQuality,
+      downloadMark: this.options.downloadMark,
+    });
+    await this.assertPlaceNotBlocked();
+    return publishBaseVariant(this.deps, {
+      job: this.job,
+      project: this.project,
+      source: this.source,
+      plan,
+      attempt,
+      judge,
+      deliverables,
+      nativeWidth: this.working.nativeWidth,
+      nativeHeight: this.working.nativeHeight,
+      scaleFactor: Math.min(99.999, this.working.scaleFactor),
+      providerMode: this.providerMode(),
+      providerWatermark: attempt.providerWatermark ?? 'unknown',
+      providerManifestCaptured: attempt.providerManifestObjectKey !== null,
+      permission: this.permission,
+    });
+  }
+
+  /**
+   * A relight-mode job's base was rejected and repaired (attempt 2), and the repair passed (or a
+   * picture after it was accepted: the repair with its objected spots put back, or the first
+   * base kept as a doubt), but the
+   * time budget or the paid-attempt cap allows no third attempt for the relight. A bright job
+   * delivers the repaired base as its result. An evening job ends rejected with the codes that
+   * rejected the first base and the repaired base as its daylight variant (held for a reviewer in
+   * pre-delivery review). Both record that the relight was not attempted.
+   */
+  private async endWithRepairedBase(
+    attempt: RenderAttempt,
+    plan: DecorationPlan,
+    judge: JudgeResult,
+    candidate: Raster,
+    verdict: AttemptVerdict,
+  ): Promise<'done'> {
+    const stored = this.storedState();
+    const codes = stored.codes ?? [];
+    const why = { reason: 'relight_not_attempted' as const, relightAttemptId: null, codes };
+    if (this.relightTarget() === 'bright') {
+      await this.deliverBase(attempt, plan, judge, candidate, verdict.verdict, why);
+      return 'done';
+    }
+    return this.endEveningWithoutRelight({
+      baseAttempt: attempt,
+      plan,
+      judge,
+      candidate,
+      baseVerdict: verdict.verdict,
+      baseRenderAssetId: null,
+      why,
+      rejectAs: {
+        attemptNo: 2,
+        attempt,
+        verdict: {
+          verdict: stored.verdict === 'uncertain' ? 'uncertain' : 'fail',
+          codes,
+          recordedMajors: [],
+        },
+      },
+    });
+  }
+
+  /**
+   * Ends an evening job that decorated its own base without delivering its relight (the relight
+   * was rejected for good, failed, or could not be attempted). The base is the job's daylight
+   * variant: published unless the job runs in pre-delivery review (an earlier publication is
+   * reused), and otherwise held for a reviewer as an as-photographed candidate under a companion
+   * job in `needs_review`, so approval publishes the daylight look. The job ends rejected
+   * (`rejectAs`) and the base attempt records why (`relight_fallback`).
+   */
+  private async endEveningWithoutRelight(input: {
+    baseAttempt: RenderAttempt;
+    plan: DecorationPlan;
+    judge: JudgeResult | null;
+    candidate: Raster;
+    baseVerdict: AttemptVerdict['verdict'];
+    /** The daylight variant already published from this base, if any. */
+    baseRenderAssetId: string | null;
+    why: Pick<RelightFallbackRecord, 'reason' | 'relightAttemptId' | 'codes' | 'failureKind'>;
+    rejectAs: { attemptNo: RenderAttemptNumber; attempt: RenderAttempt; verdict: AttemptVerdict };
+  }): Promise<'done'> {
+    const review = this.job.reviewMode === 'pre_delivery';
+    // Outside review a base accepted with a doubt is published like one that passed.
+    const published =
+      input.baseRenderAssetId !== null ||
+      (!review && (input.baseVerdict === 'pass' || input.baseVerdict === 'uncertain'));
+    if (published && input.baseRenderAssetId === null) {
+      await this.publishDaylightBase(input.baseAttempt, input.plan, input.judge, input.candidate);
+    }
+    // The held files are written first; the companion that holds the base is the project's active
+    // job, so it is inserted in the transaction that ends the evening job, after its update.
+    const staged =
+      !published && review
+        ? await this.stageDaylightBase(input.baseAttempt, input.candidate, input.baseVerdict)
+        : null;
+    let held = staged?.existing ?? null;
+    let record: RelightFallbackRecord | null = null;
+    try {
+      // The base attempt's record is written in the transaction that rejects the job, so a status
+      // read at the rejection already finds the daylight variant through it.
+      await this.reject(
+        input.rejectAs.attemptNo,
+        input.rejectAs.attempt,
+        input.rejectAs.verdict,
+        async (trx) => {
+          if (staged && !staged.existing) held = await staged.insert(trx);
+          record = {
+            kind: 'relight_fallback',
+            target: 'evening',
+            deliveredAs: published ? 'daylight_variant' : null,
+            ...input.why,
+            ...(held ? { heldJobId: held.id } : {}),
+          };
+          await trx
+            .updateTable('renderAttempts')
+            .set({ outcome: 'succeeded', fallback: toJson(record) })
+            .where('id', '=', input.baseAttempt.id)
+            .execute();
+        },
+      );
+    } catch (error) {
+      await staged?.discard();
+      throw error;
+    }
+    if (staged && !held) {
+      this.log.warn('another job of the project is active; the daylight base is not held');
+    }
+    this.log.info(record, 'evening relight not delivered; the base is the daylight variant');
+    return 'done';
+  }
+
+  /** `endEveningWithoutRelight` for the base a relight started from (its attempt, plan, pixels). */
+  private async endEveningWithOwnBase(
+    base: RelightBase,
+    input: RelightInput,
+    why: Pick<RelightFallbackRecord, 'reason' | 'relightAttemptId' | 'codes' | 'failureKind'>,
+    rejectAs: { attemptNo: RenderAttemptNumber; attempt: RenderAttempt; verdict: AttemptVerdict },
+  ): Promise<'done'> {
+    const baseAttempt = await this.deps.db
+      .selectFrom('renderAttempts')
+      .selectAll()
+      .where('id', '=', base.baseAttemptId)
+      .executeTakeFirst();
+    if (!baseAttempt) throw new JobFailure('internal_error', null, 'relight base attempt missing');
+    return this.endEveningWithoutRelight({
+      baseAttempt,
+      plan: input.plan,
+      judge: input.judge,
+      candidate: input.raster,
+      baseVerdict: this.storedState().baseVerdict ?? 'pass',
+      baseRenderAssetId: base.baseRenderAssetId,
+      why,
+      rejectAs,
+    });
+  }
+
+  /**
+   * Stages an evening job's own decorated base for pre-delivery review as its as-photographed
+   * candidate (`holdBaseVariant`): the held files are written, the companion job is inserted by
+   * the caller in the transaction that ends the evening job.
+   */
+  private async stageDaylightBase(
+    attempt: RenderAttempt,
+    candidate: Raster,
+    verdict: AttemptVerdict['verdict'],
+  ): Promise<StagedBaseVariant> {
+    const deliverables = await buildDeliverables({
+      candidate,
+      contentBox: this.working.contentBox,
+      source: this.source,
+      permission: this.permission,
+      quality: this.options.deliveredJpegQuality,
+      downloadMark: this.options.downloadMark,
+    });
+    await this.assertPlaceNotBlocked();
+    return holdBaseVariant(this.deps, {
+      job: this.job,
+      source: this.source,
+      attempt,
+      deliverables,
+      permission: this.permission,
+      qaPassed: verdict === 'pass',
+    });
+  }
+
+  /**
+   * Delivers a bright job's decorated base as its result after the relight did not produce one
+   * (rejected, failed or not attempted), recording why on the base attempt. The base was accepted
+   * by its own QA (`verdict`: pass, or uncertain in pre-delivery review).
+   */
+  private async deliverBase(
+    attempt: RenderAttempt,
+    plan: DecorationPlan,
+    judge: JudgeResult | null,
+    candidate: Raster,
+    verdict: AttemptVerdict['verdict'],
+    why: Pick<RelightFallbackRecord, 'reason' | 'relightAttemptId' | 'codes' | 'failureKind'>,
+  ): Promise<void> {
+    const record: RelightFallbackRecord = {
+      kind: 'relight_fallback',
+      target: 'bright',
+      deliveredAs: 'result',
+      ...why,
+    };
+    await this.deps.db
+      .updateTable('renderAttempts')
+      .set({ fallback: toJson(record) })
+      .where('id', '=', attempt.id)
+      .execute();
+    this.log.info(record, 'bright relight not delivered; the decorated base is the result');
+    await this.deliver(attempt, plan, judge, candidate, {
+      verdict: verdict === 'uncertain' ? 'uncertain' : 'pass',
+      codes: [],
+      recordedMajors: [],
+    });
+  }
+
+  /** Delivers the base a bright relight started from (its attempt, plan and pixels). */
+  private async deliverRelightBase(
+    base: RelightBase,
+    input: RelightInput,
+    judge: JudgeResult | null,
+    why: Pick<RelightFallbackRecord, 'reason' | 'relightAttemptId' | 'codes' | 'failureKind'>,
+  ): Promise<void> {
+    const baseAttempt = await this.deps.db
+      .selectFrom('renderAttempts')
+      .selectAll()
+      .where('id', '=', base.baseAttemptId)
+      .executeTakeFirst();
+    if (!baseAttempt) throw new JobFailure('internal_error', null, 'relight base attempt missing');
+    await this.deliverBase(
+      baseAttempt,
+      input.plan,
+      judge,
+      input.raster,
+      this.storedState().baseVerdict ?? 'pass',
+      why,
+    );
+  }
+
+  /**
+   * A relight that ended without a QA decision: its edit failed (`provider_error`, `timeout`,
+   * including a timeout bounded by the job's time left), its output could not be decoded, its
+   * judge was unavailable, or the job's deadline passed while it was checked (the edit is settled
+   * by then). A bright job delivers its decorated base as the result; an evening job that decorated
+   * its own base ends rejected with that base as its daylight variant (`endEveningWithoutRelight`).
+   * Returns false (the failure stands) for any other error, attempt or job, and for an abort while
+   * the edit may still be in flight.
+   */
+  private async deliverBaseAfterFailedRelight(
+    attemptNo: RenderAttemptNumber,
+    error: unknown,
+  ): Promise<boolean> {
+    const relightOf = this.planned?.plan.relightOf;
+    const target = this.planned?.plan.lightingMode;
+    if (!relightOf || (target !== 'bright' && target !== 'evening')) return false;
+    if (target === 'evening' && relightOf.baseJobId !== this.job.id) return false;
+    if (!(error instanceof JobFailure || error instanceof JobAborted)) return false;
+    const current = await readJob(this.deps.db, this.job.id);
+    if (!current || (current.state !== 'rendering' && current.state !== 'checking')) return false;
+    const afterEdit = current.state === 'checking';
+    let failureKind: FailureKind;
+    if (error instanceof JobFailure && RELIGHT_FALLBACK_FAILURES.includes(error.kind)) {
+      failureKind = error.kind;
+    } else if (error instanceof JobAborted && this.deadlineHit) {
+      failureKind = 'timeout';
+    } else {
+      return false;
+    }
+    if (this.signal.aborted && !(this.deadlineHit && afterEdit)) return false;
+    this.job = current;
+    const input = await this.loadRelightInput(relightOf);
+    const attempt = await this.currentAttempt(attemptNo);
+    if (!afterEdit) await this.advance('checking', { renderCompletedAt: this.now() });
+    const why = {
+      reason: 'relight_failed' as const,
+      relightAttemptId: attempt.id,
+      codes: [],
+      failureKind,
+    };
+    if (target === 'bright') {
+      await this.deliverRelightBase(relightOf, input, input.judge, why);
+      return true;
+    }
+    await this.endEveningWithOwnBase(relightOf, input, why, {
+      attemptNo,
+      attempt,
+      verdict: { verdict: 'fail', codes: [], recordedMajors: [] },
+    });
+    return true;
+  }
+
+  /**
+   * The paid-attempt cap, checked under the owner's allowance lock when the attempt row is
+   * written, refused a relight of a base this job decorated itself (another job of the owner took
+   * the last attempt after this job's own check). The base ends the job as when the cap closes
+   * the relight before it is planned: a bright job delivers it as the result and an evening job
+   * ends rejected with it as the daylight variant (held for a reviewer in pre-delivery review).
+   * The fallback records `relight_not_attempted` with the codes that rejected a repaired base's
+   * first attempt, or, when the refused attempt was the repair of a rejected relight,
+   * `relight_rejected` with that relight and its codes. Returns false (the job fails
+   * `policy_denied`) for any other attempt: a decorate attempt, or the relight of a variant
+   * another job published.
+   */
+  private async deliverBaseAfterRefusedRelight(attemptNo: RenderAttemptNumber): Promise<boolean> {
+    const relightOf = this.planned?.plan.relightOf;
+    const target = this.planned?.plan.lightingMode;
+    if (!relightOf || relightOf.baseJobId !== this.job.id) return false;
+    if (target !== 'bright' && target !== 'evening') return false;
+    const stored = this.storedState();
+    const codes = stored.codes ?? [];
+    const previous = await this.currentAttempt(attemptNo - 1);
+    const rejectedRelight = stored.relight === true ? previous : null;
+    const input = await this.loadRelightInput(relightOf);
+    // No attempt row was written. The delivery and the rejection start from `checking`, which
+    // the job reaches through `rendering` in one transaction.
+    this.job = await this.deps.db.transaction().execute(async (trx) => {
+      await transitionJob(trx, {
+        jobId: this.job.id,
+        from: 'planning',
+        to: 'rendering',
+        clock: this.deps.clock,
+      });
+      return transitionJob(trx, {
+        jobId: this.job.id,
+        from: 'rendering',
+        to: 'checking',
+        clock: this.deps.clock,
+      });
+    });
+    const why = rejectedRelight
+      ? { reason: 'relight_rejected' as const, relightAttemptId: rejectedRelight.id, codes }
+      : { reason: 'relight_not_attempted' as const, relightAttemptId: null, codes };
+    this.log.info({ attemptNo, ...why }, 'paid-attempt cap reached; the base ends the job');
+    if (target === 'bright') {
+      await this.deliverRelightBase(relightOf, input, input.judge, why);
+      return true;
+    }
+    await this.endEveningWithOwnBase(relightOf, input, why, {
+      attemptNo: previous.attemptNo as RenderAttemptNumber,
+      attempt: previous,
+      verdict: {
+        verdict: !rejectedRelight && stored.verdict === 'uncertain' ? 'uncertain' : 'fail',
+        codes,
+        recordedMajors: [],
+      },
+    });
+    return true;
+  }
+
+  /**
+   * A Street View place put on the opt-out list while its job ran is not published: the job
+   * fails as `prepare` fails it for a place blocked before the job started.
+   */
+  private async assertPlaceNotBlocked(): Promise<void> {
+    if (this.source.kind !== 'street_view') return;
+    if (await isPropertyBlocked(this.deps.db, this.project.propertyId, this.now())) {
+      throw new JobFailure('source_rejected', null, 'Place is on the opt-out list');
+    }
   }
 
   /** Delivers an accepted candidate: held for pre-delivery review, or published. */
   private async deliver(
     attempt: RenderAttempt,
     plan: DecorationPlan,
-    judge: JudgeResult,
+    judge: JudgeResult | null,
     candidate: Raster,
     verdict: AttemptVerdict,
   ): Promise<void> {
@@ -2499,6 +3907,7 @@ class RenderRun {
       downloadMark: this.options.downloadMark,
     });
     const qaPassed = verdict.verdict === 'pass';
+    await this.assertPlaceNotBlocked();
     if (this.job.reviewMode === 'pre_delivery') {
       this.job = await holdForReview(this.deps, {
         job: this.job,
@@ -2533,9 +3942,10 @@ class RenderRun {
 
   /** Ends the job `rejected` after a failed attempt with no repair left. */
   private async reject(
-    attemptNo: 1 | 2,
+    attemptNo: RenderAttemptNumber,
     attempt: RenderAttempt,
     verdict: AttemptVerdict,
+    within?: (trx: Tx) => Promise<void>,
   ): Promise<void> {
     const codes = verdict.codes;
     const rejectionReason = verdict.verdict === 'uncertain' ? 'qa_uncertain' : 'qa_critical';
@@ -2545,10 +3955,11 @@ class RenderRun {
     if (codes.includes('unsafe_or_offensive')) {
       this.log.warn({ attemptId: attempt.id }, 'attempt flagged for content review');
     }
-    await this.finish('rejected', {
-      rejectionReason,
-      failureCodes: codes as FailureCode[],
-    });
+    await this.finish(
+      'rejected',
+      { rejectionReason, failureCodes: codes as FailureCode[] },
+      within,
+    );
     await emitServerEvent(this.deps.db, this.deps, {
       name: 'render_rejected',
       ownerId: this.job.ownerId,
@@ -2661,13 +4072,33 @@ class RenderRun {
   }
 
   /** Whether the owner's paid-attempt cap allows one more attempt. */
-  private async attemptCapAllows(): Promise<boolean> {
-    const quota = await attemptQuota(this.deps.db, this.deps.settings, {
+  private async attemptCapAllows(db: DbOrTx = this.deps.db, limit?: number): Promise<boolean> {
+    const quota = await attemptQuota(db, this.deps.settings, {
       ownerId: this.job.ownerId,
       now: this.now(),
       projected: 1,
+      ...(limit === undefined ? {} : { limit }),
     });
     return quota.used <= quota.limit;
+  }
+
+  /**
+   * The timeout of an edit bounded by the job's time left (a relight's, and a repair's while the
+   * job keeps an attempt to fall back on): the render timeout, or the job's time left minus
+   * `PIPELINE_DEFAULTS.relightDeadlineGuardMs` when that is shorter (at least
+   * `relightMinTimeoutMs`).
+   */
+  private boundedEditTimeoutMs(): number {
+    return Math.max(
+      PIPELINE_DEFAULTS.relightMinTimeoutMs,
+      Math.min(this.options.renderTimeoutMs, Math.floor(this.editTimeLeftMs())),
+    );
+  }
+
+  /** The job's time left minus `PIPELINE_DEFAULTS.relightDeadlineGuardMs`. */
+  private editTimeLeftMs(): number {
+    const elapsed = this.now().getTime() - (this.job.startedAt ?? this.now()).getTime();
+    return this.options.maxJobDurationMs - elapsed - PIPELINE_DEFAULTS.relightDeadlineGuardMs;
   }
 
   /** Repair guards: time budget and the owner's paid-attempt cap. */
@@ -2691,7 +4122,15 @@ class RenderRun {
     return rows.map((row) => row.reservationEntryId).filter((id): id is string => id !== null);
   }
 
-  private async finish(to: 'failed' | 'rejected', patch: JobPatch): Promise<void> {
+  /**
+   * Ends the job `failed` or `rejected`, releasing its open reservations (except those of
+   * attempts whose cost is still unknown); `within` runs last in the same transaction.
+   */
+  private async finish(
+    to: 'failed' | 'rejected',
+    patch: JobPatch,
+    within?: (trx: Tx) => Promise<void>,
+  ): Promise<void> {
     const except = await this.inFlightReservations();
     this.job = await transitionJob(this.deps.db, {
       jobId: this.job.id,
@@ -2701,6 +4140,7 @@ class RenderRun {
       clock: this.deps.clock,
       within: async (trx) => {
         await releaseRemaining(trx, this.job.id, this.deps.clock, except);
+        if (within) await within(trx);
       },
     });
   }
@@ -2729,7 +4169,11 @@ class RenderRun {
 
   private async handleError(error: unknown): Promise<RenderJobResult> {
     try {
-      if (error instanceof RunStopped || error instanceof LostRaceError) {
+      if (
+        error instanceof RunStopped ||
+        error instanceof EnhancementRunStopped ||
+        error instanceof LostRaceError
+      ) {
         await this.releaseStopped();
         const current = await readJob(this.deps.db, this.job.id);
         return { state: current?.state ?? this.job.state, stopped: true };

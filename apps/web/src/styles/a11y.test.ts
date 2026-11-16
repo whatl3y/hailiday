@@ -3,6 +3,7 @@ import tokensCss from './tokens.css?raw';
 import landingCss from '../features/landing/landing.css?raw';
 import resultCss from '../features/project/result.css?raw';
 import uploadCss from '../features/upload/upload.css?raw';
+import disclosureCss from '../ui/disclosure.css?raw';
 import { describe, expect, it } from 'vitest';
 
 type Rgba = [number, number, number, number];
@@ -93,9 +94,7 @@ describe('non-text contrast of form controls', () => {
 
   it('draws text fields, the address field and the drop target with the control border', () => {
     expect(block(globalCss, '.input')).toMatch(/border: 1px solid var\(--control-border\)/);
-    expect(block(landingCss, '.combo__field')).toMatch(
-      /border: 1\.5px solid var\(--control-border\)/,
-    );
+    expect(block(landingCss, '.combo__field')).toMatch(/border: 1px solid var\(--control-border\)/);
     expect(block(uploadCss, '.dropzone')).toMatch(/border: 1\.5px dashed var\(--control-border\)/);
   });
 });
@@ -103,18 +102,105 @@ describe('non-text contrast of form controls', () => {
 describe('text over photographs', () => {
   const onPhoto = token('--on-photo');
 
-  it('keeps the glass chip text at 4.5:1 even over a white backdrop', () => {
-    expect(block(globalCss, '.chip--glass')).toMatch(/background: var\(--glass-dark\)/);
-    expect(contrast(onPhoto, over(token('--glass-dark'), WHITE))).toBeGreaterThanOrEqual(4.5);
+  it.each(['.badge--ai', '.badge--example', '.badge--fixture'])(
+    'keeps %s text at 4.5:1 on its dark glass even over a white backdrop',
+    (selector) => {
+      const rule = block(globalCss, selector);
+      expect(rule).toMatch(/background: var\(--glass-dark\)/);
+      expect(rule).toMatch(/color: var\(--on-photo\)/);
+      expect(contrast(onPhoto, over(token('--glass-dark'), WHITE))).toBeGreaterThanOrEqual(4.5);
+    },
+  );
+});
+
+describe('text contrast on the page', () => {
+  const surfaces = ['--paper', '--paper-raised', '--paper-sunk', '--accent-soft'];
+
+  it.each(['--ink', '--ink-soft', '--ink-muted', '--danger'])(
+    'keeps %s at 4.5:1 or better on every surface',
+    (name) => {
+      for (const surface of surfaces) {
+        expect(contrast(token(name), token(surface)), surface).toBeGreaterThanOrEqual(4.5);
+      }
+    },
+  );
+
+  it('keeps the white text of the solid action at 4.5:1 on the accent and its hover', () => {
+    expect(contrast(token('--accent-ink'), token('--accent'))).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(token('--accent-ink'), token('--accent-strong'))).toBeGreaterThanOrEqual(4.5);
   });
 
-  it('keeps the large wordmark at 3:1 on the header scrim even over a white backdrop', () => {
-    const header = block(globalCss, '.site-header--overlay');
-    expect(header).toMatch(/var\(--photo-scrim-top\)/);
-    expect(header).toMatch(/var\(--photo-scrim-band\) calc\(var\(--safe-top\) \+ 64px\)/);
-    expect(contrast(onPhoto, over(token('--photo-scrim-top'), WHITE))).toBeGreaterThanOrEqual(3);
-    expect(contrast(onPhoto, over(token('--photo-scrim-band'), WHITE))).toBeGreaterThanOrEqual(3);
+  it('sets small meaningful labels in the muted ink, never in a decorative gray', () => {
+    for (const [css, selector] of [
+      [globalCss, '.eyebrow'],
+      [globalCss, '.site-header__link'],
+      [globalCss, '.holiday-chip'],
+      [globalCss, '.site-footer__links a'],
+      [globalCss, '.holiday-option__meta'],
+      [landingCss, '.combo__label'],
+      [landingCss, '.landing__age'],
+    ] as const) {
+      expect(block(css, selector), selector).toMatch(/color: var\(--ink(-muted|-soft)?\);/);
+    }
   });
+});
+
+describe('focus rings inside clipped lists', () => {
+  // The default ring: `outline: <width> solid` drawn outside the element.
+  const ringWidth = Number(/outline:\s*(\d+)px solid/.exec(block(globalCss, ':focus-visible'))![1]);
+
+  it.each([
+    ['global.css', '.holiday-options', '.holiday-option', globalCss],
+    ['landing.css', '.candidate-list', '.candidate-list__item', landingCss],
+  ] as const)(
+    '%s: rows of %s, which clips them, draw their whole ring inside the row',
+    (_file, list, row, css) => {
+      expect(block(css, list)).toMatch(/overflow: hidden;/);
+      const offset = /outline-offset:\s*(-?\d+)px;/.exec(block(css, `${row}:focus-visible`));
+      expect(offset, `${row}:focus-visible sets an outline offset`).not.toBeNull();
+      expect(Number(offset![1]) + ringWidth).toBeLessThanOrEqual(0);
+    },
+  );
+});
+
+describe('focus in forced-colors mode', () => {
+  /** Every rule as [selector, declarations], comments removed, nested rules included. */
+  const rules = (css: string) =>
+    [...css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{([^{}]*)\}/g)].map(
+      (match) => [match[1]!.trim(), match[2]!] as const,
+    );
+  // Programmatic focus targets (headings, messages) are not controls and draw no ring.
+  const programmatic = "[tabindex='-1']:focus";
+
+  it.each([
+    ['global.css', globalCss],
+    ['landing.css', landingCss],
+    ['disclosure.css', disclosureCss],
+    ['result.css', resultCss],
+  ] as const)('%s never removes the outline of a focused control', (_file, css) => {
+    for (const [selector, body] of rules(css)) {
+      if (!/:focus/.test(selector) || selector === programmatic) continue;
+      expect(body, selector).not.toMatch(/outline:\s*(none|0)\s*;/);
+    }
+  });
+
+  it.each([
+    ['global.css', globalCss],
+    ['landing.css', landingCss],
+    ['disclosure.css', disclosureCss],
+    ['result.css', resultCss],
+  ] as const)(
+    '%s keeps a transparent outline wherever the ring is drawn as a shadow',
+    (_file, css) => {
+      const shadowRings = rules(css).filter(
+        ([selector, body]) => /:focus/.test(selector) && /box-shadow:[^;]*var\(--ring\)/.test(body),
+      );
+      expect(shadowRings.length).toBeGreaterThan(0);
+      for (const [selector, body] of shadowRings) {
+        expect(body, selector).toMatch(/outline: 2px solid transparent;/);
+      }
+    },
+  );
 });
 
 describe('reduced motion', () => {

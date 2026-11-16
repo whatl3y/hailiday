@@ -8,16 +8,16 @@ import {
   type LinkMode,
   type ProductCard,
   type ProductsPanel,
-} from '@holiday/core';
-import { capabilityMode } from '@holiday/server/capabilities';
-import { DAY_MS, HOUR_MS } from '@holiday/server/clock';
-import type { MerchantProgram, Offer, RenderJob } from '@holiday/server/db';
-import { AppError } from '@holiday/server/errors';
+} from '@hailiday/core';
+import { capabilityMode } from '@hailiday/server/capabilities';
+import { DAY_MS, HOUR_MS } from '@hailiday/server/clock';
+import type { MerchantProgram, Offer, RenderJob } from '@hailiday/server/db';
+import { AppError } from '@hailiday/server/errors';
 import type { ApiDeps } from '../deps.js';
 import type { AuthState } from '../auth/session.js';
 import { commerceOccurrenceOf, holidayCalendar } from './holidays.js';
 import { loadSource } from './projects.js';
-import { evaluateFor } from './sources.js';
+import { evaluateFor, refreshStreetViewPolicyOf } from './sources.js';
 
 /** Panel configuration (commerce spec defaults). */
 export const COMMERCE_DEFAULTS = {
@@ -188,10 +188,18 @@ export async function buildProductsPanel(
 
   const source = await loadSource(deps, asset.sourceAssetId);
   if (source) {
+    // A Street View source's template-derived policy is brought up to the current use policy
+    // first, so a tightened `STREET_VIEW_USE_POLICY` hides the panel on the first request.
+    const policy =
+      source.kind === 'street_view'
+        ? await refreshStreetViewPolicyOf(deps, deps.db, source.assetPolicyId)
+        : undefined;
     const { permission } = await evaluateFor(deps, {
       policyId: source.assetPolicyId,
+      ...(policy !== undefined ? { policy } : {}),
       kind: source.kind,
       isGoogleImagery: source.isGoogleImagery,
+      copyright: source.copyright,
       audience: auth.audience,
     });
     if (!permission.commerceAdjacent) return HIDDEN();

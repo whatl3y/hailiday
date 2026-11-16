@@ -6,6 +6,7 @@ export * from './projects.js';
 export * from './addresses.js';
 export * from './uploads.js';
 export * from './renders.js';
+export * from './gallery.js';
 export * from './commerce.js';
 export * from './sharing.js';
 export * from './accounts.js';

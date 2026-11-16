@@ -1,7 +1,7 @@
 import { crc32 } from 'node:zlib';
 import sharp from 'sharp';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import type { ActivationState, UploadTriage } from '@holiday/core';
+import type { ActivationState, UploadTriage } from '@hailiday/core';
 import type { Capabilities } from '../../capabilities/index.js';
 import { addMs } from '../../clock/index.js';
 import type { AppConfig } from '../../config/index.js';

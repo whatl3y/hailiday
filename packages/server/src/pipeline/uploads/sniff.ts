@@ -1,4 +1,4 @@
-import type { DetectedFormat } from '@holiday/core';
+import type { DetectedFormat } from '@hailiday/core';
 
 const HEIC_BRANDS = new Set(['heic', 'heix', 'hevc', 'hevx', 'mif1', 'msf1', 'heim', 'heis']);
 const AVIF_BRANDS = new Set(['avif', 'avis']);

@@ -54,7 +54,7 @@ describe('AccountPage', () => {
     expect(api.logout).toHaveBeenCalled();
     expect(useShareStore.getState().byVariant).toEqual({});
     expect(useAppStore.getState().lastProject).toBeNull();
-    expect(window.localStorage.getItem('holiday.shares')).toBeNull();
+    expect(window.localStorage.getItem('hailiday.shares')).toBeNull();
     expect(api.resetSession).toHaveBeenCalled();
   });
 });

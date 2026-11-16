@@ -16,7 +16,7 @@ import {
   REPORT_STATUSES,
   REPORT_TARGET_KINDS,
   TOMBSTONE_KINDS,
-} from '@holiday/core';
+} from '@hailiday/core';
 import {
   ID_AND_CREATED,
   ID_CREATED_UPDATED,

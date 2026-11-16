@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { AddressSuggestion, GeocodeRequest } from '@holiday/core';
+import type { AddressSuggestion, GeocodeRequest } from '@hailiday/core';
 import { loadFixtureData, type FixtureData, type FixturePlace } from '../../fixtures/data.js';
 import type {
   AddressProvider,

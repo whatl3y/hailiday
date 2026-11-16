@@ -17,6 +17,9 @@ import {
   comparePackVersions,
   distanceBucket,
   fidelityModeFor,
+  isRelightLightingMode,
+  LIGHTING_MODES,
+  RELIGHT_LIGHTING_MODES,
   firstSkipReason,
   isCapabilityKey,
   isRepairableFailureCode,
@@ -25,7 +28,9 @@ import {
   packMajorMinor,
   parseVariantKey,
   projectSkipReason,
+  STAGE_LABEL_KEYS,
   stageLabelKeyFor,
+  stageLabelKeyOf,
   variantKey,
 } from './index.js';
 
@@ -57,6 +62,10 @@ describe('variantKey', () => {
     expect(variantKey({ ...input, holidayId: 'halloween' })).not.toBe(base);
     expect(variantKey({ ...input, style: 'subtle' })).not.toBe(base);
     expect(variantKey({ ...input, lightingMode: 'evening' })).not.toBe(base);
+    expect(variantKey({ ...input, lightingMode: 'bright' })).not.toBe(base);
+    expect(variantKey({ ...input, lightingMode: 'bright' })).not.toBe(
+      variantKey({ ...input, lightingMode: 'evening' }),
+    );
     expect(variantKey({ ...input, compilerVersion: '4' })).not.toBe(base);
   });
 
@@ -115,6 +124,57 @@ describe('render job states', () => {
     for (const state of TERMINAL_RENDER_JOB_STATES) expect(stageLabelKeyFor(state)).toBeNull();
   });
 
+  it('lists the nine stage label keys in the order a job shows them', () => {
+    expect(STAGE_LABEL_KEYS).toEqual([
+      'stage.preparing',
+      'stage.framing',
+      'stage.enhancing',
+      'stage.planning',
+      'stage.rendering',
+      'stage.checking',
+      'stage.eveningLight',
+      'stage.brightLight',
+      'stage.review',
+    ]);
+  });
+
+  it('maps a job with its sub-stage and lighting mode to a stage label key', () => {
+    for (const state of NON_TERMINAL_RENDER_JOB_STATES) {
+      expect(stageLabelKeyOf({ state })).toBe(stageLabelKeyFor(state));
+      expect(stageLabelKeyOf({ state, subStage: null, lightingMode: 'evening' })).toBe(
+        stageLabelKeyFor(state),
+      );
+    }
+    expect(stageLabelKeyOf({ state: 'analyzing', subStage: 'enhancing' })).toBe('stage.enhancing');
+    expect(stageLabelKeyOf({ state: 'preparing', subStage: 'framing' })).toBe('stage.framing');
+    for (const state of ['queued', 'analyzing', 'planning', 'rendering', 'checking'] as const) {
+      expect(stageLabelKeyOf({ state, subStage: 'framing' })).toBe(stageLabelKeyFor(state));
+    }
+    for (const state of ['planning', 'rendering'] as const) {
+      expect(stageLabelKeyOf({ state, subStage: 'relight', lightingMode: 'evening' })).toBe(
+        'stage.eveningLight',
+      );
+      expect(stageLabelKeyOf({ state, subStage: 'relight', lightingMode: 'bright' })).toBe(
+        'stage.brightLight',
+      );
+      expect(stageLabelKeyOf({ state, subStage: 'relight', lightingMode: 'source' })).toBe(
+        stageLabelKeyFor(state),
+      );
+      expect(stageLabelKeyOf({ state, subStage: 'enhancing' })).toBe(stageLabelKeyFor(state));
+    }
+    expect(
+      stageLabelKeyOf({ state: 'checking', subStage: 'relight', lightingMode: 'evening' }),
+    ).toBe('stage.checking');
+    expect(
+      stageLabelKeyOf({ state: 'analyzing', subStage: 'relight', lightingMode: 'evening' }),
+    ).toBe('stage.planning');
+    expect(stageLabelKeyOf({ state: 'preparing', subStage: 'enhancing' })).toBe('stage.preparing');
+    for (const state of TERMINAL_RENDER_JOB_STATES) {
+      expect(stageLabelKeyOf({ state, subStage: 'enhancing', lightingMode: 'evening' })).toBeNull();
+      expect(stageLabelKeyOf({ state, subStage: 'framing' })).toBeNull();
+    }
+  });
+
   it('allows the normative transitions only', () => {
     expect(canTransitionRenderJob('queued', 'preparing')).toBe(true);
     expect(canTransitionRenderJob('checking', 'planning')).toBe(true);
@@ -157,6 +217,16 @@ describe('failure codes', () => {
   it('derives fidelity mode from lighting mode', () => {
     expect(fidelityModeFor('source')).toBe('composite_additive');
     expect(fidelityModeFor('evening')).toBe('global_relight');
+    expect(fidelityModeFor('bright')).toBe('global_relight');
+  });
+
+  it('relights the evening and bright modes, never the as-photographed one', () => {
+    expect(LIGHTING_MODES).toEqual(['source', 'evening', 'bright']);
+    expect(RELIGHT_LIGHTING_MODES).toEqual(['evening', 'bright']);
+    expect(LIGHTING_MODES.filter((mode) => isRelightLightingMode(mode))).toEqual([
+      'evening',
+      'bright',
+    ]);
   });
 });
 

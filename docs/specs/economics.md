@@ -1,6 +1,6 @@
 # Economics: unit economics and capacity
 
-This specification is the single home for Holiday's money and load arithmetic: how a visit turns into cost and, through Shop the look, into affiliate revenue; the dated worksheet of unit prices behind every figure; the business decision rules that choose a lever once the pilot has measured the real rates; the revenue experiments that run alongside affiliate commerce; the guest allowance values; and the capacity and spend-ceiling values the platform enforces. Every dollar figure here is an illustration computed at list prices, not a vendor or merchant quote; pilot measurements replace the assumptions.
+This specification is the single home for Hailiday's money and load arithmetic: how a visit turns into cost and, through Shop the look, into affiliate revenue; the dated worksheet of unit prices behind every figure; the business decision rules that choose a lever once the pilot has measured the real rates; the revenue experiments that run alongside affiliate commerce; the guest allowance values; and the capacity and spend-ceiling values the platform enforces. Every dollar figure here is an illustration computed at list prices, not a vendor or merchant quote; pilot measurements replace the assumptions.
 
 **Owns:** unit economics model; dated cost worksheet; revenue assumptions; sensitivity; business decision rules (D-27); revenue experiments; guest allowance and abuse limit values (D-12); capacity, admission-control and spend-ceiling values; seasonality of demand.
 **Baseline:** planning baseline 2026-11-09; external facts retrieved 2026-11-08.
@@ -61,15 +61,15 @@ The blended formula hides three different cost shapes. Report contribution per p
 
 | Path | Google cost | Pre-render cost | Render cost | Notes |
 | --- | --- | --- | --- | --- |
-| Address with `street_view_ai` at `live_public` (Journey A) | g per path visitor (suggestions, Place Details, Geocoding, SearchDestinations, Static display loads: typically 2, at most 6 per address) | none | u per accepted variant, plus one Static fetch ($0.007) per render job in `transient` mode (the worker refetches the panorama for each job; in `persist` mode the fetch happens once per source asset) | Source modes: [address spec](address-and-street-view.md#street-view-source-modes). Shop the look is hidden on screens that show Google imagery unless the grant covers it (`commerceAdjacent`, D-15), which removes k for this path until then. |
-| Interim address path (Journey A′, D-16) | g per path visitor (the Street View image is shown for confirmation only) | q per screened upload | u per accepted variant | Pays the full Google cost and the full upload cost; completion is likely lower because a photo step is added. Measure c separately for this path. |
+| Address with `street_view_ai` at `live_public` (Journey A) | g per path visitor (suggestions, Place Details, Geocoding, SearchDestinations, Static display loads: typically 2, at most 6 per address) | none | u per accepted variant, plus one Static fetch ($0.007) per render job in `transient` mode (the worker refetches the panorama for each job; in `persist` mode the fetch happens once per source asset, reserved and settled on the first render, and later looks on the stored frame carry none) | Source modes: [address spec](address-and-street-view.md#street-view-source-modes). Under the default `full` use policy (owner decision 2026-11-10, D-15) `commerceAdjacent` is allowed, so Shop the look appears on these screens and k applies; under `decorate` and `display_only` it is hidden and k is removed for this path. |
+| Interim address path (Journey A′, D-16; `STREET_VIEW_USE_POLICY=display_only`, or contributor imagery under `STREET_VIEW_CONTRIBUTOR_IMAGERY=display_only`) | g per path visitor (the Street View image is shown for confirmation only) | q per screened upload | u per accepted variant | Pays the full Google cost and the full upload cost; completion is likely lower because a photo step is added. Measure c separately for this path. |
 | Upload (Journey B) | none | q per screened upload | u per accepted variant | The cheapest path per completer; the only path whose live rendering needs no Street View licensing ([architecture](../architecture.md#external-integrations-and-fixture-modes)). |
 
 At the defaults and V = 1, a Journey A visitor costs about $0.05 + 0.60 × $0.207 ≈ $0.17; a Journey A′ visitor about $0.05 + q + 0.60 × $0.20 ≈ $0.17 + q; a Journey B visitor about q + 0.60 × $0.20 ≈ $0.12 + q. The address-path share a therefore shifts cost per visitor even when nothing else changes, and the upload path's lower cost is not a reason to steer people to it: the address path is the product's promise (D-03, D-06).
 
 ### Costing rules
 
-- **List prices, always.** Compute every figure at list prices even while usage sits inside a free tier. Each Google SKU Holiday uses gives 10,000 free calls per month ([pricing](https://developers.google.com/maps/billing-and-pricing/pricing), retrieved 2026-11-08), so pilot volumes would otherwise report the address path as nearly free and understate its cost by the whole of g. The ledger stores the list unit price at the time of the call (`unitPriceMicros`, USD micros, because provider SKUs are sub-cent; [render pipeline](render-pipeline.md#cost-recording)); invoice reconciliation is an operations task, not an input to the model.
+- **List prices, always.** Compute every figure at list prices even while usage sits inside a free tier. Each Google SKU Hailiday uses gives 10,000 free calls per month ([pricing](https://developers.google.com/maps/billing-and-pricing/pricing), retrieved 2026-11-08), so pilot volumes would otherwise report the address path as nearly free and understate its cost by the whole of g. The ledger stores the list unit price at the time of the call (`unitPriceMicros`, USD micros, because provider SKUs are sub-cent; [render pipeline](render-pipeline.md#cost-recording)); invoice reconciliation is an operations task, not an input to the model.
 - **Include unsuccessful sessions.** Abandoned autocomplete sessions, discoveries ending in `skip_to_upload`, declined uploads and failed jobs all cost money and all count in C.
 - **Dimensions.** Report R, C and M per holiday, scene type, source kind (`street_view`, `upload`), acquisition channel and merchant program ([analytics events](data-and-api.md#analytics-events); [click tracking](commerce.md#click-tracking-and-attribution)).
 - **Variants, not previews.** The cost unit is the accepted variant; "preview" is the user-facing word for the same thing ([glossary](../glossary.md#rendering-terms)). There is one cost-per-accepted-variant figure, u, and other documents link to it rather than restating it.
@@ -89,7 +89,7 @@ List prices retrieved 2026-11-08 unless a row says otherwise. Claude prices come
 | Panorama search | Street View Metadata | free, no quota | unlimited | 1–5 | $0 | [pricing](https://developers.google.com/maps/billing-and-pricing/pricing) | none |
 | Display loads for confirmation (candidates and nudges) | Static Street View | $7.00 per 1,000 ($5.60 above 100,000) | 10,000 | 2 / 6 (the per-address Static display budget: up to 3 candidates plus up to 3 nudges) | $0.014 / $0.042 | same | same |
 | **Total per address-path visitor (g)** | | | | | **about $0.05 / $0.09** | | |
-| Worker refetch for rendering (`transient` mode) | Static Street View | $7.00 per 1,000 | shared | 1 per render job | $0.007 per accepted variant | same | grant terms (D-15) |
+| Worker fetch for rendering (`transient` mode: every job; `persist` mode: the first render of a source) | Static Street View | $7.00 per 1,000 | shared | 1 per render job (transient); 1 per source (persist) | $0.007 per accepted variant (transient) | same | use policy and grant terms (D-15) |
 | Optional confirmation map pin (D-40, not in defaults) | Maps JavaScript or Static Maps | **Verify:** price per load before adopting (owner: engineering lead, F10) | | 0 | $0 | | D-40 |
 
 The autocomplete client rules (3 characters, 250 ms debounce, cancel stale requests) and the server limits (requests per session token, tokens per session, the Static display budget per address) that keep a session near the typical column are owned by the [address spec](address-and-street-view.md#pre-render-spend-controls).
@@ -117,9 +117,9 @@ Input-side and thinking tokens for the source image and instructions are not a s
 | --- | --- | --- | --- | --- |
 | Scene analysis | Claude Opus 5.5 ($4 / $20 per million input / output tokens), effort `medium` | once per render job | $0.041, measured 2026-11-09 ([Measured live costs](#measured-live-costs)) | the working image, instructions and a structured output |
 | Quality judge | Claude Opus 5.5, effort `medium` | once per attempt | $0.035 to $0.036, measured 2026-11-09 | original, candidate and plan in; JudgeResult out |
-| Escalated judging | Claude Opus 5.5 at effort `high` | only on uncertain judge results; share to measure | more than the judge call (more output tokens at the higher effort) | **Verify:** escalation share and cost in Phase 1 (owner: engineering lead) |
+| Escalated judging | Claude Opus 5.5 at effort `high` | only on uncertain judge results; share to measure | about $0.028, measured 2026-11-10; reserved at $0.045 per possible attempt | **Verify:** escalation share in Phase 1 (owner: engineering lead) |
 | Analysis and judging on Claude Sonnet 5.5 (the cheaper D-43 candidate) | Claude Sonnet 5.5 ($2 / $10) | as above | about $0.02 per analysis and $0.018 per judge call (estimate: half the measured Opus cost at the same token counts) | to benchmark ([QA judge calibration](quality-and-benchmark.md#qa-judge-calibration)) |
-| Addition localization | Claude Opus 5.5, effort `medium` | once per decorating attempt (a daylight attempt, or the daylight base attempt of an evening job); none for a relight | about $0.034 and about 9 s, measured 2026-11-09 ([Measured live costs](#measured-live-costs)) | the working image and the aligned edit in; added decorations and other changes, as boxes, out |
+| Addition localization | Claude Opus 5.5, effort `medium` | once per decorating attempt (a daylight attempt, or the base attempt and the base's repair of a relit job); none for a relight | about $0.034 and about 9 s, measured 2026-11-09 ([Measured live costs](#measured-live-costs)) | the working image and the aligned edit in; added decorations and other changes, as boxes, out |
 | Upload triage | The configured vision model (the triage runs on the vision leg, `vision_analysis`; Claude Haiku 5.5 at $0.10 / $0.50 is the cheap candidate) | once per screened upload when the vision leg is live; the fixture triage costs nothing | one `vision_call` charge (stage `screening`) priced from the reported token usage, with a $0.005 fallback when a reply reports none; measure in Phase 1 | part of q |
 
 Prompt-cache reads cost $0.20 per million tokens on Sonnet 5.5 and Opus 5.5, which makes the fixed instruction blocks cheap to repeat. The canonical illustration keeps its pre-build vision estimate, made at Sonnet 5.5 rates: per accepted variant at n = 1.2 the vision cost is $0.03 + 1.2 × $0.02 ≈ $0.054, or about $0.045 per attempt when amortized, rounded to **$0.04 per attempt**, giving **e = $0.13 + $0.04 = $0.17 per attempt** and **u = 1.2 × $0.17 ≈ $0.20 per accepted variant**. At the measured Opus 5.5 costs the vision cost is $0.041 + 1.2 × $0.036 ≈ $0.084 per accepted variant, about $0.07 per attempt, more than the provisional default's edit. Measure both calls in Phase 1 with the token-counting endpoint ([model roster](render-pipeline.md#model-roster)).
@@ -128,17 +128,21 @@ Prompt-cache reads cost $0.20 per million tokens on Sonnet 5.5 and Opus 5.5, whi
 
 Live evidence from the 2026-11-09 model bake-off ([development](../development.md#model-bake-off)): the eight curated example photos from the licensed photo library at 1536 × 1024, live Claude Opus 5.5 analysis and judge, costs computed from the token usage each provider reported at the list prices above. It is live evidence with n = 8, neither the exploratory spike nor the formal benchmark, and never gate evidence ([exploratory spike](quality-and-benchmark.md#exploratory-spike)); it informs the provisional defaults recorded under [D-42](../decisions.md#d-42) and [D-43](../decisions.md#d-43). Re-measure at the exploratory spike's metered test.
 
-| Item | Measured 2026-11-09 | Worksheet price above |
+| Item | Measured 2026-11-09 | List price (the ledger's reservation price) |
 | --- | --- | --- |
 | Nano Banana 2.1, 1K, thinking `minimal` | $0.046 to $0.069 per edit, mean $0.050 (input and thinking tokens add about 50% to the output-only price) | $0.0336 |
 | Nano Banana 2.1, 1K, thinking `medium` | about $0.053 per edit (earlier run the same day, not judged) | $0.0336 |
 | Nano Banana 2.1, 2K, thinking `medium` | about $0.069 per edit (earlier run the same day, not judged) | $0.0504 |
 | GPT image 2.5 Flare, `medium` | $0.024 to $0.025 per edit | about $0.05 (estimate) |
 | GPT image 2.5 Sunburst, `high` | about $0.057 per edit (earlier run the same day, before the mask fixes) | about $0.21 (estimate) |
-| Claude Opus 5.5 scene analysis | $0.041 per photo (7 analyses, $0.286) | $0.03 at Sonnet 5.5 rates |
-| Claude Opus 5.5 QA judge | $0.035 to $0.036 per call | $0.02 at Sonnet 5.5 rates |
-| Claude Opus 5.5 addition localization | about $0.034 per call, about 9 s (live bungalow render: six boxes plus two other changes) | $0.02 at the judge's list price |
-| GPT image 2.5 evening relight of the decorated daylight image (no mask) | about $0.025 with Flare and about $0.04 with Sunburst, both at `medium` | about $0.05 (estimate) |
+| Claude Opus 5.5 scene analysis | $0.041 per photo (7 analyses, $0.286) | $0.042 |
+| Claude Opus 5.5 QA judge | $0.035 to $0.036 per call | $0.040 |
+| Claude Opus 5.5 addition localization | about $0.034 per call, about 9 s (live bungalow render: six boxes plus two other changes) | $0.040, the judge's list price |
+| Claude Opus 5.5 escalated judge | about $0.028 per call (measured 2026-11-10) | $0.045 per possible attempt, above the judge so that the two reservations on the shared `checking` stage are told apart by price |
+| GPT image 2.5 evening relight of the decorated daylight image (no mask) | about $0.025 with Flare at `medium` (Sunburst: [measured 2026-11-10](#measured-live-costs), $0.0225 to $0.0250) | about $0.05 (estimate) |
+| GPT image 2.5 enhance edit of a Street View frame (one global edit, no mask, 1024×1024, `medium`) | about $0.022 per edit (178 text, 1,024 image and 439 output tokens: $0.0223), 19.1, 19.3 and 20.6 s on three recorded frames, 2026-11-11 | $0.13, the image edit's reservation price |
+| Claude Opus 5.5 home location (framing: one image, effort `low`, a box) | about $0.003 per call, measured live on 2026-11-11; with the framed Static fetch ($0.007) about 4 to 5 s | $0.02 (`VISION_PRICES_MICROS.locate`, ledger stage `framing`; nothing is reserved at admission) |
+| Claude Opus 5.5 enhancement judge (two images, enhance mode) | expected at the relight judge's $0.035 to $0.04; the live first address settled within that range; not yet measured on a sample | $0.040 (`VISION_PRICES_MICROS.enhancement`, ledger stage `enhancing`) |
 
 The two live configurations, with one analysis per render job:
 
@@ -147,9 +151,39 @@ The two live configurations, with one analysis per render job:
 | GPT image 2.5 Flare `medium` with Opus 5.5 (provisional default) | $0.060 | about $0.11 | 6 of 8 | $0.080; about $0.13 |
 | Nano Banana 2.1 1K `minimal` with Opus 5.5 (configured fallback) | $0.086 | about $0.14 | 3 of 7 rendered (one of 8 failed `camera_changed`) | $0.216; about $0.31 |
 
-**Localization and the evening relight.** A decorating attempt now adds one localization call, so a daylight attempt on the provisional default costs the edit (about $0.025), the localization (about $0.034) and the judge (about $0.036), about $0.095 before the amortized analysis, and a daylight job reserves two localization lines. An `evening` variant relights an accepted daylight variant of the same key: one relight edit (about $0.025 with Flare, about $0.04 with Sunburst) plus its relight-mode judge (about $0.036), about $0.06 to $0.08, and a second attempt only for the relight's repair; it makes no localization call. With no daylight variant present the job first pays a daylight attempt (edit, localization, judge) and then the relight edit and judge, about $0.16 to $0.18, and delivers two variants for one allowance unit (the companion daylight variant does not count toward the allowance). Example renders reuse the daylight edit of the same photo within one run, so an evening example costs its relight only. The worst-case reservation per job at list prices ($0.13 per edit, $0.03 analysis, $0.02 per judge and localization line, $0.04 escalation) is $0.41 for a daylight job (analysis, two edits, two judges, one escalation, two localizations); $0.37 for an `evening` job that relights an existing daylight variant (no localization; $0.34 when an analysis is reusable); and $0.39 for an `evening` job without one (one localization; $0.36 with a reusable analysis). `POST /v1/renders` cannot see the worker's working-image checksum, so it always reserves the without-base shape for an `evening` job; the unused line is released at the end. Settlements use the reported usage and can exceed a line's list price, as they do for the judge.
+Live evidence from the owner stack on 2026-11-10 (GPT image 2.5 Sunburst for edits, Claude Opus 5.5 for analysis, judge and localization; the default first look of an exterior, Christmas, Abundant, Evening, which is two sequential edits). It is live evidence from single jobs, not benchmark evidence.
 
-At the plan's n = 1.2 both configurations sit below the canonical u = $0.20, but n is unmeasured at scale and the bake-off acceptance rates are the current best evidence, not benchmark evidence. At those rates the Nano Banana configuration is above the [cost ceiling](#cost-ceiling-for-provider-selection) of $0.25 and Flare is well inside it. The structural conclusion is unchanged: with these configurations C at V = 1 is about $0.10 (Flare at n = 1.2) to $0.22 (Nano Banana at the bake-off acceptance), against R = $0.0216 per visitor, so the lever order and [D-27](../decisions.md#d-27) stand.
+| Job | Cost | Time |
+| --- | --- | --- |
+| Evening-first exterior look (decorated base, then its relight) with a new scene analysis | $0.178 | 78 s |
+| The same with a reused analysis | $0.120 | 72 s |
+| Relight of an existing base | $0.041 | 29 s |
+| Street View job whose base was rejected, repaired and then passed (two attempts) | $0.196 | 93 s |
+| One Sunburst edit | $0.0225 to $0.0250 | 18 to 24 s for a relight edit |
+
+A default look takes 72 to 105 s with two attempts; a third attempt (the repair of a base before its relight, or of a rejected relight) ends a job at about 125 s.
+
+The first look of a Street View address adds the [enhancement](render-pipeline.md#enhancing) once per stored frame and compiler release: one edit and one judge call, about $0.06 (about $0.022 and $0.035 to $0.04) and about 30 s (edit 19 to 21 s, checks and storage about 2 s, judge 7 to 12 s), so the first evening look of an address costs about $0.24 against $0.178 and takes 102 to 141 s by the measured parts (155 to 166 s with a repair). The first live address on 2026-11-11 was sharpened and accepted in 26 s (edit 20 s, registration score 0.82, both corner marks adapted, judge with no finding) and its first evening look took 124 s end to end (94 to 126 s before). Later looks of the address pay and wait nothing extra. The two lines are not allowance units and not paid attempts. They are bounded by the new-address allowance (an owner's enhancements per day are at most the addresses they add, 3 by default, with one retry each).
+
+The same first look also zooms in on the home ([framing](render-pipeline.md#framing)), once per source (a place whose looks were made before the framing is zoomed in at its next look that runs a job, so the charges below fall on that look): one low-effort vision call (the locate call, about $0.003) and one Static fetch at the framed view ($0.007), about $0.01 and about 4 to 5 s, measured live on 2026-11-11. Both are recorded as direct charges at the stage `framing` with nothing reserved at admission, they are not allowance units and not paid attempts, and later looks of the source pay and wait nothing extra. A framed source that has no stored frame (`transient` mode, or a policy that does not allow storing it) also shows the framed view through the browser's display URL: that load is ledgered once per source (`framing.displayIssuedAt` records it), as one `street_view_static_display` charge ($0.007) on the stage `framing` when the framing is recorded, or on the stage `display` when the picture first falls back to the framed display URL later, each in a transaction that counts it in the property's display budget; with no room in the budget the framing is skipped, nothing is recorded and nothing is charged. The fallback load on the stage `display` is issued only while spend is allowed: under the global pause, the Street View provider's pause or a spent ceiling the picture is null, nothing is counted or charged, and a later read tries again. A source whose framing is `kept` pays the call only, except `refused_framed` (the analysis refused the framed frame), which has paid the framed fetch too and pays one more Static fetch ($0.007, stage `framing`) for the wide frame it goes back to. The look that frames a place with earlier looks also pays the new analysis of the framed frame and the new enhancement of it, because the replaced frame's enhancements are dropped and analyses are keyed by the working image: admission saw a reusable analysis and a decided enhancement of the stored frame and reserved neither, so the worker charges both directly as they are made, and the look goes on. Neither is an allowance unit or a paid attempt, and a framing refused because another job of the source is unfinished charges the calls it already made and nothing more.
+
+**Localization and the evening relight.** A decorating attempt adds one localization call, so a daylight attempt on the provisional default costs the edit (about $0.025), the localization (about $0.034) and the judge (about $0.036), about $0.095 before the amortized analysis. An `evening` variant relights an accepted daylight variant of the same key: one relight edit (about $0.025 with Flare; $0.0225 to $0.0250 with Sunburst) plus its relight-mode judge (about $0.036), about $0.06 to $0.08, and a second attempt only for the relight's repair; it makes no localization call. With no daylight variant present the job first pays a daylight attempt (edit, localization, judge) and then the relight edit and judge, about $0.12 to $0.18 measured, and delivers two variants for one allowance unit (the companion daylight variant does not count toward the allowance). Since 2026-11-10 an exterior's default first look is `evening`, so the first look of every address auto-start is this two-step path: two sequential edits, about $0.18 and 72 to 105 s measured. A rejected base is repaired once before its relight, and a rejected relight is repaired once, each a third attempt, so a relit look that decorates its own base makes at most three edits. A `bright` interior look is the same path on the photo's decorated base (a live bright relight measured about $0.025 at `medium`, 11 to 15 s), so a relit interior look is two edits; an already-bright photo, and an `evening` look of a photo already at dusk or night, are one edit (no relight, the other reserved edits released). Example renders reuse the daylight edit of the same photo within one run, so an evening example costs its relight only.
+
+The worst-case reservation per job at list prices ($0.13 per edit, $0.042 per analysis, $0.040 per judge and per localization line, $0.045 per escalation line; one judge and one escalation per possible attempt) is:
+
+| Job | Analysis, edits, judges, escalations, localizations | With a new analysis | With a reusable analysis |
+| --- | --- | --- | --- |
+| Daylight (`source`) | 1, 2, 2, 2, 2 | $0.552 | $0.510 |
+| `evening` or `bright` that relights an accepted daylight variant (the worker's shape) | 1, 2, 2, 2, 0 | $0.472 | $0.430 |
+| `evening` or `bright` without a base | 1, 3, 3, 3, 2 | $0.767 | $0.725 |
+
+A Street View source in `persist` mode with the enhancement on and no decided enhancement for its stored frame and the current compiler version adds two lines (an edit at $0.13 and a judge call at $0.040, ledger stage `enhancing`), $0.17 in all: $0.722 and $0.680 for a daylight job, $0.642 and $0.600 for a relight of an accepted daylight variant, and $0.937 and $0.895 for a relit job without a base; with a Static fetch the last figure is $0.944 (new analysis).
+
+`POST /v1/renders` cannot see the worker's working-image checksum, so it always reserves the without-base shape for a relit look; the unused lines are released at the end. A Street View render that will fetch pixels adds a $0.007 fetch line (a transient source, a persist source with no stored frame, or one whose stored frame is older than `STREET_VIEW_FRAME_MAX_AGE_DAYS`, default 30). Such a render also keeps its analysis line even when an analysis exists, because a fetched frame may carry other bytes; the worker releases the line when it reuses the analysis. A Gemini edit reserves $0.134 instead of $0.13. A settlement uses the reported usage and can exceed a line's list price, as it does for the judge; the reservations count toward the service-wide and per-SKU [spend ceilings](#spend-ceilings).
+
+The enhancement's lines are settled from usage like any other and released when the worker reuses or skips the enhancement, so they appear in the ceilings and the worst case but only about $0.06 of them is ever spent per first look. The look that frames a place with earlier looks is the exception: it reserves no enhancement lines, because the stored frame had a decided enhancement at admission, and the worker charges its enhancement directly. Admission counts 2 of the owner's daily paid attempts per job, relit looks included: the first attempt and its repair or relight must both fit. The worker checks the cap again (projecting one more attempt) before each further attempt, which is where a relit look's third attempt is checked. With the production cap of 8 a third relit look is admitted after two relit looks used three attempts each (6 of 8), and it may then be delivered without its repair or relight if the cap is reached.
+
+At the plan's n = 1.2 both configurations sit below the canonical u = $0.20, but n is unmeasured at scale and the bake-off acceptance rates are the current best evidence, not benchmark evidence. At those rates the Nano Banana configuration is above the [cost ceiling](#cost-ceiling-for-provider-selection) of $0.25 and Flare is well inside it. The structural conclusion is unchanged: with these configurations C at V = 1 is about $0.10 (Flare at n = 1.2) to $0.22 (Nano Banana at the bake-off acceptance), against R = $0.0216 per visitor, so the lever order and [D-27](../decisions.md#d-27) stand. The default look of an exterior is two edits, not one: measured at $0.12 to $0.18 per look on 2026-11-10 (table above), it puts C at V = 1 at about $0.11 to $0.15 (a × g = $0.035 plus c × (the look + s) = 0.60 × ($0.12 to $0.18 + $0.01)), inside the same conclusion; the canonical n = 1.2 and e = $0.17 stay as the pricing illustration, and the peak model below uses two edits per look for load.
 
 ### Content admission (uploads)
 
@@ -348,7 +382,7 @@ Each experiment is cheap, charges nothing, leaves the allowance and the affiliat
 
 ## Capacity and spend ceilings
 
-Capacity is bounded by the vendors' tiers, not by Holiday's configuration: usage tiers are functions of cumulative paid history and account age, and they return 429 errors independent of any local cap. This section gives the values; the mechanics (provider concurrency, queue depth caps, `AT_CAPACITY` with `Retry-After`, one active job per project, kill switches) are in the [architecture](../architecture.md#capacity-and-admission-control) and [operations](../architecture.md#observability-and-operations) sections, and the enforcement points for allowance and quotas are in the [data and API spec](data-and-api.md#allowance-quotas-and-rate-limits).
+Capacity is bounded by the vendors' tiers, not by Hailiday's configuration: usage tiers are functions of cumulative paid history and account age, and they return 429 errors independent of any local cap. This section gives the values; the mechanics (provider concurrency, queue depth caps, `AT_CAPACITY` with `Retry-After`, one active job per project, kill switches) are in the [architecture](../architecture.md#capacity-and-admission-control) and [operations](../architecture.md#observability-and-operations) sections, and the enforcement points for allowance and quotas are in the [data and API spec](data-and-api.md#allowance-quotas-and-rate-limits).
 
 ### Vendor limits and how tiers are earned
 
@@ -358,7 +392,7 @@ Capacity is bounded by the vendors' tiers, not by Holiday's configuration: usage
 | Gemini API | spend per rolling 10-minute window by tier, plus IPM for image models; exceeding returns 429 `RESOURCE_EXHAUSTED` | Tier 1 $10 (active billing account linked); Tier 2 $200 (paid $100 and 3 days since first payment); Tier 3 $200 (paid $1,000 and 30 days) | automatically once the project meets the paid-amount and age criteria; per-model limits are read in AI Studio | [rate limits](https://aistudio.google.com/docs/rate-limits) (retrieved 2026-11-09) |
 | Vertex AI (Gemini 3 Pro Image route) | per-project, per-region quotas | **Verify:** quotas and the increase process before Gate A if this route is a finalist (owner: engineering lead) | by request | |
 | Anthropic Claude API | rate-limit tiers by usage | **Verify:** the current tier table and the analysis-plus-judge calls per minute it allows at the peak below (owner: engineering lead; https://platform.claude.com/docs) | by usage and deposit | |
-| Google Maps Platform | per-project per-minute quotas; Static Street View usage limit 30,000 queries per minute; 10,000 free calls per month on each SKU Holiday uses | far above any value in the peak model | quota edits in the Cloud console | [Street View usage](https://developers.google.com/maps/documentation/streetview/usage-and-billing), [pricing](https://developers.google.com/maps/billing-and-pricing/pricing) |
+| Google Maps Platform | per-project per-minute quotas; Static Street View usage limit 30,000 queries per minute; 10,000 free calls per month on each SKU Hailiday uses | far above any value in the peak model | quota edits in the Cloud console | [Street View usage](https://developers.google.com/maps/documentation/streetview/usage-and-billing), [pricing](https://developers.google.com/maps/billing-and-pricing/pricing) |
 | Safety vendors (D-44) | per vendor | **Verify:** in S01 (owner: engineering lead) | | |
 | Email provider (D-48) | sending limits and warm-up | **Verify:** before M06 (owner: engineering lead) | | |
 | Cloudflare Turnstile | none on the free plan | unlimited challenges | not applicable | [Turnstile plans](https://developers.cloudflare.com/turnstile/plans/) |
@@ -374,41 +408,45 @@ Demand concentrates in the promotion windows ([seasonality](#seasonality)); the 
 | Peak-day visitors | Vd | private pilot 50 (10–15 participants over several days); capped public rollout 2,000; stress case 10,000 |
 | Completion rate | c | 0.60 |
 | Accepted variants per completer at peak | V | 1.5 (people switch holiday and style) |
-| Attempts per accepted variant | n | 1.2 |
-| Share of the day's attempts in the peak hour | h | 12% |
-| Service time per attempt (provider call plus checks) | S | 40 s (the first-attempt median target, [latency budget](render-pipeline.md#latency-budget)) |
+| Attempts per accepted variant (cost illustration, [Symbols and defaults](#symbols-and-defaults)) | n | 1.2 |
+| Edit attempts per accepted variant (load) | nₗ | 2: the default look is two sequential edits, a decorated base and its relight; a one-edit look (as photographed, a dusk photo, an already-bright interior) is the exception |
+| Share of the day's jobs in the peak hour | h | 12% |
+| Service time per job (two edits plus their checks) | S | 80 s (measured 72 to 105 s; about 125 s when a third attempt runs; [latency budget](render-pipeline.md#latency-budget)) |
 | Burst factor for provisioning | b | 2 |
 | Maximum predicted wait before `AT_CAPACITY` | W | 240 s |
 
 ```text
-attempts per day           A = Vd × c × V × n
-peak arrival rate          λ = A × h / 60            (attempts per minute)
-provider concurrency       N = λ × S / 60 × b        (slots; minimum 2)
-queue depth cap            Q = N × W / S
+jobs per day               J = Vd × c × V            (one job per accepted variant)
+attempts per day           A = J × n                 (cost illustration)
+peak arrival rate          λ = J × h / 60            (jobs per minute)
+provider concurrency       N = λ × S / 60 × b        (lanes, each running one job's edits in turn; minimum 2)
+queue depth cap            Q = N × W / S             (jobs)
 predicted wait             queue depth × S / N
 ```
 
-| Scale | Vd | A per day | λ per min | N | Q | Google per day | Renders per day | Total per day | 30 peak days (upper bound for a month) |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Private pilot | 50 | 54 | 0.1 | 2 | 12 | $2 | $9 | $11 | $330 |
-| Capped public rollout | 2,000 | 2,160 | 4.3 | 6 | 36 | $70 | $367 | $437 | $13,100 |
-| Stress case | 10,000 | 10,800 | 21.6 | 30 | 180 | $350 | $1,836 | $2,186 | $65,600 |
+| Scale | Vd | J per day | A per day | λ per min | N | Q | Google per day | Renders per day | Total per day | 30 peak days (upper bound for a month) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Private pilot | 50 | 45 | 54 | 0.09 | 2 | 6 | $2 | $9 | $11 | $330 |
+| Capped public rollout | 2,000 | 1,800 | 2,160 | 3.6 | 10 | 30 | $70 | $367 | $437 | $13,100 |
+| Stress case | 10,000 | 9,000 | 10,800 | 18 | 48 | 144 | $350 | $1,836 | $2,186 | $65,600 |
 
-Google per day = Vd × a × g (worker refetches in `transient` mode add about $13 per day at the capped rollout); renders per day = A × e. Checks against the vendor table at the capped rollout: Gemini image spend in the peak hour is about $2.9 (Flash tier) to $5.8 (Pro tier) per 10 minutes, and $11.6 on a 2× burst at the Pro tier, so Gemini Tier 1's $10 cap is insufficient and Tier 2 is required; OpenAI image-edit spend is about $8,400 over 30 peak days at $0.13 per edit, above the Launch tier's $5,000 per month, so the Grow tier ($500 of cumulative purchases) is required. At the stress case Gemini needs $14–$29 per 10 minutes (Tier 2 or 3) and OpenAI about $42,000 per month (Grow). Vision calls at the capped rollout are about 1,800 analyses and 2,160 judge calls per day; check them against the Claude tier once verified.
+Google per day = Vd × a × g (worker refetches in `transient` mode add about $13 per day at the capped rollout); renders per day = A × e (the cost illustration, n = 1.2). Checks against the vendor table at the capped rollout: Gemini image spend in the peak hour is about $2.9 (Flash tier) to $5.8 (Pro tier) per 10 minutes, and $11.6 on a 2× burst at the Pro tier, so Gemini Tier 1's $10 cap is insufficient and Tier 2 is required; OpenAI image-edit spend is about $8,400 over 30 peak days at $0.13 per edit, above the Launch tier's $5,000 per month, so the Grow tier ($500 of cumulative purchases) is required. At the stress case Gemini needs $14–$29 per 10 minutes (Tier 2 or 3) and OpenAI about $42,000 per month (Grow). Vision calls at the capped rollout are about 1,800 analyses (one per job) and, at two edits per look, about 3,600 judge calls per day; check them against the Claude tier once verified. The cost columns and the vendor checks keep the canonical n = 1.2; at nₗ = 2 the daily edit and judge volume is about 1.7 times higher (3,600 edits at the capped rollout). **Verify:** re-derive the vendor-tier requirements and the per-SKU ceilings for image-edit attempts and vision calls from nₗ = 2 before Gate D (owner: engineering lead).
 
 ### Admission-control values
 
 | Control | Private pilot | Capped public rollout | Stress case | Behavior |
 | --- | --- | --- | --- | --- |
-| Image-edit provider concurrency (N) | 2 | 6 | 30 | per provider; a second live-validated provider gets its own N |
-| Vision-model concurrency | 4 | 12 | 60 | 2 × N (analysis and judge calls overlap) |
-| Queue depth cap (Q) | 12 | 36 | 180 | render requests beyond Q receive `AT_CAPACITY` |
-| Maximum predicted wait (W) | 240 s | 240 s | 240 s | `AT_CAPACITY` when queue depth × S / N > W; `Retry-After` = predicted wait rounded up to 30 s, at most 300 s |
+| Image-edit provider concurrency (N) | 2 | 10 | 48 | per provider; a second live-validated provider gets its own N |
+| Vision-model concurrency | 4 | 20 | 96 | 2 × N (analysis and judge calls overlap) |
+| Queue depth cap (Q) | 6 | 30 | 144 | render requests beyond Q receive `AT_CAPACITY` |
+| Maximum predicted wait (W) | 240 s | 240 s | 240 s | `AT_CAPACITY` when (queue depth + 1) × S / N > W, with S the median service time of the jobs that succeeded in the last hour, from `started_at` to `qa_passed_at` (else `render_completed_at`, else `succeeded_at`), so a reviewer's wait under pre-delivery review is not counted, and with the daylight companion rows of evening looks (`input_snapshot.relightBaseOf` set) left out; `Retry-After` = predicted wait rounded up to 30 s, at most 300 s |
 | Queue position | shown | shown | shown | from the live-update stream ([experience](experience.md#waiting-and-progress)) |
+
+Before any job has succeeded in the last hour, the API predicts the wait with a fallback median job duration of 80 s (the measured two-edit default look), so a cold service with two lanes and W = 240 s admits a request while at most five jobs wait. The shipped configuration defaults (provider concurrency 6, queue depth cap 36, two lanes per worker) are the starting values; the load test below fixes them.
 
 Degradation ladder: the five steps and their runtime switches are defined once in [architecture, capacity and admission control](../architecture.md#capacity-and-admission-control); the values it reads from this file are W (240 s) and the reduced in-window allowance for new owners (1 accepted variant per 24 h, configuration).
 
-Load test before Gate C (backlog O06): drive the capped-rollout arrival rate at the 2× burst (about 9 attempts per minute) for 30 minutes in `fixture` mode against provider stubs with realistic latency distributions. Pass: p90 of `qaPassedAt − max(requestedAt, sourceReadyAt)` inside the D-14 range; `AT_CAPACITY` engages at Q and releases; no duplicate paid attempts; the ledger reconciles reservations and settlements to the cent.
+Load test before Gate C (backlog O06): drive the capped-rollout arrival rate at the 2× burst (about 7 jobs per minute) for 30 minutes in `fixture` mode against provider stubs with realistic latency distributions. Pass: p90 of `qaPassedAt − max(requestedAt, sourceReadyAt)` inside the D-14 range; `AT_CAPACITY` engages at Q and releases; no duplicate paid attempts; the ledger reconciles reservations and settlements to the cent.
 
 ### Spend ceilings
 
@@ -423,9 +461,11 @@ Ceilings are configuration enforced as `BUDGET_PAUSED` ([error codes](data-and-a
 | Place Details Essentials | 150 | 3,000 ($15) | 500 | 1,400 |
 | Geocoding (including SearchDestinations) | 300 | 6,000 ($30) | 1,000 | 2,800 |
 | Image-edit attempts | 150 ($20) | 3,700 ($481) | 500 | 2,160 |
-| Vision calls (analysis and judge) | 300 | 7,000 (about $170) | 1,000 | 3,960 |
+| Vision calls (analysis and judge) | 300 | 7,000 (about $280) | 1,000 | 3,960 |
 | Screened uploads | 100 | 1,500 | 300 | 600 |
 | Emails sent | 100 | 3,000 | 500 | not modeled; set from pilot volume |
+
+Since 2026-11-10 a vision call counts toward the ceiling at its settled cost, because the list prices are at or above the measured costs. The enhancement's edit and judge lines count toward the image-edit and vision-call ceilings like the job's other lines (the reservation of a first look of a Street View address is $0.17 larger, and a request whose worst case no longer fits answers `BUDGET_PAUSED`); they are not yet included in the modeled peak-day units of the table, which count one extra edit and one extra vision call per first look of an address and release, and are to be added at the next revision of the peak model.
 
 Per-SKU ceilings catch a runaway in one integration (a suggestion loop, a refetch bug) long before the service-wide ceiling does. When a ceiling pauses one SKU, the product degrades honestly: a paused Static Street View SKU makes discovery and viewpoint requests return `BUDGET_PAUSED` (`reason: sku_ceiling`; [data-and-api](data-and-api.md#allowance-quotas-and-rate-limits)) and the client shows the photo prompt, a paused image-edit SKU shows the budget-paused state ([experience](experience.md#allowance-and-limits)).
 
@@ -460,7 +500,7 @@ All switches are configuration changes without a deploy, audited, and exercised 
 
 ## Seasonality
 
-Holiday is a seasonal product. Demand follows the promotion windows in the [holidays spec](holidays-and-content.md#windows-and-selection), which together span mid-September to New Year's Day; the rest of the year is off-season, when the landing shows a neutral hero and nothing auto-starts ([off-season behavior](holidays-and-content.md#off-season-behavior)). This section describes how demand, cost and revenue behave through the year so that capacity, commerce and configuration follow the calendar.
+Hailiday is a seasonal product. Demand follows the promotion windows in the [holidays spec](holidays-and-content.md#windows-and-selection), which together span mid-September to New Year's Day; the rest of the year is off-season, when the landing shows a neutral hero and nothing auto-starts ([off-season behavior](holidays-and-content.md#off-season-behavior)). This section describes how demand, cost and revenue behave through the year so that capacity, commerce and configuration follow the calendar.
 
 ### Evidence
 

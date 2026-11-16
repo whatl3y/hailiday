@@ -158,7 +158,7 @@ describe('tombstones:replay scripts', () => {
       'node --import ./dist/config/load-env/index.js dist/tombstones-replay.js',
     );
     expect(scriptsOf('package.json')['tombstones:replay']).toBe(
-      'pnpm --filter @holiday/server tombstones:replay',
+      'pnpm --filter @hailiday/server tombstones:replay',
     );
   });
 });

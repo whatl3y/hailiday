@@ -1,5 +1,6 @@
 import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
+import { DEFAULT_STREET_VIEW_ATTRIBUTION_REGIONS } from '../../config/index.js';
 import { renderFixturePanorama } from '../../fixtures/street-view.js';
 import { IPTC_DIGITAL_SOURCE_TYPE } from '../versions.js';
 import { runDeterministicChecks } from './checks.js';
@@ -14,6 +15,47 @@ import {
 import { buildCompositeMask, featherBand } from './mask.js';
 import { decodeRaster, shiftRaster, type Raster } from './raster.js';
 import { nativeBoxesOnWorkingGrid, prepareWorkingImage } from './working.js';
+
+interface PixelBox {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
+/** A normalized `[x0, y0, x1, y1]` box in whole pixels of a `width` × `height` image. */
+function toPixelBox(box: readonly number[], width: number, height: number): PixelBox {
+  const left = Math.floor(box[0]! * width);
+  const top = Math.floor(box[1]! * height);
+  return {
+    left,
+    top,
+    width: Math.ceil(box[2]! * width) - left,
+    height: Math.ceil(box[3]! * height) - top,
+  };
+}
+
+async function grayRegion(image: Uint8Array, box: PixelBox): Promise<Buffer> {
+  return sharp(image).extract(box).greyscale().raw().toBuffer();
+}
+
+async function regionMean(image: Uint8Array, box: PixelBox): Promise<number> {
+  const pixels = await grayRegion(image, box);
+  return pixels.reduce((sum, value) => sum + value, 0) / pixels.length;
+}
+
+async function regionMin(image: Uint8Array, box: PixelBox): Promise<number> {
+  const pixels = await grayRegion(image, box);
+  return pixels.reduce((min, value) => Math.min(min, value), 255);
+}
+
+/** The largest per-pixel gray difference between two images inside `box`. */
+async function regionDifference(a: Uint8Array, b: Uint8Array, box: PixelBox): Promise<number> {
+  const [first, second] = await Promise.all([grayRegion(a, box), grayRegion(b, box)]);
+  let max = 0;
+  for (let i = 0; i < first.length; i += 1) max = Math.max(max, Math.abs(first[i]! - second[i]!));
+  return max;
+}
 
 async function fixtureWorking() {
   const frame = await renderFixturePanorama({
@@ -197,7 +239,7 @@ describe('labels and provenance', () => {
       .toBuffer();
     const delivered = await encodeDelivered(image);
     const meta = await sharp(delivered).metadata();
-    expect(meta.xmp?.toString()).toContain('AI preview by Holiday');
+    expect(meta.xmp?.toString()).toContain('AI preview by Hailiday');
     expect(meta.exif).toBeUndefined();
     const marked = await burnPreviewMark(delivered);
     const corner = { left: 700, top: 560, width: 80, height: 30 };
@@ -206,54 +248,68 @@ describe('labels and provenance', () => {
     expect(after.channels[0]?.mean).toBeLessThan((before.channels[0]?.mean ?? 255) - 20);
   });
 
-  it('burns the mark lower left on Street View-origin images, whose credit sits lower right', async () => {
-    expect(previewMarkCorner('street_view')).toBe('lower-left');
+  it('burns the mark upper left on Street View-origin images, off both attribution boxes', async () => {
+    expect(previewMarkCorner('street_view')).toBe('upper-left');
     expect(previewMarkCorner('upload')).toBe('lower-right');
     expect(previewMarkCorner('fixture')).toBe('lower-right');
+    // A live-size 640x640 frame; PNG in and out, so untouched pixels stay identical.
+    const size = 640;
     const image = await sharp({
-      create: { width: 800, height: 600, channels: 3, background: '#ffffff' },
+      create: { width: size, height: size, channels: 3, background: '#ffffff' },
     })
-      .jpeg()
+      .png()
       .toBuffer();
-    const mean = async (bytes: Buffer, left: number) =>
-      (
-        await sharp(
-          await sharp(bytes).extract({ left, top: 560, width: 80, height: 30 }).toBuffer(),
-        ).stats()
-      ).channels[0]?.mean ?? 255;
-    const left = await burnPreviewMark(image, { corner: 'lower-left' });
-    expect(await mean(left, 20)).toBeLessThan(200);
-    expect(await mean(left, 700)).toBeGreaterThan(245);
+    const marked = await burnPreviewMark(image, { corner: 'upper-left' });
+    const boxes = DEFAULT_STREET_VIEW_ATTRIBUTION_REGIONS['640x640']!;
+    for (const box of boxes) {
+      expect(await regionDifference(image, marked, toPixelBox(box, size, size))).toBe(0);
+    }
+    const upperLeft = { left: 13, top: 13, width: 60, height: 18 };
+    expect(await regionMean(marked, upperLeft)).toBeLessThan(200);
+    expect(await regionMean(image, upperLeft)).toBe(255);
+    // The lower-right default mark covers the copyright box; the upper-left one never does.
     const right = await burnPreviewMark(image);
-    expect(await mean(right, 700)).toBeLessThan(200);
-    expect(await mean(right, 20)).toBeGreaterThan(245);
+    expect(await regionDifference(image, right, toPixelBox(boxes[1]!, size, size))).toBeGreaterThan(
+      0,
+    );
+    expect(await regionMean(right, { left: 13, top: 13, width: 60, height: 18 })).toBe(255);
   });
 
-  it('places the share card mark inside the image, lower left for Street View-origin images', async () => {
-    // A square Street View image is shown centered (pillarboxed) in the card's image area.
+  it('places the share card mark inside the image, upper left for Street View-origin images', async () => {
+    // A square Street View frame is shown centered (pillarboxed) in the card's image area.
     const after = await sharp({
-      create: { width: 1024, height: 1024, channels: 3, background: '#ffffff' },
+      create: { width: 640, height: 640, channels: 3, background: '#ffffff' },
     })
       .jpeg()
       .toBuffer();
     const card = await composeShareCard(after, {
       attribution: 'Google Maps · © 2025 Google',
-      markCorner: 'lower-left',
+      markCorner: 'upper-left',
     });
-    // Image area 1200 × 586; the square shows 586 wide from x = 307.
-    const patchOf = async (bytes: Buffer, left: number) =>
-      (
-        await sharp(
-          await sharp(bytes).extract({ left, top: 548, width: 60, height: 20 }).toBuffer(),
-        ).stats()
-      ).channels[0]?.mean ?? 0;
-    const patch = (left: number) => patchOf(card, left);
-    expect(await patch(330)).toBeLessThan(200);
-    expect(await patch(820)).toBeGreaterThan(240);
+    // Image area 1200 × 586; the square shows 586 × 586 from x = 307, y = 0.
+    const shown = { left: 307, top: 0, width: 586, height: 586 };
+    const inShown = (box: readonly number[]) => {
+      const pixel = toPixelBox(box, shown.width, shown.height);
+      return { ...pixel, left: pixel.left + shown.left, top: pixel.top + shown.top };
+    };
+    expect(await regionMean(card, { left: 330, top: 16, width: 60, height: 20 })).toBeLessThan(200);
+    for (const box of DEFAULT_STREET_VIEW_ATTRIBUTION_REGIONS['640x640']!) {
+      expect(await regionMin(card, inShown(box))).toBeGreaterThan(180);
+    }
+    // Nothing of the mark at the lower corners of the shown image.
+    expect(await regionMean(card, { left: 330, top: 548, width: 60, height: 20 })).toBeGreaterThan(
+      240,
+    );
+    expect(await regionMean(card, { left: 820, top: 548, width: 60, height: 20 })).toBeGreaterThan(
+      240,
+    );
     const upload = await composeShareCard(after);
-    const uploadPatch = (left: number) => patchOf(upload, left);
-    expect(await uploadPatch(820)).toBeLessThan(200);
-    expect(await uploadPatch(330)).toBeGreaterThan(240);
+    expect(await regionMean(upload, { left: 820, top: 548, width: 60, height: 20 })).toBeLessThan(
+      200,
+    );
+    expect(await regionMean(upload, { left: 330, top: 16, width: 60, height: 20 })).toBeGreaterThan(
+      240,
+    );
   });
 
   it('composes a 1200×630 share card under 5 MB', async () => {

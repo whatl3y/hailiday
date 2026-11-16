@@ -1,4 +1,4 @@
-import type { AttributionLogo } from '@holiday/core';
+import type { AttributionLogo } from '@hailiday/core';
 import { t } from '../copy';
 
 /** Fixture stand-in photographs credit their photographer with this prefix. */
@@ -30,7 +30,21 @@ export function attributionParts(input: {
   const fixture = input.fixture || isFixturePhotoCredit(text);
   const showLogo = input.logo === 'google_maps' && !fixture;
   let credit = text;
-  if (credit && showLogo && credit === t('attribution.googleMaps')) credit = null;
+  if (credit && showLogo) credit = withoutLogoPrefix(credit, t('attribution.googleMaps'));
   if (credit && fixture && /google/i.test(credit)) credit = null;
   return { showLogo, credit };
+}
+
+/**
+ * The credit without the logo's own words: a credit that is only the logo name becomes null,
+ * and a leading logo name with its `·` separator ("Google Maps · © 2026 Google") is removed, so
+ * the strip never prints the name twice when the logo is shown.
+ */
+export function withoutLogoPrefix(credit: string, logoName: string): string | null {
+  if (credit === logoName) return null;
+  if (!credit.startsWith(logoName)) return credit;
+  const rest = credit.slice(logoName.length);
+  const match = /^\s*·\s*/.exec(rest);
+  if (!match) return credit;
+  return rest.slice(match[0].length).trim() || null;
 }

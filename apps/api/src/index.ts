@@ -1,6 +1,6 @@
-import { createServerContext } from '@holiday/server';
-import { loadContent } from '@holiday/server/content';
-import { createProviders, summarizeProviders } from '@holiday/server/providers';
+import { createServerContext } from '@hailiday/server';
+import { loadContent } from '@hailiday/server/content';
+import { createProviders, summarizeProviders } from '@hailiday/server/providers';
 import { buildServer } from './server.js';
 
 /** API process entry: the server context as a queue producer, the HTTP server, graceful stop. */

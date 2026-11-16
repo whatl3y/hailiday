@@ -1,6 +1,6 @@
 import sharp from 'sharp';
 import { sha256Hex } from '../../ids/index.js';
-import { evaluatePermission } from '../../policy/index.js';
+import { deniedPermission, evaluatePermission, permissionSettingsOf } from '../../policy/index.js';
 import { CARD_CACHE_CONTROL } from '../../storage/client.js';
 import { keys } from '../../storage/keys.js';
 import { aiCapabilityFor, capabilityStateFor, type PipelineDeps } from '../context.js';
@@ -61,15 +61,19 @@ export async function generateShareCard(
         .where('id', '=', source.assetPolicyId)
         .executeTakeFirst()) ?? null)
     : null;
-  const permission = evaluatePermission({
-    policy,
-    capabilityState:
-      (await capabilityStateFor(deps, aiCapabilityFor(source.kind))) ?? 'live_public',
-    appEnv: deps.config.appEnv,
-    now,
-    sourceKind: source.kind,
-    isGoogleImagery: source.isGoogleImagery,
-  });
+  // A capability with no row (outside local environments) permits nothing.
+  const capabilityState = await capabilityStateFor(deps, aiCapabilityFor(source.kind));
+  const permission = capabilityState
+    ? evaluatePermission({
+        policy,
+        capabilityState,
+        ...permissionSettingsOf(deps.config),
+        now,
+        sourceKind: source.kind,
+        isGoogleImagery: source.isGoogleImagery,
+        copyright: source.copyright,
+      })
+    : deniedPermission(policy);
   if (!asset.distributable || !permission.distributeDerivative) {
     return { outcome: 'skipped', reason: 'not_distributable' };
   }

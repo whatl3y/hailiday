@@ -1,6 +1,7 @@
 import sharp from 'sharp';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { addMs } from '../../clock/index.js';
+import { DEFAULT_STREET_VIEW_ATTRIBUTION_REGIONS } from '../../config/index.js';
 import { toJson } from '../../db/client.js';
 import { renderFixturePanorama } from '../../fixtures/street-view.js';
 import { newId, randomToken, sha256Hex } from '../../ids/index.js';
@@ -32,6 +33,19 @@ beforeAll(async () => {
 afterAll(async () => {
   await deps.close();
 });
+
+/** The same dependencies with time-based deletion on (the specified retention schedule). */
+function withTimeBasedDeletion(base: PipelineDeps): PipelineDeps {
+  const config = {
+    ...base.config,
+    settingOverrides: { ...base.config.settingOverrides, RETENTION_TIME_BASED_DELETION: 'true' },
+  };
+  return {
+    ...base,
+    config,
+    settings: createSettings(base.db, { config, clock: base.clock, cacheTtlMs: 0 }),
+  };
+}
 
 async function uploadImage(): Promise<Buffer> {
   const frame = await renderFixturePanorama({
@@ -126,12 +140,74 @@ describe('share_card', () => {
       beforeKey: null,
     });
   });
+
+  it('marks a Street View card at the upper left and leaves both attribution boxes untouched', async () => {
+    const { ownerId, projectId, source } = await createStreetViewSource(deps, {
+      placeId: 'ChIJfxLanternHillColonial01',
+    });
+    const job = await createRenderJobRecord(deps, { ownerId, projectId, source });
+    expect((await runRenderJob(deps, { renderJobId: job.id })).state).toBe('succeeded');
+    const asset = await deps.db
+      .selectFrom('renderAssets')
+      .selectAll()
+      .where('jobId', '=', job.id)
+      .executeTakeFirstOrThrow();
+    const grant = await grantFor(ownerId, asset.id);
+    expect(
+      await generateShareCard(deps, { shareGrantId: grant.id, shareToken: grant.token }),
+    ).toMatchObject({ outcome: 'written' });
+    const card = (await deps.storage.get('public', keys.card(grant.token)))?.body as Buffer;
+    const after = (await deps.storage.get('public', keys.shared(grant.token, 'after')))
+      ?.body as Buffer;
+
+    // The card without any mark: the shared image fitted into the 1200 × 586 image area.
+    const area = { width: 1200, height: 586 };
+    const unmarked = await sharp(after)
+      .resize(area.width, area.height, { fit: 'contain', background: { r: 18, g: 22, b: 28 } })
+      .greyscale()
+      .raw()
+      .toBuffer();
+    const marked = await sharp(card)
+      .extract({ left: 0, top: 0, ...area })
+      .greyscale()
+      .raw()
+      .toBuffer();
+    const meta = await sharp(after).metadata();
+    const scale = Math.min(area.width / meta.width!, area.height / meta.height!);
+    const shown = {
+      width: Math.round(meta.width! * scale),
+      height: Math.round(meta.height! * scale),
+    };
+    const origin = {
+      left: Math.floor((area.width - shown.width) / 2),
+      top: Math.floor((area.height - shown.height) / 2),
+    };
+    /** Mean gray difference between the card and the unmarked fit inside a box of the image. */
+    const difference = (box: readonly number[]) => {
+      const x0 = origin.left + Math.floor(box[0]! * shown.width);
+      const y0 = origin.top + Math.floor(box[1]! * shown.height);
+      const x1 = origin.left + Math.ceil(box[2]! * shown.width);
+      const y1 = origin.top + Math.ceil(box[3]! * shown.height);
+      let sum = 0;
+      for (let y = y0; y < y1; y += 1) {
+        for (let x = x0; x < x1; x += 1) {
+          const i = y * area.width + x;
+          sum += Math.abs(marked[i]! - unmarked[i]!);
+        }
+      }
+      return sum / ((x1 - x0) * (y1 - y0));
+    };
+    expect(difference([0.02, 0.02, 0.16, 0.06])).toBeGreaterThan(30);
+    for (const box of DEFAULT_STREET_VIEW_ATTRIBUTION_REGIONS['640x640']!) {
+      expect(difference(box)).toBeLessThan(6);
+    }
+  });
 });
 
 describe('sweeps', () => {
   // A clock in the past keeps the sweeps away from rows other test files are using.
   const past = new Date('2001-01-10T12:00:00Z');
-  const pastDeps = () => ({ ...deps, clock: { now: () => past } });
+  const pastDeps = () => withTimeBasedDeletion({ ...deps, clock: { now: () => past } });
 
   it('expires an anonymous project through the deletion order', async () => {
     const { ownerId, projectId, source } = await createUploadSource(deps, {
@@ -172,6 +248,73 @@ describe('sweeps', () => {
       .executeTakeFirst();
     expect(tombstone?.kind).toBe('project');
     expect(ownerId).toBeTruthy();
+  });
+
+  it('keeps idle projects and their renderings while time-based deletion is off', async () => {
+    const keptDeps = () => ({ ...deps, clock: { now: () => past } });
+    const { ownerId, projectId, source } = await createUploadSource(deps, {
+      image: await uploadImage(),
+    });
+    const job = await createRenderJobRecord(deps, { ownerId, projectId, source });
+    expect((await runRenderJob(deps, { renderJobId: job.id })).state).toBe('succeeded');
+    const asset = await deps.db
+      .selectFrom('renderAssets')
+      .selectAll()
+      .where('jobId', '=', job.id)
+      .executeTakeFirstOrThrow();
+    // Anonymous, idle for 30 days, past the 7-day cap and past its stored expiry.
+    await deps.db
+      .updateTable('projects')
+      .set({
+        lastActivityAt: new Date('2000-12-11T12:00:00Z'),
+        createdAt: new Date('2000-12-01T00:00:00Z'),
+        expiresAt: new Date('2000-12-12T12:00:00Z'),
+      } as never)
+      .where('id', '=', projectId)
+      .execute();
+    // An upload that never completed still expires after an hour.
+    const pending = await createUploadSource(deps, { image: await uploadImage() });
+    await deps.db
+      .updateTable('sourceAssets')
+      .set({ state: 'pending_upload', createdAt: new Date('2001-01-10T10:00:00Z') } as never)
+      .where('id', '=', pending.source.id)
+      .execute();
+
+    const kept = await runRetentionSweep(keptDeps());
+    expect(kept.projectsExpired).toBe(0);
+    expect(kept.uploadsExpired).toBeGreaterThanOrEqual(1);
+    const project = await deps.db
+      .selectFrom('projects')
+      .select('deletedAt')
+      .where('id', '=', projectId)
+      .executeTakeFirstOrThrow();
+    expect(project.deletedAt).toBeNull();
+    const keptAsset = await deps.db
+      .selectFrom('renderAssets')
+      .select(['deletedAt', 'withdrawnAt'])
+      .where('id', '=', asset.id)
+      .executeTakeFirstOrThrow();
+    expect(keptAsset).toEqual({ deletedAt: null, withdrawnAt: null });
+    expect(await deps.storage.head('private', asset.objectKey)).not.toBeNull();
+    expect(await deps.storage.head('private', source.objectKey as string)).not.toBeNull();
+    const expiredUpload = await deps.db
+      .selectFrom('sourceAssets')
+      .select('state')
+      .where('id', '=', pending.source.id)
+      .executeTakeFirstOrThrow();
+    expect(expiredUpload.state).toBe('expired');
+
+    // The same project expires on the specified schedule once time-based deletion is on.
+    const swept = await runRetentionSweep(pastDeps());
+    expect(swept.projectsExpired).toBeGreaterThanOrEqual(1);
+    expect(
+      await deps.db
+        .selectFrom('projects')
+        .select('id')
+        .where('id', '=', projectId)
+        .executeTakeFirst(),
+    ).toBeUndefined();
+    expect(await deps.storage.head('private', asset.objectKey)).toBeNull();
   });
 
   it('sweeps attempt and working objects of long-terminal jobs', async () => {
@@ -235,7 +378,7 @@ describe('sweeps', () => {
 
 describe('preservation holds in the retention sweep', () => {
   const past = new Date('2001-01-10T12:00:00Z');
-  const pastDeps = () => ({ ...deps, clock: { now: () => past } });
+  const pastDeps = () => withTimeBasedDeletion({ ...deps, clock: { now: () => past } });
   const exists = async (key: string | null) =>
     key !== null && (await deps.storage.head('private', key)) !== null;
 

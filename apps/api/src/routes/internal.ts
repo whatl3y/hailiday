@@ -1,4 +1,4 @@
-import { sql } from '@holiday/server/db';
+import { sql } from '@hailiday/server/db';
 import { z } from 'zod';
 import {
   CapabilityListResponseSchema,
@@ -23,15 +23,16 @@ import {
   isRuntimeSettingKey,
   normalizeEmail,
   type CapabilityKey,
+  type JobEnhancementRecord,
   type PauseState,
   type Ceilings,
-} from '@holiday/core';
+} from '@hailiday/core';
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import { toCapabilityRecord } from '@holiday/server/capabilities';
-import { addMs, DAY_MS } from '@holiday/server/clock';
-import { toJson, type Db, type DbOrTx, type Tx, type User } from '@holiday/server/db';
-import { forbidden, notFound, validationFailed } from '@holiday/server/errors';
-import { newId, safeEqual, sha256Hex } from '@holiday/server/ids';
+import { toCapabilityRecord } from '@hailiday/server/capabilities';
+import { addMs, DAY_MS } from '@hailiday/server/clock';
+import { toJson, type Db, type DbOrTx, type Tx, type User } from '@hailiday/server/db';
+import { forbidden, notFound, validationFailed } from '@hailiday/server/errors';
+import { newId, safeEqual, sha256Hex } from '@hailiday/server/ids';
 import {
   ReviewStateError,
   approveReview,
@@ -39,6 +40,7 @@ import {
   deleteProject,
   deleteReviewCopy,
   deleteSharePublicObjects,
+  heldAttemptOf,
   heldKeys,
   placePreservationHold,
   purgePlace,
@@ -46,15 +48,23 @@ import {
   releaseHeldObjects,
   reviewObjectKeyOf,
   withoutReviewCopy,
-} from '@holiday/server/pipeline';
-import { KNOWN_PROVIDERS } from '@holiday/server/settings';
+} from '@hailiday/server/pipeline';
+import { KNOWN_PROVIDERS } from '@hailiday/server/settings';
 import type { ApiDeps } from '../deps.js';
 import type { App } from '../http/types.js';
-import { decodeCursor, encodeCursor } from '../http/cursor.js';
+import {
+  MICROSECOND_TIMESTAMP_FORMAT,
+  decodePreciseCursor,
+  encodePreciseCursor,
+} from '../http/cursor.js';
 import { csrfTokenFor, currentAuth, ipHashOf, type AuthState } from '../auth/session.js';
 import { writeAudit } from '../domain/events.js';
 import { invalidateHolidayCalendar } from '../domain/holidays.js';
-import { displayUrlForViewpoint } from '../domain/sources.js';
+import {
+  framedDisplayUrlOf,
+  lookPredatesFraming,
+  wideDisplayUrlForViewpoint,
+} from '../domain/sources.js';
 import { hasFreshReauth, isOperatorEmail, sendAuthLink } from './auth.js';
 
 type OperatorAuth = AuthState & { user: User };
@@ -64,12 +74,33 @@ const ListQuerySchema = z.object({
   cursor: z.string().max(512).optional(),
 });
 
-function page<T extends { createdAt: Date; id: string }>(rows: T[], limit: number) {
-  const items = rows.slice(0, limit);
-  const last = items[items.length - 1];
+/**
+ * The creation time of a listed row at the database's microsecond precision (`cursorAt`), so a
+ * keyset over `(created_at, id)` compares the stored values and never repeats or skips a row
+ * created in the same millisecond as a page boundary.
+ */
+const CURSOR_AT =
+  sql<string>`to_char(created_at at time zone 'utc', ${MICROSECOND_TIMESTAMP_FORMAT})`.as(
+    'cursorAt',
+  );
+
+/** The keyset condition after a precise cursor, ascending (`>`) or descending (`<`). */
+function afterCursor(cursor: [string, string], direction: 'asc' | 'desc') {
+  return direction === 'asc'
+    ? sql<boolean>`(created_at, id) > (${cursor[0]}::timestamptz, ${cursor[1]}::uuid)`
+    : sql<boolean>`(created_at, id) < (${cursor[0]}::timestamptz, ${cursor[1]}::uuid)`;
+}
+
+/** One page of rows fetched with `limit + 1` and `CURSOR_AT`, and the cursor of the next page. */
+function page<T extends { cursorAt: string; id: string }>(
+  rows: T[],
+  limit: number,
+): { items: Omit<T, 'cursorAt'>[]; nextCursor: string | null } {
+  const kept = rows.slice(0, limit);
+  const last = kept[kept.length - 1];
   return {
-    items,
-    nextCursor: rows.length > limit && last ? encodeCursor(last.createdAt, last.id) : null,
+    items: kept.map(({ cursorAt: _cursorAt, ...item }) => item),
+    nextCursor: rows.length > limit && last ? encodePreciseCursor(last.cursorAt, last.id) : null,
   };
 }
 
@@ -174,11 +205,11 @@ const PAUSE_PROVIDERS = [...KNOWN_PROVIDERS, 'commerce'] as const;
  * request: what was done in one sentence, and where to ask Google to blur the source imagery.
  */
 const OPT_OUT_CONFIRMATION = {
-  subject: 'Your Holiday request is done',
+  subject: 'Your Hailiday request is done',
   text: [
-    "We've added the address you sent us to Holiday's do-not-decorate list and deleted every Holiday preview made from its street photo.",
+    "We've added the address you sent us to Hailiday's do-not-decorate list and deleted every Hailiday preview made from its street photo.",
     '',
-    'Holiday can\'t change Google\'s own Street View image. To ask Google to blur your home there, use "Report a problem" on Google Maps: https://www.google.com/streetview/privacy/',
+    'Hailiday can\'t change Google\'s own Street View image. To ask Google to blur your home there, use "Report a problem" on Google Maps: https://www.google.com/streetview/privacy/',
     '',
     'This address is now kept only as a place reference, and your email address only as a one-way hash.',
   ].join('\n'),
@@ -256,6 +287,25 @@ async function deleteShareCopies(deps: ApiDeps, cardKeys: (string | null)[]) {
   for (const cardKey of cardKeys) {
     await deleteSharePublicObjects(deps.pipeline, cardKey).catch(() => 0);
   }
+}
+
+/**
+ * A signed URL of the accepted Street View enhancement a job decorated (its enhancement outcome
+ * `made` or `reused`), or null when the job used Google's frame or the picture is gone.
+ */
+async function enhancedSourceUrlOf(
+  deps: ApiDeps,
+  enhancement: JobEnhancementRecord | null,
+): Promise<string | null> {
+  if (!enhancement?.enhancementId) return null;
+  if (enhancement.outcome !== 'made' && enhancement.outcome !== 'reused') return null;
+  const row = await deps.db
+    .selectFrom('sourceEnhancements')
+    .select(['status', 'objectKey'])
+    .where('id', '=', enhancement.enhancementId)
+    .executeTakeFirst();
+  if (row?.status !== 'accepted' || !row.objectKey) return null;
+  return deps.storage.presignGet('private', row.objectKey);
 }
 
 /** The internal operations API for operator accounts (reviewers for review endpoints). */
@@ -524,10 +574,13 @@ export function registerInternalRoutes(app: App, deps: ApiDeps): void {
     },
     async (request) => {
       const auth = await requireOperator(deps, request, { reviewer: true });
-      const cursor = decodeCursor(request.query.cursor);
-      let query = deps.db.selectFrom('renderJobs').selectAll().where('state', '=', 'needs_review');
-      if (cursor)
-        query = query.where(sql<boolean>`(created_at, id) > (${cursor[0]}, ${cursor[1]}::uuid)`);
+      const cursor = decodePreciseCursor(request.query.cursor);
+      let query = deps.db
+        .selectFrom('renderJobs')
+        .selectAll()
+        .select(CURSOR_AT)
+        .where('state', '=', 'needs_review');
+      if (cursor) query = query.where(afterCursor(cursor, 'asc'));
       const rows = await query
         .orderBy('createdAt')
         .orderBy('id')
@@ -542,12 +595,8 @@ export function registerInternalRoutes(app: App, deps: ApiDeps): void {
           .selectAll()
           .where('id', '=', job.sourceAssetId)
           .executeTakeFirst();
-        const attempt = await deps.db
-          .selectFrom('renderAttempts')
-          .selectAll()
-          .where('jobId', '=', job.id)
-          .orderBy('attemptNo', 'desc')
-          .executeTakeFirst();
+        // The attempt whose candidate is held, with its own plan and judge decision.
+        const attempt = (await heldAttemptOf(deps.db, job)) ?? undefined;
         const plan = attempt
           ? await deps.db
               .selectFrom('decorationPlans')
@@ -563,12 +612,26 @@ export function registerInternalRoutes(app: App, deps: ApiDeps): void {
               .orderBy('escalated', 'desc')
               .executeTakeFirst()
           : undefined;
-        const sourceUrl = source?.objectKey
-          ? await deps.storage.presignGet('private', source.objectKey)
-          : await displayUrlForViewpoint(deps, auth.audience, source?.viewpoint ?? null);
+        // The held look's time is its held attempt's (made after the job prepared its frame).
+        // A look made before its Street View source was zoomed in on its home is shown beside
+        // the wide view it was made from. A source with no stored frame shows the provider's
+        // display URL of its view (a framed view's load is counted and ledgered once per source).
+        const lookAt = attempt?.createdAt ?? job.renderStartedAt ?? job.createdAt;
+        const sourceUrl =
+          source?.kind === 'street_view' && lookPredatesFraming(source.viewpoint, lookAt)
+            ? await wideDisplayUrlForViewpoint(deps, auth.audience, source.viewpoint)
+            : source?.objectKey
+              ? await deps.storage.presignGet('private', source.objectKey)
+              : source
+                ? await framedDisplayUrlOf(deps, auth, source)
+                : null;
         const candidateUrl = attempt
           ? await deps.storage.presignGet('private', heldKeys(job.id, attempt.id).delivered)
           : null;
+        // The sharpened Street View picture the attempts decorated, beside Google's frame, so a
+        // reviewer can tell a sharper photo from a changed home.
+        const enhancement = job.enhancement ?? null;
+        const enhancedSourceUrl = await enhancedSourceUrlOf(deps, enhancement);
         const waitFrom = job.qaPassedAt ?? job.renderCompletedAt ?? job.requestedAt;
         result.push({
           renderJobId: job.id,
@@ -580,6 +643,8 @@ export function registerInternalRoutes(app: App, deps: ApiDeps): void {
           sourceKind: source?.kind ?? null,
           attempt: job.attemptCount,
           sourceUrl,
+          enhancedSourceUrl,
+          enhancement,
           candidateUrl,
           plan: plan?.document ?? null,
           judge: judge ? { decision: judge.decision, document: judge.document } : null,
@@ -695,14 +760,14 @@ export function registerInternalRoutes(app: App, deps: ApiDeps): void {
     { schema: { querystring: ListQuerySchema } },
     async (request) => {
       const auth = await requireOperator(deps, request, { reviewer: true });
-      const cursor = decodeCursor(request.query.cursor);
+      const cursor = decodePreciseCursor(request.query.cursor);
       let query = deps.db
         .selectFrom('sourceAssets')
         .selectAll()
+        .select(CURSOR_AT)
         .where('state', '=', 'screening')
         .where('holdForReview', '=', true);
-      if (cursor)
-        query = query.where(sql<boolean>`(created_at, id) > (${cursor[0]}, ${cursor[1]}::uuid)`);
+      if (cursor) query = query.where(afterCursor(cursor, 'asc'));
       const rows = await query
         .orderBy('createdAt')
         .orderBy('id')
@@ -816,12 +881,11 @@ export function registerInternalRoutes(app: App, deps: ApiDeps): void {
     },
     async (request) => {
       const auth = await requireOperator(deps, request);
-      const cursor = decodeCursor(request.query.cursor);
-      let query = deps.db.selectFrom('reports').selectAll();
+      const cursor = decodePreciseCursor(request.query.cursor);
+      let query = deps.db.selectFrom('reports').selectAll().select(CURSOR_AT);
       if (request.query.status) query = query.where('status', '=', request.query.status);
       if (request.query.priority) query = query.where('priority', '=', request.query.priority);
-      if (cursor)
-        query = query.where(sql<boolean>`(created_at, id) < (${cursor[0]}, ${cursor[1]}::uuid)`);
+      if (cursor) query = query.where(afterCursor(cursor, 'desc'));
       const rows = await query
         .orderBy('createdAt', 'desc')
         .orderBy('id', 'desc')
@@ -905,21 +969,29 @@ export function registerInternalRoutes(app: App, deps: ApiDeps): void {
         let placedHold: string | null = null;
         let cards: (string | null)[] = [];
         if (action === 'block_address' && blockedPlaceId) {
+          const source = report.reason === 'this_is_my_home' ? 'homeowner_request' : 'operator';
+          const evidenceRef = body.resolution?.evidenceRef ?? `report:${report.id}`;
+          // A place listed before (an expired, removed or other block) is listed again as this
+          // report's block: its source, evidence and author are the ones of this triage.
           await trx
             .insertInto('blockedAddresses')
             .values({
               id: newId(),
               placeId: blockedPlaceId,
-              source: report.reason === 'this_is_my_home' ? 'homeowner_request' : 'operator',
+              source,
               reportId: report.id,
-              evidenceRef: body.resolution?.evidenceRef ?? `report:${report.id}`,
+              evidenceRef,
               createdBy: auth.user.id,
               requesterContactHash: contactHash,
             })
             .onConflict((oc) =>
               oc.column('placeId').doUpdateSet({
                 removedAt: null,
+                expiresAt: null,
                 reportId: report.id,
+                source,
+                evidenceRef,
+                createdBy: auth.user.id,
                 ...(contactHash ? { requesterContactHash: contactHash } : {}),
               }),
             )
@@ -1006,9 +1078,10 @@ export function registerInternalRoutes(app: App, deps: ApiDeps): void {
     { schema: { querystring: ListQuerySchema } },
     async (request) => {
       await requireOperator(deps, request);
-      const rows = await deps.db
-        .selectFrom('preservationHolds')
-        .selectAll()
+      const cursor = decodePreciseCursor(request.query.cursor);
+      let query = deps.db.selectFrom('preservationHolds').selectAll().select(CURSOR_AT);
+      if (cursor) query = query.where(afterCursor(cursor, 'desc'));
+      const rows = await query
         .orderBy('createdAt', 'desc')
         .orderBy('id', 'desc')
         .limit(request.query.limit + 1)
@@ -1099,10 +1172,14 @@ export function registerInternalRoutes(app: App, deps: ApiDeps): void {
     { schema: { querystring: ListQuerySchema } },
     async (request) => {
       await requireOperator(deps, request);
-      const rows = await deps.db
+      const cursor = decodePreciseCursor(request.query.cursor);
+      let query = deps.db
         .selectFrom('blockedAddresses')
         .selectAll()
-        .where('removedAt', 'is', null)
+        .select(CURSOR_AT)
+        .where('removedAt', 'is', null);
+      if (cursor) query = query.where(afterCursor(cursor, 'desc'));
+      const rows = await query
         .orderBy('createdAt', 'desc')
         .orderBy('id', 'desc')
         .limit(request.query.limit + 1)
@@ -1144,6 +1221,7 @@ export function registerInternalRoutes(app: App, deps: ApiDeps): void {
           .onConflict((oc) =>
             oc.column('placeId').doUpdateSet({
               removedAt: null,
+              expiresAt: body.expiresAt ? new Date(body.expiresAt) : null,
               evidenceRef: body.evidenceRef,
               source: body.source,
             }),
@@ -1273,11 +1351,10 @@ export function registerInternalRoutes(app: App, deps: ApiDeps): void {
     },
     async (request) => {
       await requireOperator(deps, request);
-      const cursor = decodeCursor(request.query.cursor);
-      let query = deps.db.selectFrom('offers').selectAll();
+      const cursor = decodePreciseCursor(request.query.cursor);
+      let query = deps.db.selectFrom('offers').selectAll().select(CURSOR_AT);
       if (request.query.status) query = query.where('status', '=', request.query.status);
-      if (cursor)
-        query = query.where(sql<boolean>`(created_at, id) > (${cursor[0]}, ${cursor[1]}::uuid)`);
+      if (cursor) query = query.where(afterCursor(cursor, 'asc'));
       const rows = await query
         .orderBy('createdAt')
         .orderBy('id')
@@ -1464,11 +1541,10 @@ export function registerInternalRoutes(app: App, deps: ApiDeps): void {
     { schema: { querystring: ListQuerySchema.extend({ action: z.string().max(64).optional() }) } },
     async (request) => {
       await requireOperator(deps, request);
-      const cursor = decodeCursor(request.query.cursor);
-      let query = deps.db.selectFrom('auditLog').selectAll();
+      const cursor = decodePreciseCursor(request.query.cursor);
+      let query = deps.db.selectFrom('auditLog').selectAll().select(CURSOR_AT);
       if (request.query.action) query = query.where('action', '=', request.query.action);
-      if (cursor)
-        query = query.where(sql<boolean>`(created_at, id) < (${cursor[0]}, ${cursor[1]}::uuid)`);
+      if (cursor) query = query.where(afterCursor(cursor, 'desc'));
       const rows = await query
         .orderBy('createdAt', 'desc')
         .orderBy('id', 'desc')

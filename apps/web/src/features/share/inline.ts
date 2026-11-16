@@ -1,4 +1,4 @@
-import { ShareViewSchema, type ShareView } from '@holiday/core';
+import { ShareViewSchema, type ShareView } from '@hailiday/core';
 
 export type ShareData =
   | { status: 'active'; token: string; view: ShareView }

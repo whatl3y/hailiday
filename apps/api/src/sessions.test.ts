@@ -3,23 +3,24 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { Writable } from 'node:stream';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { ErrorBodySchema, ExperienceSchema } from '@holiday/core';
-import { createLogger } from '@holiday/server/logger';
-import { buildFixtureDisplayUrl } from '@holiday/server/providers';
+import { ErrorBodySchema, ExperienceSchema } from '@hailiday/core';
+import { createLogger } from '@hailiday/server/logger';
+import { buildFixtureDisplayUrl } from '@hailiday/server/providers';
+import { HERO_SIZES } from './html/pages.js';
 import { createHarness, json, type Harness } from './test/harness.js';
 
 const TEMPLATE = `<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Holiday</title>
-    <!--holiday:head-->
+    <title>Hailiday</title>
+    <!--hailiday:head-->
     <script type="module" crossorigin src="/assets/index-abc123.js"></script>
   </head>
   <body>
-    <div id="ssr-hero" class="ssr-hero"><!--holiday:hero--></div>
+    <div id="ssr-hero" class="ssr-hero"><!--hailiday:hero--></div>
     <div id="root"></div>
-    <!--holiday:experience-->
+    <!--hailiday:experience-->
   </body>
 </html>
 `;
@@ -29,7 +30,7 @@ let harness: Harness;
 let distDir: string;
 
 beforeAll(async () => {
-  distDir = mkdtempSync(path.join(tmpdir(), 'holiday-web-'));
+  distDir = mkdtempSync(path.join(tmpdir(), 'hailiday-web-'));
   writeFileSync(path.join(distDir, 'index.html'), TEMPLATE);
   mkdirSync(path.join(distDir, 'assets'));
   writeFileSync(path.join(distDir, 'assets', 'index-abc123.js'), 'console.log(1);');
@@ -64,7 +65,7 @@ describe('sessions and Turnstile', () => {
       timezone: 'America/Chicago',
     });
     expect(created.statusCode).toBe(201);
-    const cookie = created.cookies.find((entry) => entry.name === 'holiday_session');
+    const cookie = created.cookies.find((entry) => entry.name === 'hailiday_session');
     expect(cookie?.httpOnly).toBe(true);
     expect(String(cookie?.sameSite).toLowerCase()).toBe('lax');
     expect(created.headers['cache-control']).toBe('no-store');
@@ -73,7 +74,7 @@ describe('sessions and Turnstile', () => {
     const again = await client.post('/v1/sessions', { turnstileToken: 'anything' });
     expect(again.statusCode).toBe(201);
     expect(json<{ expiresAt: string }>(again).expiresAt).toBe(expiresAt);
-    expect(again.cookies.find((entry) => entry.name === 'holiday_session')).toBeUndefined();
+    expect(again.cookies.find((entry) => entry.name === 'hailiday_session')).toBeUndefined();
   });
 
   it('refuses session-level endpoints without a session and state changes from other origins', async () => {
@@ -190,7 +191,9 @@ describe('server-rendered pages and static delivery', () => {
     expect(response.headers.etag).toBeTruthy();
     expect(response.headers['content-security-policy']).toContain("script-src 'self'");
     const html = response.body;
-    expect(html).toMatch(/<link rel="preload" as="image" imagesrcset="[^"]+" imagesizes="100vw"/);
+    expect(HERO_SIZES).toBe('100vw');
+    expect(html).toContain(`imagesizes="${HERO_SIZES}"`);
+    expect(html).toMatch(/<link rel="preload" as="image" imagesrcset="[^"]+" imagesizes="[^"]+"/);
     expect(html).toContain('fetchpriority="high"');
     expect(html).toMatch(/<img class="ssr-hero__image" src="[^"]+" srcset="[^"]+ \d+w/);
     expect(html).toMatch(/width="\d+" height="\d+"/);
@@ -234,7 +237,7 @@ describe('server-rendered pages and static delivery', () => {
   });
 
   it('serves signed fixture Street View frames and refuses a bad signature', async () => {
-    const place = await import('@holiday/server/pipeline').then((pipeline) =>
+    const place = await import('@hailiday/server/pipeline').then((pipeline) =>
       pipeline.fixturePlace('ChIJfxLanternHillColonial01'),
     );
     const pano = place.panoramas[0]?.panoId ?? '';

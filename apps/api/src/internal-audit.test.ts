@@ -1,8 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import type { Project } from '@holiday/core';
-import { toJson } from '@holiday/server/db';
-import { newId } from '@holiday/server/ids';
-import { createRenderJobRecord } from '@holiday/server/pipeline';
+import type { Project } from '@hailiday/core';
+import { toJson } from '@hailiday/server/db';
+import { newId } from '@hailiday/server/ids';
+import { createRenderJobRecord } from '@hailiday/server/pipeline';
 import { createHarness, json, type Harness, type TestClient } from './test/harness.js';
 import { operatorClient } from './test/operator.js';
 import { placesTokenForClient } from './test/places-token.js';

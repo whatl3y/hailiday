@@ -1,6 +1,6 @@
 import type { FastifyRequest } from 'fastify';
-import { DAY_MS, addMs } from '@holiday/server/clock';
-import { dailySaltedHash } from '@holiday/server/ids';
+import { DAY_MS, addMs } from '@hailiday/server/clock';
+import { dailySaltedHash } from '@hailiday/server/ids';
 import type { ApiDeps } from '../deps.js';
 
 /** The caller's IP address as a hash with a daily rotating salt (never stored raw). */

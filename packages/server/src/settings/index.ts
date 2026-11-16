@@ -4,8 +4,8 @@ import {
   SCENE_TYPES,
   SPEND_CEILING_KEYS,
   runtimeSettingSchemaFor,
-} from '@holiday/core';
-import type { ReviewMode, RuntimeSettingKey, SceneType, SpendCeilingKey } from '@holiday/core';
+} from '@hailiday/core';
+import type { ReviewMode, RuntimeSettingKey, SceneType, SpendCeilingKey } from '@hailiday/core';
 import type { z } from 'zod';
 import type { Clock } from '../clock/index.js';
 import { systemClock } from '../clock/index.js';
@@ -13,7 +13,7 @@ import type { AppConfig } from '../config/index.js';
 import { toJson } from '../db/client.js';
 import type { Db, DbOrTx } from '../db/client.js';
 import { validationFailed } from '../errors/index.js';
-import { dollarsToMicros } from '../ledger/index.js';
+import { PRICE_LIST, dollarsToMicros } from '../ledger/index.js';
 
 export type RuntimeSettingValue<K extends RuntimeSettingKey> = z.infer<
   (typeof RUNTIME_SETTING_SCHEMAS)[K]
@@ -24,7 +24,8 @@ export const KNOWN_PROVIDERS = ['fixture', 'google', 'openai', 'gemini', 'anthro
 
 /**
  * Per-SKU daily ceilings (capped public rollout, in-window column of the economics spec),
- * converted from units to USD micros at list prices.
+ * converted from units to USD micros at list prices. A vision call counts toward its ceiling at
+ * its settled cost, so its ceiling is 7,000 calls at the vision list price (`PRICE_LIST`).
  */
 export const DEFAULT_SKU_DAILY_CEILINGS_MICROS: Readonly<Record<SpendCeilingKey, number>> = {
   street_view_static: 9_500 * 7_000,
@@ -32,7 +33,7 @@ export const DEFAULT_SKU_DAILY_CEILINGS_MICROS: Readonly<Record<SpendCeilingKey,
   places_details_essentials: 3_000 * 5_000,
   geocoding: 6_000 * 5_000,
   image_edit_attempt: 3_700 * 130_000,
-  vision_call: dollarsToMicros(170),
+  vision_call: 7_000 * PRICE_LIST.vision_call.unitPriceMicros,
   screened_upload: 1_500 * 10_000,
   email: 3_000 * 1_000,
 };
@@ -76,7 +77,10 @@ function reviewModeDefault(config: AppConfig): Partial<Record<SceneType, ReviewM
  * ceilings and admission control (economics), API behavior (data-and-api). Review mode defaults to
  * `pre_delivery` outside development and test, where it is `sampled_audit` so local renders
  * deliver without a reviewer. Under `APP_ENV=development` the owner and per-IP limits take
- * `LOCAL_DEVELOPMENT_LIMITS`.
+ * `LOCAL_DEVELOPMENT_LIMITS`. Time-based deletion of projects, sources and renderings
+ * (`retention.time_based_deletion`) is off: everything an owner creates is kept until it is
+ * deleted for another reason; `RETENTION_TIME_BASED_DELETION=true` restores the age and
+ * inactivity schedule.
  */
 export function baseSettingDefaults(config: AppConfig): Record<string, unknown> {
   const defaults: Record<string, unknown> = {
@@ -105,6 +109,7 @@ export function baseSettingDefaults(config: AppConfig): Record<string, unknown> 
     'sse.heartbeat_s': 15,
     'poll.render_ms': 3000,
     'poll.upload_ms': 2000,
+    'retention.time_based_deletion': false,
   };
   if (config.appEnv === 'development') Object.assign(defaults, LOCAL_DEVELOPMENT_LIMITS);
   for (const key of SPEND_CEILING_KEYS) {

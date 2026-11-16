@@ -1,0 +1,122 @@
+/* ---------- Legal and information pages: a document column ---------- */
+
+.legal {
+  max-width: calc(var(--measure) + 2 * var(--gutter));
+  padding-block: var(--space-8) var(--space-9);
+}
+
+.legal__kicker {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+  color: var(--ink-muted);
+  font-size: var(--text-label);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--tracking-eyebrow);
+  line-height: 1.6;
+  text-transform: uppercase;
+}
+
+.legal__dot {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--ink-quiet);
+}
+
+.legal__title {
+  margin-bottom: 0;
+}
+
+.legal__notice {
+  margin-top: 18px;
+  color: var(--ink-muted);
+  font-size: var(--text-s);
+  letter-spacing: 0.01em;
+}
+
+.legal__prose {
+  margin-top: 22px;
+}
+
+/* The plain-language summary in a framed note under the title. */
+.legal__lede {
+  padding: var(--space-4) 18px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-m);
+  background: var(--paper-raised);
+  color: var(--ink-soft);
+  font-size: 0.875rem;
+  font-weight: var(--weight-light);
+  line-height: var(--leading-body);
+}
+
+@media (max-width: 599px) {
+  .legal {
+    padding-block: var(--space-7) var(--space-8);
+  }
+}
+
+/* ---------- Not found ---------- */
+
+/*
+ * The season's photograph fills the screen; the message and the way home rest in the white
+ * dock: at the top under the header on phones, at the lower left from 600px.
+ */
+.not-found__dock {
+  --stack-gap: var(--space-4);
+  max-inline-size: 32rem;
+  animation: rise-in var(--dur-rise) var(--ease-out) 120ms backwards;
+}
+
+@media (min-width: 600px) {
+  .not-found .hero-frame__content {
+    justify-content: flex-end;
+    align-items: flex-start;
+    padding-inline-start: max(clamp(24px, 5vw, 96px), var(--safe-left));
+    padding-block-end: clamp(32px, 7svh, 88px);
+  }
+
+  .not-found__dock {
+    --stack-gap: var(--space-5);
+  }
+}
+
+/*
+ * On phones the header's white type sits over the top of the photograph with nothing else
+ * around it: a slightly deeper band behind it keeps the small links at 4.5:1 on the brightest
+ * photographs (measured), and fades out well above the dock.
+ */
+@media (max-width: 599px) {
+  .not-found {
+    --hero-scrim: linear-gradient(
+      to bottom,
+      rgb(var(--scrim-rgb) / 0.24) 0,
+      rgb(var(--scrim-rgb) / 0) calc(var(--header-height) + var(--safe-top) + 32px)
+    );
+  }
+}
+
+/* The way back is one solid action at its own width, not a full-width bar. */
+.not-found .button {
+  align-self: flex-start;
+  margin-top: var(--space-1);
+}
+
+.not-found .title-section {
+  font-size: clamp(2rem, 4vw, 3rem);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-display);
+  line-height: 1.05;
+  text-wrap: balance;
+}
+
+.not-found .title-section:focus {
+  outline: none;
+}
+
+.not-found .lede {
+  color: var(--ink-soft);
+}

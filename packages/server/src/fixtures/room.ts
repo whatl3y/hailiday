@@ -1,4 +1,4 @@
-import type { RoomType } from '@holiday/core';
+import type { RoomType } from '@hailiday/core';
 import { Projector } from './projector.js';
 import {
   AnchorCollector,

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { NON_TERMINAL_RENDER_JOB_STATES } from '@holiday/core';
+import { NON_TERMINAL_RENDER_JOB_STATES } from '@hailiday/core';
 import { createHarness, json, type Harness, type TestClient } from './test/harness.js';
 import { placesTokenForClient } from './test/places-token.js';
 import { adoptStreetViewProject, ownerIdOf } from './test/projects.js';
@@ -31,8 +31,22 @@ afterAll(async () => {
 
 let clients = 0;
 
+/** Ten in-scope fixture places. */
+const TEN_PLACES = [
+  'ChIJfxLanternHillColonial01',
+  'ChIJfxSaguaroBendRanchXXX02',
+  'ChIJfxLarkspurCourtBungal03',
+  'ChIJfxBirchfieldPikeFarmh04',
+  'ChIJfxGullwingLaneCapeXXX05',
+  'ChIJfxMagnoliaTerraceColo06',
+  'ChIJfxMesquiteDrawRanchXX07',
+  'ChIJfxFernwoodLoopBungalo08',
+  'ChIJfxCornflowerRoadFarmh09',
+  'ChIJfxHemlockRidgeRanchXX10',
+] as const;
+
 /**
- * A new browser (its own `holiday_device` cookie) behind its own address, so each client is its
+ * A new browser (its own `hailiday_device` cookie) behind its own address, so each client is its
  * own device and IP bucket of the render backstop, as separate visitors are.
  */
 async function newClient(): Promise<TestClient> {
@@ -115,10 +129,11 @@ describe('allowance under parallel requests', () => {
     const tokens = [];
     for (let i = 0; i < 10; i += 1) tokens.push(await placesTokenForClient(harness, client));
 
+    // Ten different places: resolving a place the owner already has would return that project.
     const responses = await Promise.all(
-      tokens.map((sessionToken) =>
+      tokens.map((sessionToken, index) =>
         client.post('/v1/addresses/resolve', {
-          placeId: 'ChIJfxLanternHillColonial01',
+          placeId: TEN_PLACES[index],
           sessionToken,
           holidayId: 'christmas',
         }),
@@ -289,7 +304,7 @@ describe('one non-terminal job per project', () => {
 });
 
 describe('variant-key cache', () => {
-  it('serves a cached look only while the asset is unexpired, the source ready and display allowed', async () => {
+  it('serves a cached look past its stored expiry while the source is ready and display allowed', async () => {
     const client = await newClient();
     const project = await adoptStreetViewProject(harness, client);
     const queued = await render(client, project);
@@ -313,14 +328,13 @@ describe('variant-key cache', () => {
       await client.post(`/v1/renders/${id}/cancel`, {});
     };
 
+    // Time-based deletion is off by default: a stored expiry no longer hides the look.
     await db
       .updateTable('renderAssets')
       .set({ expiresAt: new Date(Date.now() - 60_000) })
       .where('id', '=', asset.id)
       .execute();
-    const expired = await render(client, project);
-    expect(expired.statusCode).toBe(202);
-    await cancelNew(expired);
+    expect((await render(client, project)).statusCode).toBe(200);
     await db
       .updateTable('renderAssets')
       .set({ expiresAt: null })

@@ -1,5 +1,5 @@
 # Holiday pack new_years_eve.US (New Year's Eve).
-# Normative schema: docs/specs/holidays-and-content.md, "Pack schema". Validated by HolidayPackSchema in @holiday/core.
+# Normative schema: docs/specs/holidays-and-content.md, "Pack schema". Validated by HolidayPackSchema in @hailiday/core.
 # quantity: { <style>: [min, max] } counts instances (runs for lights and garland) per style;
 # required lists the styles in which the archetype must appear whenever one of its anchors is eligible.
 # priority is omitted: list order is the placement priority (1 = first).
@@ -7,7 +7,7 @@
 # Any change that can alter a decoration plan or compiled instruction is at least a MINOR version bump.
 
 id: new_years_eve.US
-version: 1.0.1
+version: 2.0.0
 holidayId: new_years_eve
 region: US
 displayName: New Year's Eve
@@ -15,9 +15,9 @@ journeyEmphasis: balanced
 traditionNotes: 'Celebration in gold, silver and white: warm-white string lights, metallic garland, brushed-gold lanterns, ornament bowls and a set table with flameless candles. No fireworks or sky effects, no alcohol bottles or branding, no clocks, numerals or lettering. Optional pack: enabled only if it passes the review checklist; it has no apartment_entry section.'
 lightingPolicy:
   bySceneType:
-    house_exterior: { default: source, offered: [source, evening] }
-    balcony: { default: source, offered: [source, evening] }
-    interior: { default: source, offered: [source, evening] }
+    house_exterior: { default: evening, offered: [source, evening] }
+    balcony: { default: evening, offered: [source, evening] }
+    interior: { default: bright, offered: [bright] }
   eveningGuidance: 'Warm-white and gold string lights glow with a gentle sparkle and soft contact light; metallic garland and ornaments catch the light; no fireworks or sky effects.'
 climateRule:
   sourcePrecedence: [scene_analysis, address_region, neutral]
@@ -287,10 +287,10 @@ exampleRefs:
     sceneType: balcony
     style: classic
     lightingMode: source
-  - exampleAssetId: example.new_years_eve.interior.classic.source.v1
+  - exampleAssetId: example.new_years_eve.interior.classic.bright.v1
     sceneType: interior
     style: classic
-    lightingMode: source
+    lightingMode: bright
 review:
   checklistVersion: 1
   approvedBy: [editorial_lead, second_approver]

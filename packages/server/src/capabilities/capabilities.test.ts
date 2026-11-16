@@ -56,15 +56,37 @@ describe('capability defaults', () => {
     ANTHROPIC_API_KEY: 'sk-ant-test-123456',
   };
 
-  it('follows the resolved live providers in development, never for Street View AI', () => {
+  it('follows the resolved live providers in development, Street View AI included', () => {
     const config = parseConfig(keys);
+    expect(config.streetView.usePolicy).toBe('full');
     expect(defaultCapabilityState(config, 'image_editing')).toBe('live_public');
     expect(defaultCapabilityState(config, 'vision_analysis')).toBe('live_public');
     expect(defaultCapabilityState(config, 'address_lookup')).toBe('live_public');
     expect(defaultCapabilityState(config, 'street_view_display')).toBe('live_public');
-    expect(defaultCapabilityState(config, 'street_view_ai')).toBe('fixture');
+    expect(defaultCapabilityState(config, 'street_view_ai')).toBe('live_public');
     expect(defaultCapabilityState(config, 'uploads')).toBe('fixture');
     expect(defaultCapabilityState(config, 'commerce:fixture_decor_us')).toBe('fixture');
+  });
+
+  it('keeps Street View AI in fixture unless Street View and the editor are live and decoration is allowed', () => {
+    const decorate = parseConfig({ ...keys, STREET_VIEW_USE_POLICY: 'decorate' });
+    expect(defaultCapabilityState(decorate, 'street_view_ai')).toBe('live_public');
+    const displayOnly = parseConfig({ ...keys, STREET_VIEW_USE_POLICY: 'display_only' });
+    expect(defaultCapabilityState(displayOnly, 'street_view_ai')).toBe('fixture');
+    expect(defaultCapabilityState(displayOnly, 'street_view_display')).toBe('live_public');
+    const noEditor = parseConfig({ ...keys, IMAGE_EDITOR_PROVIDER: 'fixture' });
+    expect(defaultCapabilityState(noEditor, 'street_view_ai')).toBe('fixture');
+    const noStreetView = parseConfig({ ...keys, STREET_VIEW_PROVIDER: 'fixture' });
+    expect(defaultCapabilityState(noStreetView, 'street_view_ai')).toBe('fixture');
+    // A configuration without the Street View section reads the default use policy.
+    expect(
+      defaultCapabilityState(
+        { appEnv: 'development', providers: parseConfig(keys).providers },
+        'street_view_ai',
+      ),
+    ).toBe('live_public');
+    const staging = { ...parseConfig(keys), appEnv: 'staging' as const };
+    expect(defaultCapabilityState(staging, 'street_view_ai')).toBe('fixture');
   });
 
   it('stays fixture without keys and outside development', () => {

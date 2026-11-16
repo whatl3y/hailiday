@@ -1,6 +1,6 @@
 # Research: address and imagery sources
 
-Dated research on the address, geocoding and street-level imagery providers Holiday depends on: what Google Maps Platform allows, what its APIs return and cost, and why the alternatives do not replace it. This file records evidence only; the rules built on it live in the specs linked below.
+Dated research on the address, geocoding and street-level imagery providers Hailiday depends on: what Google Maps Platform allows, what its APIs return and cost, and why the alternatives do not replace it. This file records evidence only; the rules built on it live in the specs linked below.
 
 **Owns:** Google terms analysis, API facts, pricing, alternatives and the claims register for address and imagery sources.
 **Baseline:** planning baseline 2026-11-09; external facts retrieved 2026-11-08 unless a row says otherwise.
@@ -26,12 +26,12 @@ Sources: Google Maps Platform Terms of Service (https://cloud.google.com/maps-pl
 
 ### Clause analysis
 
-| Clause | What it says | Relevance to Holiday |
+| Clause | What it says | Relevance to Hailiday |
 | --- | --- | --- |
 | §3.2.3(a) No scraping | No exporting, extracting or scraping Google Maps Content for use outside the Services. Examples include pre-fetching, indexing, storing, resharing, rehosting, and bulk-downloading Street View images. | The most direct clause against persisting fetched Street View photos or passing them to another service. |
 | §3.2.3(b) No caching | No caching except as the Service Specific Terms expressly permit. | Governs what may be stored; see [Caching](#caching). No Street View image caching permission exists in the Service Specific Terms. |
 | §3.2.3(c) No creating content based on Google Maps Content | General ban on creating content based on Google Maps Content (examples: tracing, 3D models, a tree index from Street View). | The broadest exposure for an AI-decorated Street View image. Whether an edited output is "content based on" the source is a legal inference, not stated text. |
-| §3.2.3(c)(vii) | Bars using Google Maps Content to improve ML or AI models (training, testing, validation, fine-tuning). | Addresses model improvement, not inference-only editing on its face. Holiday never trains on any imagery (`train` is always false). |
+| §3.2.3(c)(vii) | Bars using Google Maps Content to improve ML or AI models (training, testing, validation, fine-tuning). | Addresses model improvement, not inference-only editing on its face. Hailiday never trains on any imagery (`train` is always false). |
 | §3.2.3(d) No re-creating Google products | Bars re-creating Google products or features. Example (d)(iii): use in a listings or directory service, or to create or augment an advertising product. The product must offer substantial, independent value. | Whether a shopping layer beside Street View counts as an advertising product is an inference. Addressed in the licensing request, not by engineering. |
 | §3.2.3(e) No use with non-Google maps | No displaying Street View imagery and non-Google maps on the same screen. | Rules out pairing Street View with a Mapbox or other third-party map. |
 | §3.2.2(a) | The application's own terms must state that Google Maps features and content are subject to the Google Maps End User Additional Terms and the Google Privacy Policy. | A legal deliverable; see [privacy, safety and legal](../specs/privacy-safety-legal.md#legal-deliverables). |
@@ -85,7 +85,7 @@ Sources: https://developers.google.com/maps/documentation/streetview/request-str
 | `return_error_code=true` | Returns 404 when no image exists and 400 for an invalid request, instead of the gray "no imagery" image. |
 | Signing | Recommended (required for former Premium Plan customers). Unsigned requests have lower quotas and can be limited. A maximum URL length is not stated in the pages read. |
 | Quota | 30,000 queries per minute. |
-| Burned-in logo | Not documented. Attribution must be displayed by the app regardless. **Verify:** live request showing whether a logo is embedded in the returned image (engineering lead). |
+| Burned-in logo | Not documented, but observed: three live 640×640 frames on 2026-11-10 carried the Google logo at the lower left and the copyright at the lower right, burned into the returned pixels (rectangles in [embedded attribution test](../specs/address-and-street-view.md#embedded-attribution-test-phase-1)). Attribution must be displayed by the app regardless. Other sizes and credit strings are not measured. |
 
 ### Metadata
 
@@ -232,7 +232,7 @@ Re-verify triggers: **provider selection** (Gate A), **licensing request** (befo
 | GM-13 | Static API: 640x640 maximum, no scale parameter, fov default 90 and maximum 120, radius default 50 m, heading default computed toward location | https://developers.google.com/maps/documentation/streetview/usage-and-billing, https://developers.google.com/maps/documentation/streetview/request-streetview | Usage and request pages | 2026-11-08 | pricing refresh | read |
 | GM-14 | `source=outdoor` excludes indoor and PhotoSpheres; docs conflict on a Google-only filter | https://developers.google.com/maps/documentation/streetview/request-streetview, https://developers.google.com/maps/documentation/streetview/overview | `source` parameter | 2026-11-08 | activation | unverified (live test) |
 | GM-15 | `return_error_code=true` returns 404 or 400 instead of the gray image; signing recommended | https://developers.google.com/maps/documentation/streetview/request-streetview, https://developers.google.com/maps/documentation/streetview/digital-signature | Request and signature pages | 2026-11-08 | activation | read |
-| GM-16 | Whether a logo is burned into Static API images is undocumented | https://developers.google.com/maps/documentation/streetview/policies | Attribution | 2026-11-08 | activation | unverified (live test) |
+| GM-16 | Whether a logo is burned into Static API images is undocumented; a live test on 2026-11-10 found the logo at the lower left and the copyright at the lower right of 640×640 frames | https://developers.google.com/maps/documentation/streetview/policies | Attribution | 2026-11-10 | another request size or credit string | observed (live test, three frames) |
 | GM-17 | Metadata is free and returns status, copyright, date, panorama location and pano ID | https://developers.google.com/maps/documentation/streetview/metadata, https://developers.google.com/maps/billing-and-pricing/pricing | Metadata page; pricing list | 2026-11-08 | pricing refresh | read |
 | GM-18 | Place Details (New) Essentials fields contain no geocode granularity | https://developers.google.com/maps/documentation/places/web-service/place-details | Essentials field list | 2026-11-08 | provider selection | read |
 | GM-19 | Geocoding supplies `location_type` and `partial_match`; Address Validation supplies `verdict.geocodeGranularity` | https://developers.google.com/maps/documentation/geocoding/guides-v3/requests-geocoding, https://developers.google.com/maps/documentation/address-validation/understand-response | Response guides | 2026-11-08 | provider selection | read |

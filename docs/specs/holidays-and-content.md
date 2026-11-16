@@ -1,6 +1,6 @@
 # Holidays and content
 
-This specification defines what Holiday knows about holidays and what it is allowed to draw: the holiday, occurrence and pack model; the US Release catalog; how the default holiday is chosen on any date in any timezone; the versioned holiday packs that turn a photo and a choice into a decoration plan; the style kits behind the shop panel; lighting policy; climate, culture and existing-decoration rules; hero and example art; and how content is authored, reviewed and released. Engineers and coding agents implement from it; editorial staff author to it. Rendering mechanics live in [render-pipeline.md](render-pipeline.md), product mapping in [commerce.md](commerce.md), and the screens that show this content in [experience.md](experience.md).
+This specification defines what Hailiday knows about holidays and what it is allowed to draw: the holiday, occurrence and pack model; the US Release catalog; how the default holiday is chosen on any date in any timezone; the versioned holiday packs that turn a photo and a choice into a decoration plan; the style kits behind the shop panel; lighting policy; climate, culture and existing-decoration rules; hero and example art; and how content is authored, reviewed and released. Engineers and coding agents implement from it; editorial staff author to it. Rendering mechanics live in [render-pipeline.md](render-pipeline.md), product mapping in [commerce.md](commerce.md), and the screens that show this content in [experience.md](experience.md).
 
 **Owns:** holiday, occurrence and pack model; US holiday catalog; promotion windows and selection; worked calendar; off-season behavior; pack schema and example packs; style kits (content side); lighting policy per holiday; climate, culture and existing-decoration rules; hero and example art; content authoring and review.
 
@@ -17,8 +17,8 @@ This specification defines what Holiday knows about holidays and what it is allo
 | Holiday pack | Versioned, reviewed content for one holiday and region: scene sections, styles, lighting policy, kit archetypes, prompt fragments, forbidden list, hero and example references, review record. | `packId` = `<holidayId>.<region>`, for example `christmas.US`; `version` is `MAJOR.MINOR.PATCH` ([Holiday packs](#holiday-packs)). |
 | Scene section | A pack's rules for one scene type: allowed anchor categories, placement rules, access and preserve rules, styles with quantity rules, kit, prompt fragments. | Keyed by scene type. |
 | Scene type | What kind of place the source photo shows. | `house_exterior` (attribute `buildingForm`: `detached`, `attached`, `other`), `apartment_entry` (unit door, stoop or hallway), `balcony` (balcony, patio or terrace), `interior` (attribute `roomType`: `dining_room`, `living_room`, `entryway`, `kitchen`, `bedroom`, `other`). |
-| Style | How much decor a scene section places; a tier inside the section, not a separate pack. | `subtle`, `classic`, `abundant`; default `classic` (Proposed, [D-10](../decisions.md#d-10)). |
-| Lighting mode | Whether the photo keeps its own light or is relit for evening. | `source` (UI label "As photographed"), `evening` (UI label "Evening"); defaults per [Lighting policy](#lighting-policy). |
+| Style | How much decor a scene section places; a tier inside the section, not a separate pack. | `subtle`, `classic`, `abundant`; default `abundant` in every pack and scene type (owner decision 2026-11-10, [D-10](../decisions.md#d-10); core `DEFAULT_STYLE`). |
+| Lighting mode | Whether the photo keeps its own light or is relit. | `source` (UI label "As photographed"), `evening` (UI label "Evening"), `bright` (UI label "Bright"); defaults per [Lighting policy](#lighting-policy). |
 | Style kit | The set of product archetypes a scene section can place, each with an in-house spec; styles select subsets. | `kitId` = `<holidayId>.<sceneType>`; archetypes are `kitItemId`s ([Style kits](#style-kits)). |
 | Content cell | One combination (holiday, scene type, style, lighting mode) that a pack offers. A request for a combination the pack does not offer fails validation. | Derived from the pack; no stored identifier. |
 | Brief | Editorial prose that precedes a pack (subject, mood, coverage, climate guidance, forbidden symbols). | Never consumed by code. |
@@ -65,7 +65,7 @@ Religious sub-traditions (for example a Christmas pack with a nativity scene, or
 
 `journeyEmphasis` is published in the experience projection so the landing and result screens can invite the stronger path for the current holiday (Proposed, [D-11](../decisions.md#d-11)): during the Thanksgiving window the dining-room photo invitation is stronger, while the hero and the address input stay as fixed in [D-06](../decisions.md#d-06). Screen behavior is specified in [experience.md](experience.md#landing).
 
-Content policy at the product level (what Holiday declines to decorate, Halloween content limits, no free-text prompts) is owned by [privacy-safety-legal.md](privacy-safety-legal.md#content-policy-and-admission); the pack forbidden lists in this file are its enforceable form.
+Content policy at the product level (what Hailiday declines to decorate, Halloween content limits, no free-text prompts) is owned by [privacy-safety-legal.md](privacy-safety-legal.md#content-policy-and-admission); the pack forbidden lists in this file are its enforceable form.
 
 ## Windows and selection
 
@@ -97,7 +97,7 @@ The content-side contract for one occurrence. Column-level persistence is in [da
 | `commerceStart`, `commerceEnd`, `catalogRetireAt` | Offer eligibility; values and semantics owned by [commerce.md](commerce.md#seasonal-commerce-calendar) | per commerce spec |
 | `editorialPriority` | Tie-break for overlapping windows (lower wins) | `10` |
 | `heroAssetId` | Hero for this occurrence ([Hero and example art](#hero-and-example-art)) | `hero.thanksgiving_us.dining_room.v2` |
-| `packId`, `packVersion` | Pack in force while this occurrence is current | `thanksgiving_us.US`, `1.2.0` |
+| `packId`, `packVersion` | Pack in force while this occurrence is current | `thanksgiving_us.US`, `2.0.0` |
 | `enabled` | False until the pack and hero pass review; a disabled occurrence is treated as absent | `true` |
 | `reviewedAt`, `reviewedBy` | Annual calendar review ([Content authoring and review](#content-authoring-and-review)) | `2026-08-20`, design and editorial lead |
 
@@ -210,8 +210,8 @@ Rule of thumb: anything that can change a decoration plan or a compiled instruct
 
 ### Storage, validation and publication
 
-- **Files.** One directory per pack in the server package (`@holiday/server`), holding `pack.yaml`; large scene sections may be split into one file per scene type and merged at load. Pack files never ship in `@holiday/core` or in the browser bundle ([architecture.md](../architecture.md#packages-and-boundaries)).
-- **Schema.** A zod schema in `@holiday/core` (`HolidayPack`, with the enums `HolidayId`, `SceneType`, `BuildingForm`, `RoomType`, `Style`, `LightingMode`, `AnchorCategory`, `AttachmentIntent`, `PlacementRule`, `ForbiddenItem`), including each kit archetype's `placementRule` and `priority` and each scene section's `limits`. Core exports the enums so the web app, the scene-analysis schema and the pack share one vocabulary.
+- **Files.** One directory per pack in the server package (`@hailiday/server`), holding `pack.yaml`; large scene sections may be split into one file per scene type and merged at load. Pack files never ship in `@hailiday/core` or in the browser bundle ([architecture.md](../architecture.md#packages-and-boundaries)).
+- **Schema.** A zod schema in `@hailiday/core` (`HolidayPack`, with the enums `HolidayId`, `SceneType`, `BuildingForm`, `RoomType`, `Style`, `LightingMode`, `AnchorCategory`, `AttachmentIntent`, `PlacementRule`, `ForbiddenItem`), including each kit archetype's `placementRule` and `priority` and each scene section's `limits`. Core exports the enums so the web app, the scene-analysis schema and the pack share one vocabulary.
 - **Validation.** Every pack file is validated in CI and again at server start; an invalid pack stops the process. Cross-field rules: scene section keys are scene types; every anchor named in a section is allowed for that scene type ([Anchor categories](#anchor-categories)); every kit archetype anchor is in the section's anchor list; every `formRules` and `roomRules` anchor is in the section's anchor list; every kit archetype has a `placementRule`, and `priority` values are unique within a section; quantity minimums are not above maximums; `required` styles have a minimum of at least 1; `limits.maxPlacements` never decreases from `subtle` to `classic` to `abundant` and, for each style, is at least the number of archetypes that list the style in `required`; the forbidden list contains the baseline set; `lightingPolicy.bySceneType.<sceneType>.default` is in `offered`; `heroRefs` and `exampleRefs` resolve to approved assets; `kitId` equals `<holidayId>.<sceneType>`.
 - **Publication.** A version is published by deploying the file, inserting a `holiday_pack_versions` row (`holidayId`, `region`, `version`, `contentRef`, `contentSha256`, `reviewRecord`) and setting its `status` to `published` (`publishedAt`); the previously published row becomes `retired` (columns in [data-and-api.md](data-and-api.md#entities)). The API resolves the published version for (`holidayId`, `region`) on the server, and each enabled occurrence pins the version it uses. Rollback sets the previous row back to `published` and retires the current one, so previous MAJOR.MINOR files stay in the repository until no occurrence references them. Packs are not editable in a database without a deploy: they change rarely, and schema validation plus golden renders are the safety net.
 - **Kit seeding.** On publication the kit archetypes of each scene section are upserted into `style_kits` and `kit_items` by `kitItemId`, so the commerce side can map products to them ([commerce.md](commerce.md#style-kits-and-products)). Product columns on those rows are owned by the commerce spec.
@@ -226,7 +226,7 @@ The annotated skeleton below is the normative shape; the zod schema in core mirr
 
 ```yaml
 id: christmas.US                      # <holidayId>.<region>
-version: 1.0.0                        # MAJOR.MINOR.PATCH, see Versioning
+version: 2.0.0                        # MAJOR.MINOR.PATCH, see Versioning
 holidayId: christmas                  # HolidayId enum
 region: US                            # ISO 3166-1 alpha-2, optional subdivision suffix later
 displayName: Christmas
@@ -236,10 +236,10 @@ traditionNotes: >                     # shown to editors and in the catalog; sec
   sub-tradition pack explicitly when one exists.
 lightingPolicy:
   bySceneType:                        # keys are scene types; values from the Lighting policy section
-    house_exterior: { default: source, offered: [source, evening] }
-    apartment_entry: { default: source, offered: [source] }
-    balcony: { default: source, offered: [source, evening] }
-    interior: { default: source, offered: [source, evening] }
+    house_exterior: { default: evening, offered: [source, evening] }
+    apartment_entry: { default: bright, offered: [bright] }
+    balcony: { default: evening, offered: [source, evening] }
+    interior: { default: bright, offered: [bright] }
   eveningGuidance: >                  # compiled only when lightingMode is evening
     Early dusk: darkened sky and lowered ambient light with the structure still legible;
     string lights and lanterns glow warm white with soft bloom; windows that exist may show a
@@ -520,7 +520,7 @@ sceneSections:
       negative: no electric lights, no Christmas or Halloween items, no Pilgrim or Native American figures or costume imagery, no text, no people, no snow, no new structures
 ```
 
-No archetype in this section is lit, and `lightingPolicy.bySceneType.house_exterior.offered` is `[source]` only ([Lighting policy](#lighting-policy)).
+The kit adds no electric lights. `lightingPolicy.bySceneType.house_exterior` is `{ default: evening, offered: [source, evening] }` like every pack ([Lighting policy](#lighting-policy)): in `evening` the existing porch light, the glow in the existing windows and any lanterns and flameless candles named in the placements carry the scene.
 
 ### Thanksgiving, `interior` (dining room, the hero scene)
 
@@ -557,7 +557,7 @@ sceneSections:
       negative: no open flames, no Christmas items, no text, no people or pets, no new furniture, no food unless already on the table
 ```
 
-`lightingPolicy.bySceneType.interior.offered` is `[source, evening]`, the upper bound described in [Lighting policy](#lighting-policy): in `evening` the candles and existing lamps carry the light, matching the hero.
+`lightingPolicy.bySceneType.interior` is `{ default: bright, offered: [bright] }` ([Lighting policy](#lighting-policy)): the decorated room is relit to a bright, airy version of itself, with the lit decorations (flameless candles, lamps) staying lit.
 
 ### Halloween, `house_exterior`
 
@@ -664,7 +664,7 @@ sceneSections:
       negative: nothing on neighboring doors, nothing in the corridor path, no religious symbols, no text, no people, no inflatables
 ```
 
-Floor items appear only when analysis reports a `floor_area` in the door's own alcove; a flat corridor wall with no alcove gets the wreath and frame garland only. `apartment_entry` offers `source` lighting only.
+Floor items appear only when analysis reports a `floor_area` in the door's own alcove; a flat corridor wall with no alcove gets the wreath and frame garland only. `apartment_entry` offers `bright` lighting only.
 
 ## Style kits
 
@@ -744,36 +744,39 @@ A style kit is the content side of Shop the look (Proposed, [D-24](../decisions.
 
 ## Lighting policy
 
-Proposed ([D-10](../decisions.md#d-10)). `source` keeps the photo's own light and renders electric decor switched on with a modest glow consistent with the existing exposure; `evening` relights the scene to dusk so lit decor reads clearly. Definitions, the relight instructions, why compositing is disabled in `evening` and how QA judges a relit image are in [render-pipeline.md](render-pipeline.md#lighting-modes). This section says which modes each content cell offers and what `evening` means for each holiday.
+Owner decision 2026-11-10 ([D-10](../decisions.md#d-10)). Three modes exist. `source` keeps the photo's own light and renders electric decor switched on with a modest glow consistent with the existing exposure. `evening` relights the decorated scene to dusk so lit decor reads clearly. `bright` relights the decorated scene to a bright, airy, cheerful version of the same room. Definitions, the relight instructions, why compositing is disabled in the relit modes and how QA judges a relit image are in [render-pipeline.md](render-pipeline.md#lighting-modes). This section says which modes each content cell offers and what `evening` means for each holiday.
 
 ### Defaults and offered modes
 
+The policy is the same in every pack. Exteriors start in `evening` and offer `source` as the alternative; interiors and apartment entries offer `bright` only, so no lighting choice is shown for them.
+
 | Holiday | `house_exterior` | `apartment_entry` | `balcony` | `interior` |
 | --- | --- | --- | --- | --- |
-| `halloween` | default `source`; `evening` offered | `source` only | default `source`; `evening` offered | default `source`; `evening` offered |
-| `thanksgiving_us` | `source` only; no electric lights in the kit | `source` only | `source` only | default `source`; `evening` offered (candlelit table, matching the hero) |
-| `christmas` | default `source`; `evening` offered | `source` only | default `source`; `evening` offered | default `source`; `evening` offered |
-| `new_years_eve` (optional) | default `source`; `evening` offered | not offered (no section) | default `source`; `evening` offered | default `source`; `evening` offered |
+| `halloween` | default `evening`; offered `source`, `evening` | default `bright`; offered `bright` | default `evening`; offered `source`, `evening` | default `bright`; offered `bright` |
+| `thanksgiving_us` | default `evening`; offered `source`, `evening` (no electric lights are added) | default `bright`; offered `bright` | default `evening`; offered `source`, `evening` | default `bright`; offered `bright` |
+| `christmas` | default `evening`; offered `source`, `evening` | default `bright`; offered `bright` | default `evening`; offered `source`, `evening` | default `bright`; offered `bright` |
+| `new_years_eve` (optional) | default `evening`; offered `source`, `evening` | not offered (no section) | default `evening`; offered `source`, `evening` | default `bright`; offered `bright` |
 
 Rules:
 
-- `evening` is offered after the first result, as a control on the result screen ([experience.md](experience.md#changing-holiday-style-and-lighting)), and only when scene analysis judges the source to be daylight. A source already photographed at dusk or night gets `source` only; its lit decor glows regardless.
-- `apartment_entry` offers `source` only in the US Release: corridor and stoop light is usually artificial and a dusk relight has no clear meaning there.
-- Thanksgiving exteriors have nothing to light, so `evening` is not offered; the harvest porch is a daylight scene by design.
-- The table is the upper bound. `evening` stays in a `house_exterior` offered set only where the benchmark lighting rule passed for that holiday, and in the Thanksgiving and Christmas `interior` offered sets only where the interior lighting check passed ([quality-and-benchmark.md](quality-and-benchmark.md#statistics-and-decision-rules)); New Year's Eve inherits the Christmas decision. Other `evening` cells are offered on golden-render approval ([Pack testing](#pack-testing)). A withheld mode is removed from the pack's `offered` list, which is a MINOR bump.
-- A default may change to `evening` for a holiday and scene type only when the benchmark lighting arm passes the decision rule in [quality-and-benchmark.md](quality-and-benchmark.md#statistics-and-decision-rules). The change is a pack MAJOR bump and a dated entry in the decision log; it is never made from taste alone. The reason the arm exists: the Christmas exterior kit centers on string lights, and a daylight render of unlit strings may be judged less appealing than a dusk render, while a relight changes every pixel and raises structural risk.
-- For Street View-origin sources an `evening` relight alters the whole frame, which is a different use from adding decor. It is named separately in the licensing request brief, and whether `evening` is offered for `street_view` source assets follows the recorded grant ([address-and-street-view.md](address-and-street-view.md#licensing-request-brief)); the offered set is therefore configuration per source kind, with the pack's offered set as the upper bound.
+- The pack's default is the first look. The server stores the default style and lighting on the project whenever the scene type is set or changes, and the project's `offered` set carries `defaultStyle` and `defaultLightingMode` computed after the server's filters; when the pack's default lighting was filtered out the default is `source` ([data-and-api.md](data-and-api.md#http-api)). A look the person chose survives a source rebind while the scene type stays the same.
+- `bright` is a relit mode, with no lighting control. A request for `source` or `evening` on an `interior` or `apartment_entry` is refused with `VALIDATION_FAILED` (`content_cell_not_offered`).
+- `evening` is offered from the first render for exteriors and balconies. It is dropped from the project's offered set (and the default becomes `source`) only after scene analysis judges the source not to be daylight, and for a Street View source whose mode is display-only. An `evening` request for a photo already at dusk or night does not fail: the photo is decorated as photographed and delivered as the evening result ([render-pipeline.md](render-pipeline.md#lighting-modes)).
+- A bright look of a photo that is already bright is not relit; the decorated photo is the result ([render-pipeline.md](render-pipeline.md#lighting-modes)).
+- The table is the upper bound. A mode that fails golden-render approval ([Pack testing](#pack-testing)) is removed from the pack's `offered` list, which is a MINOR bump; a changed default is a MAJOR bump ([Versioning](#versioning)). The 2026-11-10 change of every default made the packs version `2.0.0`, and every kit's `packVersion` and every `examples.json` entry follow it.
+- The benchmark lighting arm and the interior lighting check ([quality-and-benchmark.md](quality-and-benchmark.md#statistics-and-decision-rules)) still measure the relit modes, but the defaults above are an owner decision, not a result of that arm. Reason for the evening default: the Christmas exterior kit centers on string lights, and a daylight render of unlit strings reads weakly. The cost is that an evening look relights every pixel and raises structural risk, which the checks in the render spec contain.
+- For Street View-origin sources, `evening` is offered when the source mode allows decoration (`persist` or `transient`; see [address-and-street-view.md](address-and-street-view.md#street-view-source-modes)).
 
 ### Evening guidance per holiday
 
-The `lightingPolicy.eveningGuidance` fragment each pack compiles when `lightingMode` is `evening`. All variants share: early dusk, not night; the sky darkens to blue hour and ambient light lowers while the structure, materials, colors, neighbors and camera stay identical in shape and position; light comes only from placed decorations and from windows that exist in the source; nothing is added to the sky.
+The `lightingPolicy.eveningGuidance` fragment each pack compiles when `lightingMode` is `evening`. All variants share: early dusk, not night, written for exteriors and balconies (interiors use `bright`, which has no pack text); the sky darkens to blue hour and ambient light lowers while the structure, materials, colors, neighbors and camera stay identical in shape and position; light comes only from placed decorations and from windows that exist in the source; nothing is added to the sky.
 
 | Holiday | Evening guidance |
 | --- | --- |
 | `christmas` | Electric decorations named in the placements glow warm white with soft bloom and contact light on the surfaces they touch; nothing else is lit or added; existing windows may show a soft warm interior glow. |
 | `halloween` | Jack-o'-lanterns glow from inside; orange and purple string lights cast a restrained colored glow on railings and walls; cooler ambient than Christmas; no fog, no colored sky. |
 | `new_years_eve` | Warm-white and gold string lights with gentle sparkle; metallic garland catches the light; no fireworks or sky effects. |
-| `thanksgiving_us` (interiors only) | Flameless candles and existing lamps carry the room; warm, low, even light across the table; daylight from windows reduced to dusk. |
+| `thanksgiving_us` | Early dusk falls on the home: the existing porch light and a soft amber glow in the existing windows carry the scene, and any lanterns and flameless candles named in the placements are lit with warm, low light; the wreath, garland, pumpkins and mums take only that light; no electric lights are added and nothing is added to the sky. |
 
 ## Climate, culture and existing decorations
 
@@ -794,9 +797,9 @@ The `lightingPolicy.eveningGuidance` fragment each pack compiles when `lightingM
 
 ### Existing decorations
 
-- Scene analysis reports existing decorations (likely holiday, density) and the plan builder reads them ([render-pipeline.md](render-pipeline.md#scene-analysis)). The only policy in the US Release is `preserve_and_complement`: existing decorations are never removed, moved or altered; new items go on anchors that are still free.
+- Scene analysis reports existing decorations (likely holiday, density) and the plan builder reads them ([render-pipeline.md](render-pipeline.md#scene-analysis)). The only policy in the US Release is `preserve_and_complement`: existing decorations are kept and complemented, and new items go on anchors that are still free. Indoors, in apartment entries and on balconies an existing decoration is never removed, moved or covered. Outside a house (`house_exterior`) a decoration of the chosen holiday may take the place of a removable seasonal item at its spot: an existing wreath or door hanger, a potted plant, flower pot, planter or urn, a hanging basket, a seasonal flag, a doormat. Furniture, fixtures, mailboxes, anything built, vehicles, bins and plants growing in the ground stay as they are, a removable item is never taken away with nothing in its place, a relight changes light only, and house numbers, signs and logos are never covered by a decoration or redrawn ([render-pipeline.md](render-pipeline.md#validator-rules); decision of 2026-11-11 in the [decision log](../decisions.md#d-07)).
 - When the existing decorations belong to the chosen holiday, the plan fills the free anchors and skips occupied ones.
-- When they belong to a different holiday (Halloween decor in an October Street View capture while Christmas is chosen), the render proceeds and the result screen shows a non-blocking notice that the photo already shows other decorations and that a current photo gives a cleaner result; the mixed result is honest, removal would not be. Copy and placement are in [experience.md](experience.md#result-and-comparison).
+- When they belong to a different holiday (Halloween decor in an October Street View capture while Christmas is chosen), the render proceeds and the result screen shows a non-blocking notice that the photo already shows other decorations and that a current photo gives a cleaner result; the mixed result is honest, removal would not be (outside a house the chosen holiday's wreath may hang where the other holiday's wreath hung: that is a swap at the same spot, not a removal). Copy and placement are in [experience.md](experience.md#result-and-comparison).
 - When existing decoration density is high, the plan uses the quantities of the next-lower style (an `abundant` request places `classic` quantities and placement limits; [Placement fields](#placement-fields)) so the scene does not become cluttered.
 
 ### Neighbors, access and occluders
@@ -816,7 +819,7 @@ One approved hero per occurrence plus one neutral hero for the off-season. Heroe
 | Sources | Every hero and example is a real photograph or indistinguishable from one: real homes, dining rooms and landscapes, hyperrealistic and professionally lit (Fixed [D-49](../decisions.md#d-49)). Illustration, cartoon, painterly or 3D-render looks and animation are never used. Commissioned or licensed photography is preferred. Photorealistic generated imagery is allowed with a complete rights record (model ID, prompt version, vendor terms reference) and IPTC digital source type metadata per [render-pipeline.md](render-pipeline.md#provenance-and-labeling); it is never captioned as a customer's result. Never a real customer's home, never a Street View image, never a listing or stock photo without AI-display rights. |
 | People | No identifiable people and no children in any hero. |
 | Climate | Climate-neutral: no snow in the Christmas hero; nothing that only one US region could show. |
-| Composition | The subject survives both crops; a quiet area for the headline and address input is reserved and recorded as a focal point and safe area per crop; contrast for text comes from the image itself, not a heavy dark overlay; still images only. |
+| Composition | The subject survives both crops; a quiet area for the headline is reserved (the lower left of the landscape crop and the top of the portrait crop, where the landing's content block rests) and recorded as a focal point and safe area per crop; the photograph fills the whole first viewport, and contrast for the headline comes from the image plus a light local scrim ([scrims](experience.md#scrims)), not a heavy dark overlay; still images only. |
 | Approval | Approved at desktop and mobile sizes by the content checklist ([Content authoring and review](#content-authoring-and-review)) before an occurrence that uses it can be enabled. |
 
 Art direction per holiday:
@@ -860,7 +863,7 @@ Proposed ([D-11](../decisions.md#d-11)): one permissioned before/after example p
 
 | Rule | Requirement |
 | --- | --- |
-| Coverage | 12 pairs in the US Release (3 holidays × 4 scene types), 3 more if New Year's Eve is enabled; style `classic`, lighting `source`; an `evening` pair may be added where offered. |
+| Coverage | 12 pairs in the US Release (3 holidays × 4 scene types), 3 more if New Year's Eve is enabled; style `classic`. Exterior and balcony pairs use lighting `source`; interior and apartment-entry pairs use lighting `bright` (ids `example.<holiday>.<scene>.classic.bright.v1`; a bright example is relit unless its photo is already bright). Two `evening` pairs (Christmas and Halloween exteriors) are added. A removed or renamed example is deactivated in `example_assets` by the seed's example step. |
 | Source photos | From the permissioned corpus ([quality-and-benchmark.md](quality-and-benchmark.md#permissioned-corpus)) and only assets whose release permits example and marketing use. Never a customer project, never a Street View image. |
 | Production | Rendered by the production pipeline with the active pack version, never hand-edited, so examples represent current output. Regenerated when the pack's MAJOR.MINOR changes or the pipeline is re-benchmarked; each regeneration passes the content checklist. |
 | Labeling | Shown with the "AI preview" label and an "Example" caption wherever they appear: behind "See an example" on the landing and during waits ([experience.md](experience.md#waiting-and-progress)). |
@@ -886,10 +889,10 @@ Production work is tracked as the content items in the [backlog](../backlog.md) 
 
 1. **Brief.** Subject, mood, scene types covered, climate guidance, forbidden symbols and the lighting policy for the holiday; approved by the product owner and the design and editorial lead. Not consumed by code.
 2. **Pack draft.** A schema-valid pack with every scene section the holiday offers, kit archetypes with spec text and attributes, quantity rules per style and prompt fragments. The draft passes CI validation before anyone renders with it.
-3. **Golden renders.** Each offered content cell is rendered through the production pipeline on the tuning set ([quality-and-benchmark.md](quality-and-benchmark.md#exploratory-spike); never the held-out set or the formal benchmark photos). The `classic`/`source` cells come first; `subtle`, `abundant` and `evening` cells are approved separately.
+3. **Golden renders.** Each offered content cell is rendered through the production pipeline on the tuning set ([quality-and-benchmark.md](quality-and-benchmark.md#exploratory-spike); never the held-out set or the formal benchmark photos). The `classic` cell in each scene type's base lighting comes first (`source` for exteriors, whose `evening` look relights the approved `source` render; `bright` for interiors and apartment entries); `subtle`, `abundant` and `evening` cells are approved separately.
 4. **Review.** Both approvers walk the checklist below over the pack text and the golden renders and record the result in the pack's `review` block.
 5. **Publication.** The pack version is published ([Holiday packs](#holiday-packs)); its kit archetypes are seeded for commerce; the occurrence pins the version.
-6. **Enablement.** An occurrence is enabled only when its pack version is approved, its hero is approved, and every scene type the pack offers has an approved `classic`/`source` cell. A holiday with no enabled occurrence never appears in the picker.
+6. **Enablement.** An occurrence is enabled only when its pack version is approved, its hero is approved, and every scene type the pack offers has an approved `classic` cell in its offered base lighting (`source`, or `bright` for interiors and apartment entries). A holiday with no enabled occurrence never appears in the picker.
 
 ### Review checklist
 
@@ -904,7 +907,7 @@ Applied to every pack version (text and golden renders), every hero and every ex
 7. Flame safety: indoor candles are enclosed or flameless; no open flame near fabric or foliage.
 8. Brand and trademark: no logos, packaging or merchant text; spec text is in our own words.
 9. Neighbors and people: nothing on neighboring property; people and pets unchanged.
-10. Inspectability: the result stays bright enough to inspect; `evening` renders keep the structure legible.
+10. Inspectability: the result stays bright enough to inspect; `evening` and `bright` renders keep the structure legible.
 11. Street View sources: attribution and any burned-in logo remain visible and unaltered (`attribution_altered`); existing blur regions are untouched ([address-and-street-view.md](address-and-street-view.md#before-image-and-attribution)).
 12. Consistency: the forbidden list contains the baseline; quantity rules never decrease from `subtle` to `classic` to `abundant`; prompt fragments agree with the forbidden list; every kit has 4 to 6 archetypes; lighting defaults match [Lighting policy](#lighting-policy).
 

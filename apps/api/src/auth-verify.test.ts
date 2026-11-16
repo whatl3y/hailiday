@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { MeSchema, VerifyMagicLinkResponseSchema, type Project } from '@holiday/core';
-import { sha256Hex } from '@holiday/server/ids';
+import { MeSchema, VerifyMagicLinkResponseSchema, type Project } from '@hailiday/core';
+import { sha256Hex } from '@hailiday/server/ids';
 import { csrfTokenFor } from './auth/session.js';
 import {
   createHarness,

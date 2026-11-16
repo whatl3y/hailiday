@@ -1,4 +1,4 @@
-import type { HolidayId, LightingMode, RoomType, SceneType, Style } from '@holiday/core';
+import type { HolidayId, LightingMode, RoomType, SceneType, Style } from '@hailiday/core';
 import { COPY_DECK, type CopyKey } from './deck';
 
 export { COPY_DECK, SUPPLEMENT_KEYS, type CopyKey } from './deck';

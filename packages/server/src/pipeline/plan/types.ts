@@ -17,7 +17,7 @@ import type {
   SourceKind,
   SpecAttributes,
   Style,
-} from '@holiday/core';
+} from '@hailiday/core';
 
 /** A decoration plan before compilation (the `compiled` block is added by the compiler). */
 export type PlanDraft = Omit<DecorationPlan, 'compiled'>;
@@ -55,6 +55,12 @@ export interface RepairAdjustments {
   restateFirst?: string[];
   /** Lower the provider's quality or complexity setting (after `camera_changed`). */
   lowerQuality?: boolean;
+  /**
+   * Judge evidence boxes the repaired attempt restores from the original: excluded (grown by
+   * `PIPELINE_DEFAULTS.restoreBoxGrowFraction`) from the composite mask and the keep-mask of a
+   * decorate step's repair, so those pixels are the original's whatever the editor draws.
+   */
+  restoreBoxes?: NormalizedBox[];
 }
 
 export interface RepairInput {

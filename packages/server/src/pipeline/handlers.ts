@@ -57,7 +57,10 @@ export function createJobHandlers(deps: PipelineDeps): JobHandlers {
       runReconciliation(deps, job.data.limit ? { limit: job.data.limit } : {}),
     ),
     street_view_revalidation: logged('street_view_revalidation', (job) =>
-      runStreetViewRevalidation(deps, job.data.limit ? { limit: job.data.limit } : {}),
+      runStreetViewRevalidation(deps, {
+        ...(job.data.limit ? { limit: job.data.limit } : {}),
+        signal: job.signal,
+      }),
     ),
     offer_verification: logged('offer_verification', () => runOfferVerification(deps)),
     affiliate_report_import: logged('affiliate_report_import', () =>

@@ -3,7 +3,7 @@ import {
   type DeletionRequester,
   type DeletionScope,
   type DeletionStatus,
-} from '@holiday/core';
+} from '@hailiday/core';
 import { HOUR_MS, MINUTE_MS, addMs } from '../../clock/index.js';
 import { toJson } from '../../db/client.js';
 import type { DeletionReceiptEntry, Project } from '../../db/schema.js';
@@ -15,6 +15,7 @@ import {
 } from '../../limits/index.js';
 import { PUBLIC_PREFIXES, keys } from '../../storage/keys.js';
 import type { PipelineDeps } from '../context.js';
+import { enhancementObjectKeys } from '../enhance/store.js';
 import { reviewObjectKeyOf } from '../uploads/screen.js';
 import { terminateRenderJob } from '../render/terminate.js';
 import { heldWithin, loadHeldSet, projectHoldOf, type HeldSet } from './holds.js';
@@ -151,6 +152,10 @@ async function startProjectDeletion(
   const now = deps.clock.now();
   const requestId = newId();
   const { sources, assets } = await projectRows(deps, project.id);
+  const enhancedKeys = await enhancementObjectKeys(
+    deps.db,
+    sources.map((source) => source.id),
+  );
   const pinned =
     input.scope === 'expiry_sweep'
       ? await liveGrantAssets(
@@ -176,6 +181,7 @@ async function startProjectDeletion(
         keys.quarantine(source.id),
         reviewObjectKeyOf(source.screening),
       ]),
+      ...enhancedKeys,
       ...assets
         .filter((asset) => !pinned.has(asset.id))
         .flatMap((asset) => [asset.objectKey, asset.downloadObjectKey]),
@@ -378,6 +384,10 @@ export async function completeProjectDeletion(
     await deleteKey(source.objectKey);
     await deleteKey(keys.quarantine(source.id));
     await deleteKey(reviewObjectKeyOf(source.screening));
+    objectsDeleted += await deps.storage.deletePrefix(
+      'private',
+      keys.enhancedPrefix(source.ownerId, source.id),
+    );
   }
   for (const job of jobs) {
     if (held.sources.has(job.sourceAssetId)) continue;
@@ -402,6 +412,15 @@ export async function completeProjectDeletion(
     await deps.db.transaction().execute(async (trx) => {
       const unheldSources = sources.filter((source) => !held.sources.has(source.id));
       if (unheldSources.length > 0) {
+        // Their enhanced pictures were deleted above; the rows go with them.
+        await trx
+          .deleteFrom('sourceEnhancements')
+          .where(
+            'sourceAssetId',
+            'in',
+            unheldSources.map((source) => source.id),
+          )
+          .execute();
         await trx
           .updateTable('sourceAssets')
           .set((eb) => ({
@@ -568,6 +587,11 @@ export async function completeProjectDeletion(
           ),
         ),
       )
+      .execute();
+    // The sources stay as deleted rows; their enhancements (pictures deleted above) do not.
+    await trx
+      .deleteFrom('sourceEnhancements')
+      .where('sourceAssetId', 'in', sources.length > 0 ? sources.map((s) => s.id) : [NO_ID])
       .execute();
     await trx
       .updateTable('sourceAssets')

@@ -3,6 +3,7 @@ export * from './transitions.js';
 export * from './ledger.js';
 export * from './fixture-hints.js';
 export * from './source.js';
+export * from './framing.js';
 export * from './quality.js';
 export * from './publish.js';
 export * from './job.js';

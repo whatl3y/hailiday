@@ -1,21 +1,16 @@
-.places {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  margin: 0;
-  padding: 0;
-  list-style: none;
+/* ---------- Your places ---------- */
+
+/*
+ * Pictures first: the head and notes sit on paper at the page gutter, and the places form a
+ * wall of large picture cards that reaches the viewport's edges with 4px gaps.
+ */
+.places-page {
+  padding-bottom: var(--space-8);
 }
 
-.place {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: var(--space-3) var(--space-4);
-  align-items: center;
-  padding: var(--space-4);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-l);
-  background: var(--paper-raised);
+.places__head,
+.places__note {
+  padding-inline: max(var(--gutter), var(--safe-left)) max(var(--gutter), var(--safe-right));
 }
 
 .places__head {
@@ -23,18 +18,98 @@
   flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
-  gap: var(--space-3);
+  gap: var(--space-3) var(--space-5);
+  padding-block: var(--space-6) var(--space-5);
+}
+
+/* Phones, upright or on their side: the same compact title block as the gallery's. */
+@media (max-width: 599px), (max-height: 479px) {
+  .places__head {
+    padding-block: var(--space-4) var(--space-2);
+  }
+}
+
+.places__title {
+  font-size: clamp(2rem, 5vw, 3.25rem);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-display);
+  line-height: 1.05;
+}
+
+.places__note {
+  max-width: calc(var(--measure) + 2 * var(--gutter));
+  padding-block: var(--space-4);
+}
+
+.places__links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-5);
+}
+
+.places__links .link-button {
+  min-height: var(--target-comfort);
+}
+
+/* One column on phones, two from 600px, three from 1200px. */
+.places {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  animation: rise-in var(--dur-rise) var(--ease-out);
+}
+
+@media (min-width: 600px) {
+  .places {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1200px) {
+  .places {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* The card: the picture, then its caption on paper. */
+.place {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--paper);
+}
+
+/*
+ * The picture and its caption are one link to the place. Its focus ring sits in the gap around
+ * the card, never over the picture, and the title is underlined as well, so the focus shows on a
+ * card at the screen's edge too.
+ */
+.place__link {
+  display: flex;
+  flex-direction: column;
+  color: inherit;
+  text-decoration: none;
+}
+
+.place__link:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 1px;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .place__thumb {
   position: relative;
   display: grid;
   place-items: center;
-  width: 96px;
+  width: 100%;
   aspect-ratio: 4 / 3;
   overflow: hidden;
-  border-radius: var(--radius-m);
-  background: var(--accent-soft);
+  background: var(--paper-sunk);
 }
 
 .place__thumb img {
@@ -45,98 +120,135 @@
   object-fit: cover;
 }
 
+/* A Street View frame is cropped from the top so its burned-in logo and copyright stay in view. */
+.place__thumb--street-view img {
+  object-position: 50% 100%;
+}
+
+/*
+ * A place without a look shows its source: an uploaded photo fills the box; a raw Street View
+ * frame is shown whole on the stage ground (the stage's quiet vignette), never cropped, so its
+ * marks stay in view.
+ */
+.place__thumb--source-frame {
+  background-color: var(--stage);
+  background-image: radial-gradient(120% 90% at 50% 40%, #1b1b1e 0%, var(--stage) 70%);
+}
+
+.place__thumb--source-frame img {
+  object-fit: contain;
+}
+
 .place__badge {
   position: absolute;
-  right: 4px;
-  bottom: 4px;
-  padding: 2px 6px;
+  right: var(--space-3);
+  bottom: var(--space-3);
+  padding: 4px 9px;
   border-radius: var(--radius-pill);
-  background: rgb(255 252 246 / 0.92);
-  font-size: 0.625rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
+  background: var(--glass-dark);
+  color: var(--on-photo);
+  font-size: var(--text-label);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.08em;
+  line-height: 1.3;
   text-transform: uppercase;
 }
 
-.place__badge--lower-left {
+.place__badge--upper-left {
+  top: var(--space-3);
   right: auto;
-  left: 4px;
+  bottom: auto;
+  left: var(--space-3);
 }
 
-.place__swatch {
-  width: 14px;
-  height: 14px;
+/* A place with no preview yet shows its holiday's dot. */
+.place__swatch,
+.place__dot {
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 0 4px var(--accent-soft);
+  background: var(--holiday-dot);
+}
+
+.place__dot {
+  display: inline-block;
+  margin-right: var(--space-2);
+  vertical-align: 0.1em;
 }
 
 .place__text {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-1);
   min-width: 0;
+  padding: var(--space-3) max(var(--gutter), var(--safe-right)) 0
+    max(var(--gutter), var(--safe-left));
+}
+
+.place__credit {
+  color: var(--ink-muted);
 }
 
 .place__title {
-  font-family: var(--font-display);
-  font-size: var(--text-xl);
-  text-decoration: none;
+  color: var(--ink);
+  font-size: var(--text-l);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-item);
+  line-height: var(--leading-snug);
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.25em;
+  transition: text-decoration-color var(--dur-hover) var(--ease-out);
 }
 
+.place__link:hover .place__title,
+.place__link:focus-visible .place__title {
+  text-decoration-color: currentColor;
+}
+
+/* The card's actions are text: Open in ink, Delete quieter. */
 .place__actions {
-  grid-column: 1 / -1;
   display: flex;
-  gap: var(--space-2);
+  margin-top: auto;
+  padding: var(--space-1) max(var(--gutter), var(--safe-right)) var(--space-4)
+    calc(max(var(--gutter), var(--safe-left)) - var(--space-4));
 }
 
-@media (min-width: 600px) {
-  .place {
-    grid-template-columns: auto 1fr auto;
-  }
+.place__delete {
+  --button-fg: var(--ink-muted);
+}
 
-  .place__actions {
-    grid-column: auto;
-  }
+/* ---------- Your account ---------- */
+
+/* The card keeps a tighter rhythm than a default stack. */
+.account__card {
+  --stack-gap: var(--space-3);
 }
 
 .account__email {
-  font-family: var(--font-display);
   font-size: var(--text-xl);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-item);
+  line-height: var(--leading-snug);
+  overflow-wrap: anywhere;
 }
 
-.report-reasons {
-  display: grid;
-  gap: var(--space-2);
-  margin: 0;
-  padding: 0;
-  border: 0;
+.account__actions {
+  margin-top: var(--space-2);
+  margin-left: calc(-1 * var(--space-4));
+  --row-gap: 0;
 }
 
-.report-reasons legend {
-  margin-bottom: var(--space-2);
-  font-weight: 600;
+.account__delete {
+  --button-fg: var(--ink-muted);
 }
 
-.radio-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  min-height: var(--target-comfort);
-  padding: 0 var(--space-3);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-m);
-  background: var(--paper-raised);
-  cursor: pointer;
-}
+/* ---------- Save ---------- */
 
-.radio-row:has(input:checked) {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 1px var(--accent) inset;
-}
-
-.radio-row input {
-  width: 20px;
-  height: 20px;
-  accent-color: var(--accent);
+.save__email {
+  font-size: var(--text-l);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-item);
+  overflow-wrap: anywhere;
 }

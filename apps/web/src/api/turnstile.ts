@@ -1,14 +1,14 @@
 /**
  * Bot-check tokens for session creation, reports and `VERIFICATION_REQUIRED` retries. The API
- * shell names the mode in `<meta name="holiday:turnstile-mode">` and, in live mode, the site key
- * in `<meta name="holiday:turnstile-site-key">`. In fixture mode the fixture token is used; in
+ * shell names the mode in `<meta name="hailiday:turnstile-mode">` and, in live mode, the site key
+ * in `<meta name="hailiday:turnstile-site-key">`. In fixture mode the fixture token is used; in
  * live mode the Cloudflare widget runs (invisibly unless it needs the person) and yields a token,
  * and a missing site key is an error rather than a silent fixture token.
  */
 export const FIXTURE_TURNSTILE_TOKEN = 'fixture-pass';
 
-export const TURNSTILE_SITE_KEY_META = 'holiday:turnstile-site-key';
-export const TURNSTILE_MODE_META = 'holiday:turnstile-mode';
+export const TURNSTILE_SITE_KEY_META = 'hailiday:turnstile-site-key';
+export const TURNSTILE_MODE_META = 'hailiday:turnstile-mode';
 
 const SCRIPT_URL = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
 const TOKEN_TIMEOUT_MS = 30_000;

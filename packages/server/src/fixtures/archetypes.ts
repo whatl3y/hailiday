@@ -1,4 +1,4 @@
-import type { HolidayId } from '@holiday/core';
+import type { HolidayId } from '@hailiday/core';
 
 /** Decoration archetypes the fixture compositor can draw. */
 export const DECOR_ARCHETYPES = [

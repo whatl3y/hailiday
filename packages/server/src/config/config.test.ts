@@ -1,16 +1,24 @@
 import { describe, expect, it } from 'vitest';
-import { ConfigError, DEV_SESSION_SECRET, parseConfig, testConfig } from './index.js';
+import {
+  ConfigError,
+  DEFAULT_STREET_VIEW_ATTRIBUTION_REGIONS,
+  DEFAULT_STREET_VIEW_CONTRIBUTOR_IMAGERY,
+  DEV_SESSION_SECRET,
+  isConfigEnvName,
+  parseConfig,
+  testConfig,
+} from './index.js';
 
 const PRODUCTION = {
   APP_ENV: 'production',
-  DATABASE_URL: 'postgres://u:p@db/holiday',
+  DATABASE_URL: 'postgres://u:p@db/hailiday',
   SESSION_SECRET: 'production-session-secret-0123456789abcdef',
-  PUBLIC_BASE_URL: 'https://holiday.example',
+  PUBLIC_BASE_URL: 'https://hailiday.example',
   S3_ENDPOINT: 'https://s3.example',
   S3_ACCESS_KEY_ID: 'id',
   S3_SECRET_ACCESS_KEY: 'secret-value',
-  S3_PRIVATE_BUCKET: 'holiday-prod-private',
-  S3_PUBLIC_BUCKET: 'holiday-prod-public',
+  S3_PRIVATE_BUCKET: 'hailiday-prod-private',
+  S3_PUBLIC_BUCKET: 'hailiday-prod-public',
   SMTP_URL: 'smtp://mail.example:587',
   EMAIL_PROVIDER: 'smtp',
   TURNSTILE_MODE: 'live',
@@ -40,10 +48,10 @@ describe('parseConfig', () => {
     const config = parseConfig({});
     expect(config.appEnv).toBe('development');
     expect(config.isLocal).toBe(true);
-    expect(config.database.url).toBe('postgres://postgres:postgres@localhost:5434/holiday');
+    expect(config.database.url).toBe('postgres://postgres:postgres@localhost:5434/hailiday');
     expect(config.storage.endpoint).toBe('http://localhost:9000');
     expect(config.storage.publicEndpoint).toBe('http://localhost:9000');
-    expect(config.storage.publicAssetBaseUrl).toBe('http://localhost:9000/holiday-public');
+    expect(config.storage.publicAssetBaseUrl).toBe('http://localhost:9000/hailiday-public');
     expect(config.storage.corsOrigins).toEqual(['http://localhost:8080', 'http://localhost:5173']);
     expect(config.providers).toEqual({
       address: 'fixture',
@@ -61,18 +69,27 @@ describe('parseConfig', () => {
     expect(config.email.provider).toBe('fixture');
     expect(config.turnstile.mode).toBe('fixture');
     expect(config.sessionSecret).toBe(DEV_SESSION_SECRET);
-    expect(config.queue.renderMaxJobDurationSeconds).toBe(180);
+    expect(config.queue.renderMaxJobDurationSeconds).toBe(240);
     expect(Object.isFrozen(config.storage)).toBe(true);
+  });
+
+  it('raises a job time limit under the minimum the pipeline needs and keeps a longer one', () => {
+    expect(
+      parseConfig({ RENDER_MAX_JOB_DURATION_S: '180' }).queue.renderMaxJobDurationSeconds,
+    ).toBe(240);
+    expect(
+      parseConfig({ RENDER_MAX_JOB_DURATION_S: '300' }).queue.renderMaxJobDurationSeconds,
+    ).toBe(300);
   });
 
   it('derives the public asset base URL from the public endpoint', () => {
     const config = parseConfig({
       S3_ENDPOINT: 'http://storage:9000',
       S3_PUBLIC_ENDPOINT: 'http://localhost:9000/',
-      S3_PUBLIC_BUCKET: 'holiday-public',
+      S3_PUBLIC_BUCKET: 'hailiday-public',
     });
     expect(config.storage.endpoint).toBe('http://storage:9000');
-    expect(config.storage.publicAssetBaseUrl).toBe('http://localhost:9000/holiday-public');
+    expect(config.storage.publicAssetBaseUrl).toBe('http://localhost:9000/hailiday-public');
   });
 
   it('requires explicit values outside development and test', () => {
@@ -89,6 +106,31 @@ describe('parseConfig', () => {
     expect(() => parseConfig({ ...PRODUCTION, SESSION_SECRET: DEV_SESSION_SECRET })).toThrow(
       /development default/,
     );
+  });
+
+  it('requires an https public base URL in staging and production only', () => {
+    for (const appEnv of ['staging', 'production']) {
+      const deployed = { ...PRODUCTION, APP_ENV: appEnv };
+      expect(parseConfig(deployed).publicBaseUrl).toBe('https://hailiday.example');
+      for (const url of ['http://hailiday.example', 'http://localhost:8080']) {
+        let issues: string[] = [];
+        try {
+          parseConfig({ ...deployed, PUBLIC_BASE_URL: url });
+        } catch (error) {
+          issues = (error as ConfigError).issues;
+        }
+        expect(issues).toEqual([
+          `PUBLIC_BASE_URL must use https when APP_ENV=${appEnv} (the session cookie is __Host-prefixed and Secure)`,
+        ]);
+      }
+    }
+    // Local stacks keep their plain-HTTP default.
+    expect(parseConfig({}).publicBaseUrl).toBe('http://localhost:8080');
+    expect(parseConfig({ APP_ENV: 'test' }).publicBaseUrl).toBe('http://localhost:8080');
+    expect(
+      parseConfig({ APP_ENV: 'development', PUBLIC_BASE_URL: 'http://192.168.1.20:8080' })
+        .publicBaseUrl,
+    ).toBe('http://192.168.1.20:8080');
   });
 
   it('refuses the fixture bot check and fixture email in staging and production', () => {
@@ -143,16 +185,16 @@ describe('parseConfig', () => {
       'http://localhost:8080',
       'http://localhost:5173',
     ]);
-    expect(parseConfig(PRODUCTION).storage.corsOrigins).toEqual(['https://holiday.example']);
+    expect(parseConfig(PRODUCTION).storage.corsOrigins).toEqual(['https://hailiday.example']);
     expect(parseConfig({ ...PRODUCTION, APP_ENV: 'staging' }).storage.corsOrigins).toEqual([
-      'https://holiday.example',
+      'https://hailiday.example',
     ]);
     expect(
       parseConfig({
         ...PRODUCTION,
-        STORAGE_CORS_ORIGINS: 'https://holiday.example/, https://www.holiday.example',
+        STORAGE_CORS_ORIGINS: 'https://hailiday.example/, https://www.hailiday.example',
       }).storage.corsOrigins,
-    ).toEqual(['https://holiday.example', 'https://www.holiday.example']);
+    ).toEqual(['https://hailiday.example', 'https://www.hailiday.example']);
   });
 
   it('fails fast when a live provider has no key', () => {
@@ -183,13 +225,13 @@ describe('parseConfig', () => {
     expect(config.settingOverrides.ALLOWANCE_VARIANTS_PER_24H).toBe('5');
     expect(config.admission.providerConcurrency.openai).toBe(4);
     expect(config.secrets).toContain('sk-live-abcdef');
-    expect(config.secrets).toContain('holiday-dev-secret');
+    expect(config.secrets).toContain('hailiday-dev-secret');
   });
 
   it('testConfig points the primary database at the test database', () => {
     const config = testConfig();
     expect(config.appEnv).toBe('test');
-    expect(config.database.url).toMatch(/\/holiday_test\w*$/);
+    expect(config.database.url).toMatch(/\/hailiday_test\w*$/);
     expect(config.database.url).toBe(config.database.testUrl);
   });
 
@@ -374,10 +416,28 @@ describe('parseConfig', () => {
   });
 
   it('reads the Street View attribution rectangles per frame size and refuses invalid JSON', () => {
-    expect(parseConfig({}).streetView.attributionRegions).toEqual({});
+    const measured = {
+      '640x640': [
+        [0, 0.955, 0.11, 1],
+        [0.8, 0.965, 1, 1],
+      ],
+    };
+    // The longest credit measured starts at about x 529 of 640 (0.827): inside the right box.
+    const right = measured['640x640'][1] as number[];
+    expect(right[0]).toBeLessThan(529 / 640);
+    expect(parseConfig({}).streetView.attributionRegions).toEqual(measured);
+    expect(DEFAULT_STREET_VIEW_ATTRIBUTION_REGIONS).toEqual(measured);
     expect(parseConfig({ STREET_VIEW_ATTRIBUTION_REGIONS: '' }).streetView).toEqual({
-      attributionRegions: {},
+      attributionRegions: measured,
+      usePolicy: 'full',
+      contributorImagery: 'decorate',
+      frameMaxAgeDays: 30,
+      enhance: true,
+      framing: true,
     });
+    expect(
+      parseConfig({ STREET_VIEW_ATTRIBUTION_REGIONS: '{}' }).streetView.attributionRegions,
+    ).toEqual({});
     const configured = parseConfig({
       STREET_VIEW_ATTRIBUTION_REGIONS:
         '{"640x640":[[0,0.94,0.14,1],[0.72,0.96,1,1]],"640x427":[[0,0.9,0.15,1]]}',
@@ -401,5 +461,84 @@ describe('parseConfig', () => {
         /STREET_VIEW_ATTRIBUTION_REGIONS/,
       );
     }
+  });
+
+  it('reads the Street View use policy: full by default, decorate or display_only when set', () => {
+    expect(parseConfig({}).streetView.usePolicy).toBe('full');
+    expect(testConfig().streetView.usePolicy).toBe('full');
+    expect(parseConfig({ STREET_VIEW_USE_POLICY: 'decorate' }).streetView.usePolicy).toBe(
+      'decorate',
+    );
+    expect(parseConfig({ STREET_VIEW_USE_POLICY: 'display_only' }).streetView.usePolicy).toBe(
+      'display_only',
+    );
+    expect(() => parseConfig({ STREET_VIEW_USE_POLICY: 'licensed' })).toThrow(
+      /STREET_VIEW_USE_POLICY/,
+    );
+  });
+
+  it('reads the contributor imagery setting: decorate by default, display_only when set', () => {
+    expect(parseConfig({}).streetView.contributorImagery).toBe('decorate');
+    expect(testConfig().streetView.contributorImagery).toBe('decorate');
+    expect(DEFAULT_STREET_VIEW_CONTRIBUTOR_IMAGERY).toBe('decorate');
+    expect(
+      parseConfig({ STREET_VIEW_CONTRIBUTOR_IMAGERY: 'decorate' }).streetView.contributorImagery,
+    ).toBe('decorate');
+    expect(
+      parseConfig({ STREET_VIEW_CONTRIBUTOR_IMAGERY: 'display_only' }).streetView
+        .contributorImagery,
+    ).toBe('display_only');
+    // It is independent of the use policy.
+    expect(
+      parseConfig({
+        STREET_VIEW_USE_POLICY: 'decorate',
+        STREET_VIEW_CONTRIBUTOR_IMAGERY: 'display_only',
+      }).streetView,
+    ).toMatchObject({ usePolicy: 'decorate', contributorImagery: 'display_only' });
+    for (const value of ['full', 'licensed', 'DECORATE']) {
+      expect(() => parseConfig({ STREET_VIEW_CONTRIBUTOR_IMAGERY: value })).toThrow(
+        /STREET_VIEW_CONTRIBUTOR_IMAGERY/,
+      );
+    }
+  });
+
+  it('reads the maximum age of a stored Street View frame: 30 days by default', () => {
+    expect(parseConfig({}).streetView.frameMaxAgeDays).toBe(30);
+    expect(parseConfig({ STREET_VIEW_FRAME_MAX_AGE_DAYS: '7' }).streetView.frameMaxAgeDays).toBe(7);
+    for (const value of ['0', '-1', 'soon']) {
+      expect(() => parseConfig({ STREET_VIEW_FRAME_MAX_AGE_DAYS: value })).toThrow(
+        /STREET_VIEW_FRAME_MAX_AGE_DAYS/,
+      );
+    }
+  });
+
+  it('reads the Street View enhancement switch: on by default, off in tests unless turned on', () => {
+    expect(parseConfig({}).streetView.enhance).toBe(true);
+    expect(parseConfig({ STREET_VIEW_ENHANCE: 'on' }).streetView.enhance).toBe(true);
+    expect(parseConfig({ STREET_VIEW_ENHANCE: 'off' }).streetView.enhance).toBe(false);
+    for (const value of ['true', 'yes', '1']) {
+      expect(() => parseConfig({ STREET_VIEW_ENHANCE: value })).toThrow(/STREET_VIEW_ENHANCE/);
+    }
+    expect(testConfig().streetView.enhance).toBe(false);
+    expect(testConfig({ STREET_VIEW_ENHANCE: 'on' }).streetView.enhance).toBe(true);
+  });
+
+  it('reads the Street View framing switch: on by default, off in tests unless turned on', () => {
+    expect(parseConfig({}).streetView.framing).toBe(true);
+    expect(parseConfig({ STREET_VIEW_FRAMING: 'on' }).streetView.framing).toBe(true);
+    expect(parseConfig({ STREET_VIEW_FRAMING: 'off' }).streetView.framing).toBe(false);
+    for (const value of ['yes', 'true', '1']) {
+      expect(() => parseConfig({ STREET_VIEW_FRAMING: value })).toThrow(/STREET_VIEW_FRAMING/);
+    }
+    expect(testConfig().streetView.framing).toBe(false);
+    expect(testConfig({ STREET_VIEW_FRAMING: 'on' }).streetView.framing).toBe(true);
+  });
+
+  it('reads retention setting overrides from the environment', () => {
+    expect(isConfigEnvName('RETENTION_TIME_BASED_DELETION')).toBe(true);
+    expect(
+      parseConfig({ RETENTION_TIME_BASED_DELETION: 'true' }).settingOverrides
+        .RETENTION_TIME_BASED_DELETION,
+    ).toBe('true');
   });
 });

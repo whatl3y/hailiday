@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { beforeAll, describe, expect, it } from 'vitest';
-import type { MaskShape, NormalizedBox, SceneAnalysis } from '@holiday/core';
+import type { MaskShape, NormalizedBox, SceneAnalysis } from '@hailiday/core';
 import { loadContent, type Content } from '../../content/load.js';
 import { buildPlan } from '../plan/builder.js';
 import { PIPELINE_DEFAULTS } from '../versions.js';

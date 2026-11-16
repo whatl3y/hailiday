@@ -1,0 +1,488 @@
+/* ---------- Gallery ---------- */
+
+/*
+ * Pictures first: the page's text sits on paper at the page gutter, and every group's pictures
+ * form a wall that reaches the viewport's edges with 4px gaps between them.
+ */
+.gallery {
+  padding-bottom: var(--space-8);
+}
+
+.gallery__head,
+.gallery__note,
+.gallery__more-row {
+  padding-inline: max(var(--gutter), var(--safe-left)) max(var(--gutter), var(--safe-right));
+}
+
+.gallery__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3) var(--space-5);
+  padding-block: var(--space-6) var(--space-5);
+}
+
+.gallery__title {
+  font-size: clamp(2rem, 5vw, 3.25rem);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-display);
+  line-height: 1.05;
+}
+
+/* Text links on this page keep a comfortable touch target. */
+.gallery__head .link-button,
+.lightbox__link {
+  min-height: var(--target-comfort);
+}
+
+.gallery__note {
+  max-width: calc(var(--measure) + 2 * var(--gutter));
+  padding-block: var(--space-4);
+}
+
+/* A link in a note keeps its own width and a comfortable touch target. */
+.gallery__note .link-button {
+  align-self: flex-start;
+  min-height: var(--target-comfort);
+}
+
+/* Each place opens with a hairline between the gutters and its name as a section title. */
+.gallery__group {
+  margin-top: var(--space-5);
+  animation: rise-in var(--dur-rise) var(--ease-out);
+}
+
+.gallery__heading {
+  margin-inline: max(var(--gutter), var(--safe-left)) max(var(--gutter), var(--safe-right));
+  padding-block: var(--space-5) var(--space-4);
+  border-top: 1px solid var(--line);
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-title);
+  line-height: var(--leading-title);
+  overflow-wrap: anywhere;
+}
+
+/*
+ * Phones, upright or on their side: a compact title block, so the first picture starts high in
+ * the first viewport (within 220px of the top of the page under a two-line place name).
+ */
+@media (max-width: 599px), (max-height: 479px) {
+  .gallery__head {
+    padding-block: var(--space-4) var(--space-2);
+  }
+
+  .gallery__group {
+    margin-top: var(--space-2);
+  }
+
+  .gallery__heading {
+    padding-block: var(--space-4) var(--space-3);
+    font-size: var(--text-l);
+    line-height: var(--leading-snug);
+  }
+}
+
+/* One column under 600px, two from 600px, three from 1024px, four from 1600px. */
+.gallery__wall {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+@media (min-width: 600px) {
+  .gallery__wall {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .gallery__wall {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1600px) {
+  .gallery__wall {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.gallery__item {
+  min-width: 0;
+}
+
+.gallery__tile {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: var(--paper);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: zoom-in;
+}
+
+/*
+ * The focus ring sits in the gap around the tile, never on the picture, whose lower corners
+ * carry Google's marks on a Street View frame. The caption's look is underlined as well, so the
+ * focus shows on a tile at the screen's edge too.
+ */
+.gallery__tile:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 1px;
+  border-radius: 0;
+}
+
+/*
+ * Under 600px each picture is shown whole at the full width of the screen, at its own
+ * proportions; a multi-column wall crops every picture to the same 4:3 shape. The box is
+ * reserved from the picture's size, so nothing moves as the pictures load.
+ */
+.gallery__thumb {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: var(--tile-ratio, 4 / 3);
+  overflow: hidden;
+  background: var(--paper-sunk);
+}
+
+@media (min-width: 600px) {
+  .gallery__thumb {
+    aspect-ratio: 4 / 3;
+  }
+}
+
+.gallery__thumb img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* A Street View frame is cropped from the top so its burned-in logo and copyright stay in view. */
+.gallery__thumb--street-view img {
+  object-position: 50% 100%;
+}
+
+.gallery__badge {
+  position: absolute;
+  bottom: var(--space-3);
+  padding: 4px 9px;
+  border-radius: var(--radius-pill);
+  background: var(--glass-dark);
+  color: var(--on-photo);
+  font-size: var(--text-label);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.08em;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.gallery__badge--lower-right {
+  right: var(--space-3);
+}
+
+.gallery__badge--upper-left {
+  top: var(--space-3);
+  bottom: auto;
+  left: var(--space-3);
+}
+
+/* The caption on paper under the picture, at the page gutter. */
+.gallery__caption {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3) max(var(--gutter), var(--safe-right)) var(--space-5)
+    max(var(--gutter), var(--safe-left));
+}
+
+/* The Street View credit directly under the picture. */
+.gallery__credit {
+  color: var(--ink-muted);
+  font-size: var(--text-xs);
+}
+
+/* The look, then the date on its own line under it, at every size. */
+.gallery__line {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.gallery__look {
+  font-size: var(--text-m);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-item);
+  line-height: var(--leading-snug);
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.3em;
+  transition: text-decoration-color var(--dur-hover) var(--ease-out);
+}
+
+.gallery__tile:hover .gallery__look,
+.gallery__tile:focus-visible .gallery__look {
+  text-decoration-color: currentColor;
+}
+
+.gallery__date {
+  color: var(--ink-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+}
+
+.gallery__more-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding-top: var(--space-6);
+}
+
+/* ---------- Viewer ---------- */
+
+/*
+ * A full-screen ink lightbox: Close and the position at the top, the picture in the middle,
+ * the look, the credit and the actions at the bottom. Nothing rests on the picture except its
+ * own marks.
+ */
+.lightbox {
+  --lightbox-pad-x: 0px;
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  background: var(--stage);
+  color: var(--on-stage);
+  outline: none;
+  overscroll-behavior: contain;
+  animation: fade-in var(--dur-med) var(--ease-out);
+  transition: opacity var(--dur-med) var(--ease-out);
+}
+
+@media (min-width: 600px) {
+  .lightbox {
+    --lightbox-pad-x: var(--space-5);
+  }
+}
+
+.lightbox--closing {
+  opacity: 0;
+}
+
+.lightbox__bar {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-inline: max(var(--gutter), var(--safe-left)) max(var(--gutter), var(--safe-right));
+}
+
+.lightbox__bar--top {
+  min-height: calc(var(--header-height) + var(--safe-top));
+  padding-top: var(--safe-top);
+}
+
+.lightbox__bar--bottom {
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-4) var(--space-6);
+  padding-block: var(--space-4) calc(var(--space-5) + var(--safe-bottom));
+}
+
+.lightbox__position {
+  display: flex;
+  align-items: center;
+  margin-inline-start: calc(-1 * var(--space-3));
+}
+
+.lightbox__counter {
+  min-width: 6.5em;
+  color: var(--on-stage-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.08em;
+  text-align: center;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+}
+
+.lightbox__icon-button {
+  display: grid;
+  place-items: center;
+  width: var(--target-comfort);
+  height: var(--target-comfort);
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--on-stage);
+  cursor: pointer;
+  transition: background-color var(--dur-hover) var(--ease-out);
+}
+
+.lightbox__icon-button:hover {
+  background: var(--stage-line);
+}
+
+.lightbox__icon-button[aria-disabled='true'] {
+  opacity: 0.32;
+  cursor: default;
+}
+
+.lightbox__icon-button[aria-disabled='true']:hover {
+  background: transparent;
+}
+
+.lightbox__close {
+  margin-inline-end: calc(-1 * var(--space-3));
+}
+
+/*
+ * The stage cell is a size container: the picture takes the largest size that fits it at the
+ * picture's own ratio, never above its natural size, from --picture-w and --picture-h (set
+ * inline from the item). A swipe here steps through the gallery; pinching still zooms.
+ */
+.lightbox__stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 0;
+  overflow: hidden;
+  container-type: size;
+  touch-action: pinch-zoom;
+}
+
+/* The ambient ground fades out toward the bars, which stay on the plain ink. */
+.lightbox__ambient {
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 14%, #000 86%, transparent);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 14%, #000 86%, transparent);
+}
+
+.lightbox__picture {
+  --lightbox-avail-w: calc(100cqw - 2 * var(--lightbox-pad-x));
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  inline-size: min(
+    var(--lightbox-avail-w),
+    calc(var(--picture-w, 1) * 1px),
+    calc(100cqh * var(--picture-w, 1) / var(--picture-h, 1))
+  );
+  aspect-ratio: var(--picture-w, 1) / var(--picture-h, 1);
+  animation: lightbox-picture-in var(--dur-slow) var(--ease-out);
+}
+
+/* Contained: the whole picture always shows. */
+.lightbox__picture .gallery-viewer__image {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  -webkit-user-drag: none;
+}
+
+@keyframes lightbox-picture-in {
+  from {
+    opacity: 0;
+    transform: scale(0.985);
+  }
+}
+
+.lightbox__caption {
+  display: flex;
+  flex: 1 1 18rem;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.lightbox__title {
+  color: var(--on-stage);
+  font-size: var(--text-l);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-item);
+  line-height: var(--leading-snug);
+}
+
+@media (min-width: 1024px) {
+  .lightbox__title {
+    font-size: var(--text-xl);
+  }
+}
+
+.lightbox__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px var(--space-4);
+  color: var(--on-stage-muted);
+  font-size: var(--text-xs);
+}
+
+.lightbox__meta .attribution__logo {
+  color: var(--on-stage);
+}
+
+.lightbox__meta .attribution__sep {
+  color: var(--on-stage-muted);
+}
+
+.gallery-viewer__date {
+  font-family: var(--font-mono);
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+}
+
+.lightbox__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3) var(--space-5);
+}
+
+.lightbox__links {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+}
+
+.lightbox__link,
+.lightbox__link:hover {
+  color: var(--on-stage);
+}
+
+/* The one solid action, inverted on the ink: a white pill with ink type. */
+.lightbox__open,
+.lightbox__open:hover {
+  --button-bg: var(--on-stage);
+  --button-fg: var(--stage);
+  box-shadow: none;
+}
+
+/* Focus on the ink: a white ring with the ink between it and the control. */
+.lightbox :focus-visible {
+  outline: 2px solid var(--on-stage);
+  outline-offset: 3px;
+  box-shadow: none;
+}

@@ -1,5 +1,10 @@
 import { sql } from 'kysely';
-import type { LedgerCategory, LedgerSku, LightingMode } from '@holiday/core';
+import {
+  MAX_RENDER_ATTEMPTS,
+  STANDARD_RENDER_ATTEMPTS,
+  isRelightLightingMode,
+} from '@hailiday/core';
+import type { LedgerCategory, LedgerSku, LightingMode } from '@hailiday/core';
 import type { Clock } from '../clock/index.js';
 import { systemClock } from '../clock/index.js';
 import type { DbOrTx } from '../db/client.js';
@@ -64,7 +69,7 @@ export const PRICE_LIST: Readonly<Record<LedgerSku, PriceEntry>> = {
   street_view_static_display: { category: 'google', unitPriceMicros: 7_000, estimate: false },
   street_view_static_fetch: { category: 'google', unitPriceMicros: 7_000, estimate: false },
   image_edit_attempt: { category: 'image_edit', unitPriceMicros: 130_000, estimate: true },
-  vision_call: { category: 'vision', unitPriceMicros: 20_000, estimate: true },
+  vision_call: { category: 'vision', unitPriceMicros: 40_000, estimate: true },
   screened_upload: { category: 'safety', unitPriceMicros: 10_000, estimate: true },
   email: { category: 'email', unitPriceMicros: 1_000, estimate: true },
 };
@@ -77,14 +82,23 @@ export const IMAGE_EDIT_PRICES_MICROS: Readonly<Record<string, number>> = {
 };
 
 /**
- * Vision call prices per call by stage. Localizing the editor's additions sends two images and a
- * short answer, like a judge call, and is priced like one.
+ * Vision call prices per call by stage, at or above the live settlements measured on 2026-11-10
+ * (analysis $0.038 to $0.041, judge $0.035 to $0.039, localization about $0.034, escalation
+ * $0.028). Localizing the editor's additions sends two images and a short answer, like a judge
+ * call, and is priced like one. An escalation reruns the judge at a higher effort, so its worst
+ * case is priced above a judge call; the two share the `checking` stage and are told apart by
+ * price. The judge of a Street View enhancement sends two images and a short answer like the
+ * relight judge ($0.035 to $0.04) and is priced like a judge call. Locating the home in a Street
+ * View frame sends one image at low effort and a short answer (one box), priced at half a judge
+ * call.
  */
 export const VISION_PRICES_MICROS = {
-  analysis: 30_000,
-  judge: 20_000,
-  escalation: 40_000,
-  localization: 20_000,
+  analysis: 42_000,
+  judge: 40_000,
+  escalation: 45_000,
+  localization: 40_000,
+  enhancement: 40_000,
+  locate: 20_000,
   triage: 5_000,
 } as const;
 export type VisionStage = keyof typeof VISION_PRICES_MICROS;
@@ -98,7 +112,21 @@ export const VISION_LEDGER_STAGES: Readonly<Record<Exclude<VisionStage, 'triage'
   judge: 'checking',
   escalation: 'checking',
   localization: 'localizing',
+  enhancement: 'enhancing',
+  locate: 'framing',
 };
+
+/**
+ * The ledger `stage` of the Street View enhancement's lines: its image edit and its judge call.
+ * Attempt lookups exclude it, so an attempt never takes the enhancement's reservation.
+ */
+export const ENHANCE_LEDGER_STAGE = 'enhancing';
+
+/**
+ * The ledger `stage` of the Street View framing's direct charges: the call that locates the home
+ * and the fetch of the framed view. Nothing is reserved for them at admission.
+ */
+export const FRAMING_LEDGER_STAGE = 'framing';
 
 /** Token prices in USD per million tokens, which is the same figure in micros per token. */
 export interface TokenPrice {
@@ -585,47 +613,73 @@ export async function openReservationMicros(db: DbOrTx, jobId: string): Promise<
   return Number(result.open);
 }
 
-/** Image-edit attempts of one render job (an attempt and its repair). */
-const RENDER_EDIT_ATTEMPTS = 2;
-
-/**
- * How many image-edit attempts of a render job decorate the photo, each followed by a
- * localization of what the editor added. A daylight (`source`) job decorates in both attempts.
- * An `evening` job relights the accepted daylight variant (relight attempts are never localized):
- * with that base it only relights (an attempt and its repair); without one, its first attempt
- * decorates the daylight look that its second attempt relights.
- */
-export function decoratingAttempts(input: {
+/** The shape of a render job that decides its worst case. */
+export interface RenderJobShape {
+  /** The job's lighting mode; `source` when absent. */
   lightingMode?: LightingMode;
+  /** A relight-mode job whose accepted daylight variant exists: it relights that variant. */
   relightBase?: boolean;
-}): number {
-  if (input.lightingMode !== 'evening') return RENDER_EDIT_ATTEMPTS;
-  return input.relightBase === true ? 0 : 1;
+}
+
+/** A relit look (`evening`, `bright`) with no accepted daylight variant to relight. */
+function decoratesOwnBase(input: RenderJobShape): boolean {
+  return (
+    input.lightingMode !== undefined &&
+    isRelightLightingMode(input.lightingMode) &&
+    input.relightBase !== true
+  );
 }
 
 /**
- * Worst-case reservation lines for one render job (render spec, cost recording): the transient
- * Street View fetch, the scene analysis unless a reusable one exists, two image-edit attempts,
- * two judge calls and one escalation, and one localization per decorating attempt (see
- * `decoratingAttempts`). Without `lightingMode` the daylight shape is reserved, which also covers
- * an evening job. The localization lines come last, so the judge lines, which share their price,
- * are found first by an unfiltered lookup.
+ * How many image-edit attempts a render job may make (render spec, repair and retries). A job
+ * makes an attempt and at most one repair: two. A relit look (`evening`, `bright`) that decorates
+ * its own base first may make three: the base, the relight, and one repair of either (a rejected
+ * base repaired before its relight, or a rejected relight repaired). One that relights an accepted
+ * daylight variant makes the relight and its repair: two.
  */
-export function renderReservationLines(input: {
-  imageEditProvider: string;
-  imageEditModel?: string | null;
-  visionProvider: string;
-  visionModel?: string | null;
-  /** A `transient` Street View source refetches its pixels for every job. */
-  streetViewFetch: boolean;
-  /** No analysis call is reserved when a reusable analysis exists. */
-  reuseAnalysis: boolean;
-  streetViewProvider?: string;
-  /** The job's lighting mode; `source` when absent. */
-  lightingMode?: LightingMode;
-  /** An evening job whose accepted daylight variant exists: it relights that variant. */
-  relightBase?: boolean;
-}): LedgerLine[] {
+export function renderEditAttempts(input: RenderJobShape): number {
+  return decoratesOwnBase(input) ? MAX_RENDER_ATTEMPTS : STANDARD_RENDER_ATTEMPTS;
+}
+
+/**
+ * How many image-edit attempts of a render job may decorate the photo, each followed by a
+ * localization of what the editor added (relight attempts are never localized). A daylight
+ * (`source`) job decorates in both attempts. A relight-mode job (`evening`, `bright`) with an
+ * accepted daylight variant to relight only relights. Without one, its first attempt decorates
+ * the base and, when that base is rejected and repairable, its second attempt repairs it before
+ * the relight: two attempts may decorate.
+ */
+export function decoratingAttempts(input: RenderJobShape): number {
+  const relightMode = input.lightingMode !== undefined && isRelightLightingMode(input.lightingMode);
+  return relightMode && input.relightBase === true ? 0 : STANDARD_RENDER_ATTEMPTS;
+}
+
+/**
+ * Worst-case reservation lines for one render job (render spec, cost recording): the Street View
+ * fetch when the job will fetch pixels (a transient source always, a persist source before its
+ * original is stored), the scene analysis unless a reusable one exists, one image-edit attempt,
+ * one judge call and one escalation per attempt the job may make (`renderEditAttempts`: two, or
+ * three for a relit look that decorates its own base), and one localization per decorating
+ * attempt (`decoratingAttempts`). Without `lightingMode` the daylight shape is reserved. The
+ * localization lines follow, so the judge lines, which share their price, are found first by an
+ * unfiltered lookup. With `enhance`, one image edit and one judge call of the Street View
+ * enhancement (stage `enhancing`) come last of all, for the same reason.
+ */
+export function renderReservationLines(
+  input: RenderJobShape & {
+    imageEditProvider: string;
+    imageEditModel?: string | null;
+    visionProvider: string;
+    visionModel?: string | null;
+    /** The job will fetch Street View pixels (transient always; persist before its first store). */
+    streetViewFetch: boolean;
+    /** No analysis call is reserved when a reusable analysis exists. */
+    reuseAnalysis: boolean;
+    streetViewProvider?: string;
+    /** The job may enhance its stored Street View frame (`enhancementReservationExpected`). */
+    enhance?: boolean;
+  },
+): LedgerLine[] {
   const lines: LedgerLine[] = [];
   if (input.streetViewFetch) {
     lines.push({
@@ -642,7 +696,8 @@ export function renderReservationLines(input: {
     unitPriceMicros: VISION_PRICES_MICROS[stage],
   });
   if (!input.reuseAnalysis) lines.push(vision('analysis'));
-  for (let attempt = 1; attempt <= RENDER_EDIT_ATTEMPTS; attempt += 1) {
+  const attempts = renderEditAttempts(input);
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
     lines.push({
       provider: input.imageEditProvider,
       sku: 'image_edit_attempt',
@@ -651,10 +706,20 @@ export function renderReservationLines(input: {
       unitPriceMicros: unitPriceFor('image_edit_attempt', { provider: input.imageEditProvider }),
     });
   }
-  lines.push(vision('judge'), vision('judge'));
-  lines.push(vision('escalation'));
+  for (let attempt = 1; attempt <= attempts; attempt += 1) lines.push(vision('judge'));
+  for (let attempt = 1; attempt <= attempts; attempt += 1) lines.push(vision('escalation'));
   for (let attempt = 1; attempt <= decoratingAttempts(input); attempt += 1) {
     lines.push(vision('localization'));
+  }
+  if (input.enhance === true) {
+    lines.push({
+      provider: input.imageEditProvider,
+      sku: 'image_edit_attempt',
+      modelId: input.imageEditModel ?? null,
+      stage: ENHANCE_LEDGER_STAGE,
+      unitPriceMicros: unitPriceFor('image_edit_attempt', { provider: input.imageEditProvider }),
+    });
+    lines.push(vision('enhancement'));
   }
   // A leg served by a fixture adapter is fixture work even when the job's other legs are live.
   return lines.map((line) => (line.provider === 'fixture' ? { ...line, isFixture: true } : line));

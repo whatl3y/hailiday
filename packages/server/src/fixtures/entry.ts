@@ -1,4 +1,4 @@
-import type { NormalizedBox } from '@holiday/core';
+import type { NormalizedBox } from '@hailiday/core';
 import { Projector } from './projector.js';
 import {
   AnchorCollector,

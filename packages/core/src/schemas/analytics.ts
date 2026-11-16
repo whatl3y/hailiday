@@ -36,6 +36,7 @@ import {
   FailureDetailSchema,
   FailureKindSchema,
   FidelityModeSchema,
+  MAX_RENDER_ATTEMPTS,
   NonTerminalRenderJobStateSchema,
   RejectionReasonSchema,
   ReviewModeSchema,
@@ -125,7 +126,7 @@ export const ANALYTICS_EVENT_PROPERTY_SCHEMAS = {
   }),
   render_succeeded: z.object({
     latencyMs: durationMs,
-    attempts: z.int().min(1).max(2),
+    attempts: z.int().min(1).max(MAX_RENDER_ATTEMPTS),
     repaired: z.boolean(),
     reviewMode: ReviewModeSchema,
     reviewWaitMs: durationMs.nullable(),
@@ -136,12 +137,12 @@ export const ANALYTICS_EVENT_PROPERTY_SCHEMAS = {
   render_rejected: z.object({
     rejectionReason: RejectionReasonSchema,
     failureCodes: z.array(FailureCodeSchema),
-    attempts: z.int().min(0).max(2),
+    attempts: z.int().min(0).max(MAX_RENDER_ATTEMPTS),
   }),
   render_failed: z.object({
     failureKind: FailureKindSchema,
     failureDetail: FailureDetailSchema.nullable(),
-    attempts: z.int().min(0).max(2),
+    attempts: z.int().min(0).max(MAX_RENDER_ATTEMPTS),
   }),
   render_canceled: z.object({
     stateAtCancel: NonTerminalRenderJobStateSchema,

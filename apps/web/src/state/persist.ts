@@ -28,8 +28,14 @@ export function writeStored(kind: 'session' | 'local', key: string, value: strin
 }
 
 export const STORAGE_KEYS = {
-  explicitHoliday: 'holiday.explicitHoliday',
-  attested: 'holiday.attested',
-  lastProject: 'holiday.lastProject',
-  downloadNoteShown: 'holiday.downloadNoteShown',
+  explicitHoliday: 'hailiday.explicitHoliday',
+  attested: 'hailiday.attested',
+  lastProject: 'hailiday.lastProject',
+  downloadNoteShown: 'hailiday.downloadNoteShown',
+  /** Followed by `:<projectId>`: the project's evening looks that could not be made. */
+  failedEvenings: 'hailiday.failedEvenings',
+  /** Followed by `:<projectId>`: the person canceled the project's first look. */
+  canceledFirstLook: 'hailiday.canceledFirstLook',
+  /** Followed by `:<projectId>`: the job of the page's own second pass at the project's look. */
+  secondPassJob: 'hailiday.secondPassJob',
 } as const;

@@ -5,17 +5,19 @@ import {
   validatorCompiler,
   type ZodTypeProvider,
 } from 'fastify-type-provider-zod';
-import type { ServerContext } from '@holiday/server';
-import { loadContent, type Content } from '@holiday/server/content';
-import { createProviders, type Providers } from '@holiday/server/providers';
+import type { ServerContext } from '@hailiday/server';
+import { loadContent, type Content } from '@hailiday/server/content';
+import { createProviders, type Providers } from '@hailiday/server/providers';
 import { createLimiter, pipelineDepsFrom, type ApiDeps } from './deps.js';
 import { registerErrorHandling } from './http/errors.js';
 import { registerRequestHooks, requestIdFor } from './http/request.js';
 import type { App } from './http/types.js';
 import { loadWebShell } from './html/shell.js';
 import { RenderEventHub } from './sse/hub.js';
+import { registerSessionCookieRefresh } from './auth/session.js';
 import { registerAddressRoutes } from './routes/addresses.js';
 import { registerAuthRoutes } from './routes/auth.js';
+import { registerGalleryRoutes } from './routes/gallery.js';
 import { registerInternalRoutes } from './routes/internal.js';
 import { registerPageRoutes, renderNotFoundPage } from './routes/pages.js';
 import { registerProjectRoutes } from './routes/projects.js';
@@ -117,6 +119,7 @@ export async function buildServer(options: BuildServerOptions): Promise<ApiServe
   app.setSerializerCompiler(serializerCompiler);
   await app.register(fastifyCookie);
   registerRequestHooks(app, context.config);
+  registerSessionCookieRefresh(app, deps);
   registerErrorHandling(app, {
     onPageNotFound: (_request, reply) => renderNotFoundPage(deps, reply),
   });
@@ -126,6 +129,7 @@ export async function buildServer(options: BuildServerOptions): Promise<ApiServe
   registerProjectRoutes(app, deps);
   registerUploadRoutes(app, deps);
   registerRenderRoutes(app, deps);
+  registerGalleryRoutes(app, deps);
   registerSharingRoutes(app, deps);
   registerAuthRoutes(app, deps);
   registerInternalRoutes(app, deps);

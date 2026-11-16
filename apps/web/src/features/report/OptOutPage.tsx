@@ -1,13 +1,15 @@
 import { useId, useRef, useState, type FormEvent } from 'react';
-import { CreateReportRequestSchema } from '@holiday/core';
+import { CreateReportRequestSchema } from '@hailiday/core';
 import { createReport } from '../../api/endpoints';
 import { getTurnstileToken } from '../../api/turnstile';
 import { presentError } from '../../api/present';
 import { t } from '../../copy';
 import { ChallengeSlot } from '../../ui/ChallengeSlot';
 import { PageShell } from '../../ui/Layout';
+import { useIsFixtureAddressLookup } from '../../ui/fixture';
 import { AddressCombobox, type AddressSelection } from '../address/AddressCombobox';
 import '../landing/landing.css';
+import './report.css';
 
 /**
  * `/dont-decorate-my-home`: the homeowner opt-out. The same address combobox, a contact email
@@ -21,6 +23,7 @@ export function OptOutPage() {
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
   const challengeRef = useRef<HTMLDivElement>(null);
+  const sampleAddresses = useIsFixtureAddressLookup();
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
@@ -62,7 +65,7 @@ export function OptOutPage() {
 
   return (
     <PageShell title={t('optout.heading')}>
-      <section className="container container--narrow simple-page stack stack--loose">
+      <section className="container container--narrow simple-page optout stack stack--loose">
         <div className="stack">
           <h1 className="simple-page__title">{t('optout.heading')}</h1>
           <p className="lede">{t('optout.body')}</p>
@@ -76,6 +79,9 @@ export function OptOutPage() {
             <AddressCombobox
               label={t('optout.addressLabel')}
               placeholder={t('landing.addressPlaceholder')}
+              sampleMode={sampleAddresses}
+              sampleNoResultsKey="optout.noResultsSample"
+              noResultsKey="optout.noResults"
               onSelect={(next) => {
                 setSelection(next);
                 setError(null);

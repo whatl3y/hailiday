@@ -1,6 +1,15 @@
-import { useEffect, useId, useRef, useState, type DragEvent } from 'react';
+import {
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type DragEvent,
+  type ReactNode,
+} from 'react';
 import { Link } from 'react-router';
-import type { NormalizedBox, PeopleResolutionInput, Project, UploadStatus } from '@holiday/core';
+import type { NormalizedBox, PeopleResolutionInput, Project, UploadStatus } from '@hailiday/core';
 import {
   completeUpload,
   createUpload,
@@ -11,14 +20,19 @@ import {
 import { isApiError, type ApiError } from '../../api/errors';
 import { formatResetTime, formatWait, presentError } from '../../api/present';
 import { sceneTypeLabel, t, type CopyKey } from '../../copy';
+import { useRetentionText } from '../../copy/retention';
 import { CLIENT_DEFAULTS, DISPLAY_VALUES, formatBytes } from '../../config/values';
 import { currentHolidayId, hasChosenHoliday, isOffSeason, useAppStore } from '../../state/appStore';
 import { undecoratedUpload, useProjectStore } from '../../state/projectStore';
+import { HeroDock, HeroFrame } from '../../ui/HeroFrame';
 import { HolidayOptions } from '../../ui/HolidayPicker';
 import { chooseHolidayExplicitly } from '../../ui/holidaySelection';
 import { Icon } from '../../ui/Icon';
 import { ImageCard } from '../../ui/ImageCard';
+import { BudgetBanner } from '../../ui/Layout';
 import { RetryAfterButton } from '../../ui/RetryAfterButton';
+import { Stage } from '../../ui/Stage';
+import { stageStyle } from '../../ui/stageStyle';
 import { TextWithLink } from '../../ui/TextWithLink';
 import { looksExhausted } from '../project/looks';
 import { PeopleSheet } from './PeopleSheet';
@@ -27,6 +41,11 @@ import { ACCEPT_ATTRIBUTE, browserPrepareDeps, prepareImage } from './prepare';
 import { pollUploadStatus, postToStorage } from './transfer';
 import { prepareFailureMessage, uploadOutcome } from './uploadState';
 import './upload.css';
+
+/** The photo's ratio for the stylesheet, which keeps a tall photo within the screen. */
+function frameRatio(ratio: number): CSSProperties {
+  return { '--frame-ratio': String(ratio) } as CSSProperties;
+}
 
 type Step =
   'pick' | 'preparing' | 'uploading' | 'screening' | 'held' | 'ready' | 'attaching' | 'declined';
@@ -83,7 +102,25 @@ export interface UploadPanelProps {
   showHeading?: boolean;
   /** Primary-styled pickers (the interim prompt uses the upload as its primary action). */
   primary?: boolean;
+  /**
+   * `inline` (default): the step sits in another screen's column. `screen`: the step is the
+   * page: the pickers rest in a dock on the holiday's photograph, and a chosen photo fills a
+   * stage edge to edge with the step's controls under it.
+   */
+  layout?: UploadLayout;
+  /** On a screen: shown first, at the top of the dock and then above the controls under the photo. */
+  lead?: ReactNode;
+  /** On a screen: shown last, after the step's controls (for example Cancel). */
+  trail?: ReactNode;
+  /**
+   * On a screen: told which surface the step shows, the holiday's photograph (`photo`, where the
+   * page lays its header over the photograph) or the chosen photo on its stage (`stage`).
+   */
+  onSurfaceChange?: (surface: UploadSurface) => void;
 }
+
+export type UploadLayout = 'inline' | 'screen';
+export type UploadSurface = 'photo' | 'stage';
 
 /**
  * The upload step: pickers (camera and library on phones, one picker and a drop zone on
@@ -96,6 +133,10 @@ export function UploadPanel({
   onAttached,
   showHeading = true,
   primary = true,
+  layout = 'inline',
+  lead,
+  trail,
+  onSurfaceChange,
 }: UploadPanelProps) {
   const ids = useId();
   const attestationId = `${ids}-attest`;
@@ -110,9 +151,13 @@ export function UploadPanel({
     (state) => state.experience?.clientConfig.pollUploadMs ?? CLIENT_DEFAULTS.pollUploadMs,
   );
   const allowance = useAppStore((state) => state.allowance);
+  const retentionLine = useRetentionText('upload');
   const attachedSource = useProjectStore(undecoratedUpload);
+  const hero = useAppStore((state) => state.experience?.hero ?? null);
 
   const [twoPickers] = useState(prefersTwoPickers);
+  // Arriving from `/upload`, whose dock already rose in on this photograph, the dock stays put.
+  const [dockContinues] = useState(() => useProjectStore.getState().entry === 'upload');
   const [step, setStep] = useState<Step>('pick');
   const [percent, setPercent] = useState(0);
   const [messages, setMessages] = useState<CopyKey[]>([]);
@@ -134,6 +179,8 @@ export function UploadPanel({
 
   const attestationRef = useRef<HTMLInputElement>(null);
   const declineRef = useRef<HTMLParagraphElement>(null);
+  const stagedHeadingRef = useRef<HTMLHeadingElement>(null);
+  const surfaceRef = useRef(onSurfaceChange);
   const abortRef = useRef<AbortController | null>(null);
   const projectRef = useRef(project);
   const previewUrlRef = useRef<string | null>(null);
@@ -466,6 +513,55 @@ export function UploadPanel({
     }),
   );
 
+  const attachedAlt = project.sceneType
+    ? t('upload.previewAlt', {
+        sceneTypeLabel: sceneTypeLabel(project.sceneType, project.roomType),
+      })
+    : t('upload.previewAltPending');
+  const previewAlt = scene
+    ? t('upload.previewAlt', { sceneTypeLabel: sceneTypeLabel(scene.sceneType, scene.roomType) })
+    : t('upload.previewAltPending');
+
+  // On a screen, the photo being prepared, checked or waiting to be decorated fills a stage.
+  const staged: { url: string | null; width: number; height: number; alt: string } | null =
+    layout !== 'screen'
+      ? null
+      : showAttached && attachedSource
+        ? {
+            url: attachedSource.displayUrl,
+            width: attachedSource.width ?? 1600,
+            height: attachedSource.height ?? 1200,
+            alt: attachedAlt,
+          }
+        : preview && !showPickers
+          ? {
+              url: preview.url,
+              width: preview.width ?? 1600,
+              height: preview.height ?? 1200,
+              alt: previewAlt,
+            }
+          : null;
+  const surface: UploadSurface = staged ? 'stage' : 'photo';
+
+  useEffect(() => {
+    surfaceRef.current = onSurfaceChange;
+  });
+
+  // Reported before paint, so the page's header never shows the wrong tone for a frame.
+  useLayoutEffect(() => {
+    if (layout === 'screen') surfaceRef.current?.(surface);
+  }, [layout, surface]);
+
+  // A chosen photo replaces the dock, and the picker that had focus, with its stage: focus
+  // moves to the step's heading instead of falling back to the page.
+  useEffect(() => {
+    if (layout !== 'screen' || surface !== 'stage') return;
+    const active = document.activeElement;
+    if (active === null || active === document.body) {
+      stagedHeadingRef.current?.focus({ preventScroll: true });
+    }
+  }, [layout, surface]);
+
   const statusText =
     step === 'preparing'
       ? t('upload.preparing')
@@ -488,7 +584,7 @@ export function UploadPanel({
     isPrimary: boolean,
   ) => (
     <label
-      className={`button picker${isPrimary && pickersPrimary ? ' button--primary' : ''} picker--block`}
+      className={`button picker${isPrimary ? (pickersPrimary ? ' button--primary' : '') : ' button--quiet'} picker--block`}
     >
       <Icon name={icon} />
       <span>{label}</span>
@@ -506,166 +602,147 @@ export function UploadPanel({
     </label>
   );
 
-  return (
-    <div className="upload stack">
-      {showHeading ? (
-        <header className="upload__header">
-          <h1 className="title-section">{t('upload.heading')}</h1>
-          <p className="lede">{t('upload.subline')}</p>
-        </header>
-      ) : null}
+  const dropHandlers = {
+    onDragOver: (event: DragEvent) => {
+      event.preventDefault();
+      setDragging(true);
+    },
+    onDragLeave: (event: DragEvent) => {
+      if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragging(false);
+    },
+    onDrop,
+  };
 
+  const heading = showHeading ? (
+    <header className="upload__header">
+      <h1 className="title-section">{t('upload.heading')}</h1>
+      <p className="lede">{t('upload.subline')}</p>
+    </header>
+  ) : null;
+
+  const holidayChoice = holidayNeeded ? (
+    <div className="upload__holiday">
+      <p id={`${ids}-holiday`} className="eyebrow">
+        {t('upload.chooseHoliday')}
+      </p>
+      <HolidayOptions
+        compact
+        selected={holidayId}
+        labelledBy={`${ids}-holiday`}
+        onChoose={(id) => chooseHolidayExplicitly(id, 'landing')}
+      />
+    </div>
+  ) : null;
+
+  const attachedNotice =
+    showAttached && looksUsedUp ? (
+      <p className="message message--notice">{t('allowance.bodyNoPreview', { resetsAt })}</p>
+    ) : null;
+  const attachedActions = showAttached ? (
+    <>
+      <button
+        type="button"
+        className="button button--primary button--block"
+        aria-disabled={holidayNeeded || undefined}
+        aria-describedby={holidayNeeded ? `${ids}-decorate-reason` : undefined}
+        onClick={() => {
+          if (!holidayNeeded) onAttached(project);
+        }}
+      >
+        {t('upload.continue')}
+      </button>
       {holidayNeeded ? (
-        <div className="upload__holiday">
-          <p id={`${ids}-holiday`} className="eyebrow">
-            {t('upload.chooseHoliday')}
-          </p>
-          <HolidayOptions
-            compact
-            selected={holidayId}
-            labelledBy={`${ids}-holiday`}
-            onChoose={(id) => chooseHolidayExplicitly(id, 'landing')}
-          />
-        </div>
-      ) : null}
-
-      {showAttached && attachedSource ? (
-        <div className="upload__preview upload__attached">
-          {looksUsedUp ? (
-            <p className="message message--notice">{t('allowance.bodyNoPreview', { resetsAt })}</p>
-          ) : null}
-          <ImageCard
-            ratio={
-              attachedSource.width && attachedSource.height
-                ? attachedSource.width / attachedSource.height
-                : 4 / 3
-            }
-            strip={<span>{t('result.yourPhoto')}</span>}
-          >
-            <img
-              src={attachedSource.displayUrl ?? undefined}
-              alt={
-                project.sceneType
-                  ? t('upload.previewAlt', {
-                      sceneTypeLabel: sceneTypeLabel(project.sceneType, project.roomType),
-                    })
-                  : t('upload.previewAltPending')
-              }
-            />
-          </ImageCard>
-          <button
-            type="button"
-            className="button button--primary button--block"
-            aria-disabled={holidayNeeded || undefined}
-            aria-describedby={holidayNeeded ? `${ids}-decorate-reason` : undefined}
-            onClick={() => {
-              if (!holidayNeeded) onAttached(project);
-            }}
-          >
-            {t('upload.continue')}
-          </button>
-          {holidayNeeded ? (
-            <p id={`${ids}-decorate-reason`} className="fine">
-              {t('upload.chooseHolidayFirst')}
-            </p>
-          ) : null}
-        </div>
-      ) : null}
-
-      {step === 'pick' && !showAttached && looksUsedUp ? (
-        <p className="message message--notice">{t('allowance.uploadNotice', { resetsAt })}</p>
-      ) : null}
-
-      {preview && !showPickers ? (
-        <div className="upload__preview">
-          {step === 'ready' && scene && chooser !== 'required' ? (
-            <button
-              type="button"
-              className="scene-chip"
-              onClick={() => setChooser(chooser === 'open' ? 'closed' : 'open')}
-            >
-              {t('scene.chip', { sceneTypeLabel: sceneTypeLabel(scene.sceneType, scene.roomType) })}
-            </button>
-          ) : null}
-          {chooser !== 'closed' && step === 'ready' ? (
-            <SceneChooser
-              value={scene}
-              required={chooser === 'required'}
-              onChoose={(choice) => {
-                setScene(choice);
-                setChooser('closed');
-                continueIfReady(choice, resolution);
-              }}
-            />
-          ) : null}
-          <ImageCard
-            ratio={preview.width && preview.height ? preview.width / preview.height : 4 / 3}
-            strip={<span>{t('result.yourPhoto')}</span>}
-          >
-            <img
-              src={preview.url}
-              alt={
-                scene
-                  ? t('upload.previewAlt', {
-                      sceneTypeLabel: sceneTypeLabel(scene.sceneType, scene.roomType),
-                    })
-                  : t('upload.previewAltPending')
-              }
-            />
-          </ImageCard>
-        </div>
-      ) : null}
-
-      <div className="upload__status">
-        <p className="sr-only" aria-live="polite" aria-atomic="true">
-          {stageAnnouncement}
+        <p id={`${ids}-decorate-reason`} className="fine">
+          {t('upload.chooseHolidayFirst')}
         </p>
-        {statusText ? (
-          <div className="status-line" aria-hidden="true">
-            <p className="upload__status-text">{statusText}</p>
-            {step === 'uploading' ? (
-              <div className="progress">
-                <div className="progress__bar" style={{ width: `${percent}%` }} />
-              </div>
-            ) : (
-              <div className="indeterminate" />
-            )}
-          </div>
-        ) : null}
-      </div>
+      ) : null}
+    </>
+  ) : null;
 
-      {step === 'held' ? (
-        <button type="button" className="button button--quiet" onClick={reset}>
-          {t('upload.tryAnother')}
+  const allowanceNotice =
+    step === 'pick' && !showAttached && looksUsedUp ? (
+      <p className="message message--notice">{t('allowance.uploadNotice', { resetsAt })}</p>
+    ) : null;
+
+  const sceneControls = (
+    <>
+      {step === 'ready' && scene && chooser !== 'required' ? (
+        <button
+          type="button"
+          className="scene-chip"
+          onClick={() => setChooser(chooser === 'open' ? 'closed' : 'open')}
+        >
+          {t('scene.chip', { sceneTypeLabel: sceneTypeLabel(scene.sceneType, scene.roomType) })}
         </button>
       ) : null}
-
-      {messageText.length > 0 ? (
-        <div className={step === 'declined' ? 'upload__declined' : undefined}>
-          <p
-            ref={declineRef}
-            tabIndex={-1}
-            className={step === 'declined' ? 'message message--notice' : 'message message--error'}
-            role={step === 'declined' ? undefined : 'alert'}
-          >
-            {messageText.join(' ')}
-            {step === 'declined' && messages.includes('error.UPLOAD_DECLINED') ? (
-              <>
-                {' '}
-                <Link to="/content-policy">{t('footer.contentPolicy')}</Link>
-              </>
-            ) : null}
-          </p>
-          {retryPrompt && messages.some((key) => RETRY_MESSAGES.includes(key)) ? (
-            <RetryAfterButton
-              key={retryPrompt.id}
-              retryAfterSeconds={retryPrompt.retryAfterSeconds}
-              onRetry={retryPrompt.run}
-            />
-          ) : null}
-        </div>
+      {chooser !== 'closed' && step === 'ready' ? (
+        <SceneChooser
+          value={scene}
+          required={chooser === 'required'}
+          onChoose={(choice) => {
+            setScene(choice);
+            setChooser('closed');
+            continueIfReady(choice, resolution);
+          }}
+        />
       ) : null}
+    </>
+  );
 
+  const liveRegion = (
+    <p className="sr-only" aria-live="polite" aria-atomic="true">
+      {stageAnnouncement}
+    </p>
+  );
+  const statusLine = statusText ? (
+    <div className="status-line" aria-hidden="true">
+      <p className="upload__status-text">{statusText}</p>
+      {step === 'uploading' ? (
+        <div className="progress">
+          <div className="progress__bar" style={{ width: `${percent}%` }} />
+        </div>
+      ) : (
+        <div className="indeterminate" />
+      )}
+    </div>
+  ) : null;
+
+  const heldButton =
+    step === 'held' ? (
+      <button type="button" className="button button--quiet" onClick={reset}>
+        {t('upload.tryAnother')}
+      </button>
+    ) : null;
+
+  const messageBlock =
+    messageText.length > 0 ? (
+      <div className={step === 'declined' ? 'upload__declined' : undefined}>
+        <p
+          ref={declineRef}
+          tabIndex={-1}
+          className={step === 'declined' ? 'message message--notice' : 'message message--error'}
+          role={step === 'declined' ? undefined : 'alert'}
+        >
+          {messageText.join(' ')}
+          {step === 'declined' && messages.includes('error.UPLOAD_DECLINED') ? (
+            <>
+              {' '}
+              <Link to="/content-policy">{t('footer.contentPolicy')}</Link>
+            </>
+          ) : null}
+        </p>
+        {retryPrompt && messages.some((key) => RETRY_MESSAGES.includes(key)) ? (
+          <RetryAfterButton
+            key={retryPrompt.id}
+            retryAfterSeconds={retryPrompt.retryAfterSeconds}
+            onRetry={retryPrompt.run}
+          />
+        ) : null}
+      </div>
+    ) : null;
+
+  const readyContinue = (
+    <>
       {step === 'ready' &&
       chooser !== 'required' &&
       (holidayNeeded || messages.length > 0 || (people && !resolution)) ? (
@@ -686,102 +763,239 @@ export function UploadPanel({
           {t('upload.chooseHolidayFirst')}
         </p>
       ) : null}
+    </>
+  );
 
-      {showPickers ? (
-        <>
-          {step === 'declined' ? (
-            <button type="button" className="button button--primary button--block" onClick={reset}>
-              {t('upload.tryAnother')}
-            </button>
-          ) : twoPickers ? (
-            <div className="upload__pickers">
-              {pickerInput(true, t('upload.takePhoto'), 'camera', true)}
-              {pickerInput(false, t('upload.chooseLibrary'), 'photo', false)}
-            </div>
-          ) : (
-            <div
-              className="dropzone"
-              data-dragging={dragging || undefined}
-              onDragOver={(event) => {
-                event.preventDefault();
-                setDragging(true);
-              }}
-              onDragLeave={() => setDragging(false)}
-              onDrop={onDrop}
-            >
-              {pickerInput(false, t('upload.choosePhoto'), 'upload', true)}
-              <p className="dropzone__hint">{t('upload.dropHint')}</p>
-            </div>
-          )}
+  const pickBlock = showPickers ? (
+    <>
+      {step === 'declined' ? (
+        <button type="button" className="button button--primary button--block" onClick={reset}>
+          {t('upload.tryAnother')}
+        </button>
+      ) : twoPickers ? (
+        <div className="upload__pickers">
+          {pickerInput(true, t('upload.takePhoto'), 'camera', true)}
+          {pickerInput(false, t('upload.chooseLibrary'), 'photo', false)}
+        </div>
+      ) : (
+        <div
+          className="dropzone"
+          data-dragging={dragging || undefined}
+          {...(layout === 'inline' || staged ? dropHandlers : {})}
+        >
+          {pickerInput(false, t('upload.choosePhoto'), 'upload', true)}
+          <p className="dropzone__hint">{t('upload.dropHint')}</p>
+        </div>
+      )}
 
-          <details className="tips">
-            <summary>{t('upload.tipsToggle')}</summary>
-            <ul>
-              <li>{t('upload.tip1')}</li>
-              <li>{t('upload.tip2')}</li>
-              <li>{t('upload.tip3')}</li>
-            </ul>
-          </details>
+      <details className="tips">
+        <summary>
+          {t('upload.tipsToggle')}
+          <Icon name="chevronDown" className="tips__chevron" />
+        </summary>
+        <ul>
+          <li>{t('upload.tip1')}</li>
+          <li>{t('upload.tip2')}</li>
+          <li>{t('upload.tip3')}</li>
+        </ul>
+      </details>
 
-          <div className="attest">
-            <label className="check" htmlFor={attestationId}>
-              <input
-                ref={attestationRef}
-                id={attestationId}
-                type="checkbox"
-                checked={attested}
-                aria-describedby={attestationRequired ? `${attestationId}-required` : undefined}
-                aria-invalid={attestationRequired || undefined}
-                onChange={(event) => onAttestationChange(event.target.checked)}
-              />
-              <span className="check__text">
-                <TextWithLink
-                  text={t('upload.attestation')}
-                  linkText={t('footer.terms')}
-                  to="/terms"
-                />
-              </span>
-            </label>
-            {attestationRequired ? (
-              <p id={`${attestationId}-required`} className="field__error" role="alert">
-                {t('upload.attestationRequired')}
-              </p>
-            ) : null}
-          </div>
-          <p className="fine">
-            {t('upload.retentionLine', { anonymousRetention: DISPLAY_VALUES.anonymousRetention })}
+      <div className="attest">
+        <label className="check" htmlFor={attestationId}>
+          <input
+            ref={attestationRef}
+            id={attestationId}
+            type="checkbox"
+            checked={attested}
+            aria-describedby={attestationRequired ? `${attestationId}-required` : undefined}
+            aria-invalid={attestationRequired || undefined}
+            onChange={(event) => onAttestationChange(event.target.checked)}
+          />
+          <span className="check__text">
+            <TextWithLink text={t('upload.attestation')} linkText={t('footer.terms')} to="/terms" />
+          </span>
+        </label>
+        {attestationRequired ? (
+          <p id={`${attestationId}-required`} className="field__error" role="alert">
+            {t('upload.attestationRequired')}
           </p>
-        </>
+        ) : null}
+      </div>
+      <p className="fine">{retentionLine}</p>
+    </>
+  ) : null;
+
+  const peopleSheet =
+    people && peopleOpen && preview ? (
+      <PeopleSheet
+        imageUrl={preview.url}
+        width={status?.width ?? preview.width}
+        height={status?.height ?? preview.height}
+        boxes={people.boxes}
+        suggestedCropBox={people.suggestedCropBox}
+        message={people.message}
+        onCrop={(box, rotation) => {
+          const next: PeopleResolutionInput = {
+            action: 'crop',
+            box,
+            ...(rotation !== 0 ? { rotation } : {}),
+          };
+          setResolution(next);
+          setPeopleOpen(false);
+          continueIfReady(scene, next);
+        }}
+        onKeep={() => {
+          const next: PeopleResolutionInput = { action: 'keep' };
+          setResolution(next);
+          setPeopleOpen(false);
+          continueIfReady(scene, next);
+        }}
+        onReplace={reset}
+        onClose={() => setPeopleOpen(false)}
+      />
+    ) : null;
+
+  if (layout === 'screen') {
+    return (
+      <div className="upload-step" data-surface={staged ? 'stage' : 'photo'}>
+        {liveRegion}
+        {staged ? (
+          <div
+            className="upload upload--staged stage-scope"
+            style={stageStyle(staged.width, staged.height)}
+          >
+            <h1 ref={stagedHeadingRef} tabIndex={-1} className="sr-only">
+              {t('upload.heading')}
+            </h1>
+            <Stage
+              width={staged.width}
+              height={staged.height}
+              ambientSrc={staged.url}
+              className="upload__stage"
+            >
+              <img
+                className="upload__photo"
+                src={staged.url ?? undefined}
+                alt={staged.alt}
+                width={staged.width}
+                height={staged.height}
+                draggable={false}
+              />
+              {busy ? <div className="stage__sheen" aria-hidden="true" /> : null}
+            </Stage>
+            <div
+              className="upload__rail"
+              aria-hidden="true"
+              data-state={step === 'uploading' ? 'percent' : statusText ? 'working' : undefined}
+            >
+              {step === 'uploading' ? (
+                <div className="upload__rail-bar" style={{ inlineSize: `${percent}%` }} />
+              ) : null}
+            </div>
+            <div className="upload__under stack">
+              {lead}
+              {holidayChoice}
+              {statusText ? (
+                <p className="upload__status-text" aria-hidden="true">
+                  {statusText}
+                </p>
+              ) : null}
+              {sceneControls}
+              {attachedNotice}
+              {attachedActions}
+              {showAttached ? pickBlock : null}
+              {heldButton}
+              {messageBlock}
+              {readyContinue}
+              {trail}
+            </div>
+          </div>
+        ) : (
+          <div
+            className="upload-screen"
+            data-dragging={(dragging && !twoPickers) || undefined}
+            {...(twoPickers ? {} : dropHandlers)}
+          >
+            <HeroFrame hero={hero} className="upload-hero">
+              <HeroDock
+                className={`upload upload--dock stack${dockContinues ? ' upload--continues' : ''}`}
+              >
+                <BudgetBanner />
+                {lead}
+                {heading}
+                {holidayChoice}
+                {allowanceNotice}
+                {statusLine}
+                {messageBlock}
+                {pickBlock}
+                {trail}
+              </HeroDock>
+            </HeroFrame>
+          </div>
+        )}
+        {peopleSheet}
+      </div>
+    );
+  }
+
+  return (
+    <div className="upload stack">
+      {heading}
+      {holidayChoice}
+
+      {showAttached && attachedSource ? (
+        <div
+          className="upload__preview upload__attached"
+          style={frameRatio(
+            attachedSource.width && attachedSource.height
+              ? attachedSource.width / attachedSource.height
+              : 4 / 3,
+          )}
+        >
+          {attachedNotice}
+          <ImageCard
+            ratio={
+              attachedSource.width && attachedSource.height
+                ? attachedSource.width / attachedSource.height
+                : 4 / 3
+            }
+            strip={<span>{t('result.yourPhoto')}</span>}
+          >
+            <img src={attachedSource.displayUrl ?? undefined} alt={attachedAlt} />
+          </ImageCard>
+          {attachedActions}
+        </div>
       ) : null}
 
-      {people && peopleOpen && preview ? (
-        <PeopleSheet
-          imageUrl={preview.url}
-          width={status?.width ?? preview.width}
-          height={status?.height ?? preview.height}
-          boxes={people.boxes}
-          suggestedCropBox={people.suggestedCropBox}
-          message={people.message}
-          onCrop={(box, rotation) => {
-            const next: PeopleResolutionInput = {
-              action: 'crop',
-              box,
-              ...(rotation !== 0 ? { rotation } : {}),
-            };
-            setResolution(next);
-            setPeopleOpen(false);
-            continueIfReady(scene, next);
-          }}
-          onKeep={() => {
-            const next: PeopleResolutionInput = { action: 'keep' };
-            setResolution(next);
-            setPeopleOpen(false);
-            continueIfReady(scene, next);
-          }}
-          onReplace={reset}
-          onClose={() => setPeopleOpen(false)}
-        />
+      {allowanceNotice}
+
+      {preview && !showPickers ? (
+        <div
+          className="upload__preview"
+          style={frameRatio(
+            preview.width && preview.height ? preview.width / preview.height : 4 / 3,
+          )}
+        >
+          {sceneControls}
+          <ImageCard
+            ratio={preview.width && preview.height ? preview.width / preview.height : 4 / 3}
+            strip={<span>{t('result.yourPhoto')}</span>}
+          >
+            <img src={preview.url} alt={previewAlt} />
+          </ImageCard>
+        </div>
       ) : null}
+
+      <div className="upload__status">
+        {liveRegion}
+        {statusLine}
+      </div>
+
+      {heldButton}
+      {messageBlock}
+      {readyContinue}
+      {pickBlock}
+      {peopleSheet}
     </div>
   );
 }

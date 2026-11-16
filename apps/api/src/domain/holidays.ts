@@ -6,8 +6,8 @@ import {
   windowContaining,
   type HolidayId,
   type PromotionWindow,
-} from '@holiday/core';
-import type { HolidayOccurrenceRow } from '@holiday/server/db';
+} from '@hailiday/core';
+import type { HolidayOccurrenceRow } from '@hailiday/server/db';
 import type { ApiDeps } from '../deps.js';
 
 const CACHE_MS = 30_000;

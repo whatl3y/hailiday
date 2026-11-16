@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import type { Example, HolidayId } from '@holiday/core';
+import type { Example, HolidayId } from '@hailiday/core';
 import { holidayName, sceneTypeLabel, t, tDynamic } from '../copy';
 import { useAppStore } from '../state/appStore';
 import { aiBadgeCorner } from './badgeCorner';
 import { AiPreviewBadge, ImageCard } from './ImageCard';
 import { useIsFixtureImage } from './fixture';
 
-/** Example art carries no burned-in credit, so its badge keeps the lower-right corner. */
+/** Example art is never a Street View frame, so its badge keeps the lower-right corner. */
 const EXAMPLE_CORNER = aiBadgeCorner(false);
 
 /** Examples with the current holiday (and scene type, when known) first. */

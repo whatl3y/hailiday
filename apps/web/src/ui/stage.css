@@ -1,0 +1,335 @@
+/*
+ * The picture stage: the ink ground a picture is shown on. It reaches the viewport's left and
+ * right edges from inside any column (the negative margins cancel the column's offset), and the
+ * picture is contained and centered at the largest size the screen allows, never above its
+ * natural size and never cropped.
+ *
+ * Inputs (set inline by Stage, or by the server-rendered share page):
+ *   --stage-w, --stage-h  the picture's natural size in pixels, as plain numbers.
+ *
+ * Height of the picture box (--stage-block):
+ *   .stage--viewport  from 600px wide: clamp(320px, the first viewport under the header less
+ *                     --stage-peek and the matte, the natural height), and never taller than the
+ *                     picture at the full width of the screen. The 320px floor gives way to the
+ *                     room there is on a short screen, so the peek stays visible. Under 600px: as
+ *                     tall as the picture at full width, capped at the first viewport under the
+ *                     header less --stage-peek (a tall portrait is letterboxed on the ink ground).
+ *   .stage--picture   as tall as the picture at full width (never above its natural height).
+ *
+ * From 600px the stage keeps a matte of ink (--stage-matte, 20px) under the picture, so a pale
+ * picture never melts into the paper below; under 600px the picture is full bleed, with no matte.
+ */
+
+/*
+ * The size of the stage and of its picture, from the natural size and the viewport. A
+ * `.stage-scope` element (one that sets --stage-w and --stage-h around a viewport stage) reads
+ * the same values, so the paper under a stage can line up with the picture's edges through
+ * --stage-picture-inline.
+ */
+.stage,
+.stage-scope {
+  --stage-matte: 0px;
+  --stage-avail: calc(100vh - var(--header-height) - var(--stage-peek));
+  --stage-natural-w: calc(var(--stage-w, 1) * 1px);
+  --stage-natural-h: calc(var(--stage-h, 1) * 1px);
+  --stage-full-h: calc(100vw * var(--stage-h, 1) / var(--stage-w, 1));
+  --stage-block: min(var(--stage-full-h), var(--stage-avail), var(--stage-natural-h));
+  --stage-picture-inline: min(
+    100vw,
+    var(--stage-natural-w),
+    calc(var(--stage-block) * var(--stage-w, 1) / var(--stage-h, 1))
+  );
+}
+
+@supports (height: 100svh) {
+  .stage,
+  .stage-scope {
+    --stage-avail: calc(100svh - var(--header-height) - var(--stage-peek));
+  }
+}
+
+@media (min-width: 600px) {
+  .stage,
+  .stage-scope {
+    --stage-matte: 20px;
+  }
+
+  .stage--viewport,
+  .stage-scope {
+    --stage-room: calc(var(--stage-avail) - var(--stage-matte));
+    --stage-block: clamp(
+      min(320px, var(--stage-room)),
+      min(var(--stage-room), var(--stage-full-h)),
+      var(--stage-natural-h)
+    );
+  }
+}
+
+.stage--picture {
+  --stage-block: min(var(--stage-full-h), var(--stage-natural-h));
+}
+
+.stage {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+  place-items: center;
+  box-sizing: border-box;
+  inline-size: 100vw;
+  max-inline-size: none;
+  margin-inline: calc(50% - 50vw);
+  block-size: calc(var(--stage-block) + var(--stage-matte));
+  padding-block-end: var(--stage-matte);
+  /* A quiet vignette rather than a flat slab where the ground shows beside the picture. */
+  --stage-glow: #1b1b1e;
+  background-color: var(--stage);
+  background-image: radial-gradient(120% 90% at 50% 40%, var(--stage-glow) 0%, var(--stage) 70%);
+  color: var(--on-stage);
+}
+
+/* A page that holds a stage never scrolls sideways (a classic scrollbar narrows the page). */
+.page__main:has(.stage) {
+  overflow-x: clip;
+}
+
+/* The box of the picture: the picture's own ratio at the largest size that fits the stage. */
+.stage__picture {
+  position: relative;
+  z-index: 1;
+  aspect-ratio: var(--stage-w, 1) / var(--stage-h, 1);
+  inline-size: min(100%, var(--stage-picture-inline));
+  max-inline-size: min(100%, var(--stage-natural-w));
+  max-block-size: 100%;
+}
+
+.stage__picture > img,
+.stage__image {
+  position: absolute;
+  inset: 0;
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: contain;
+  /* A frame laid out above its own pixel size is scaled with the browser's smooth filtering. */
+  image-rendering: auto;
+  image-rendering: smooth;
+  -webkit-user-drag: none;
+}
+
+/*
+ * The ambient layer: the same picture behind it, blurred and darkened, so the ground carries
+ * its colors on wide screens. Decorative only; it is never a raw Street View frame.
+ */
+.stage__ambient {
+  display: none;
+}
+
+@media (min-width: 900px) {
+  .stage__ambient {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    display: block;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  .stage__ambient img {
+    display: block;
+    inline-size: 100%;
+    block-size: 100%;
+    object-fit: cover;
+    filter: blur(48px) saturate(1.15) brightness(0.5);
+    transform: scale(1.15);
+    animation: stage-ambient-in 1200ms var(--ease-out) both;
+  }
+
+  /* The ground darkens toward the stage's edges, so the picture is the brightest thing on it. */
+  .stage__ambient::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(
+      ellipse 70% 80% at 50% 50%,
+      rgb(var(--scrim-rgb) / 0) 40%,
+      rgb(var(--scrim-rgb) / 0.55) 100%
+    );
+  }
+}
+
+@keyframes stage-ambient-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Controls in the stage's upper right corner, away from the picture's lower corners. */
+.stage__overlay {
+  position: absolute;
+  inset-block-start: var(--space-4);
+  inset-inline-end: max(var(--space-4), var(--safe-right));
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+@media (min-width: 1024px) {
+  .stage__overlay {
+    inset-block-start: var(--space-5);
+    inset-inline-end: max(var(--space-5), var(--safe-right));
+  }
+}
+
+/*
+ * Phones: nothing but the marks and the divider's handle lies on the picture. The stage's
+ * controls sit alone on the paper directly under it, at the end of their own line.
+ */
+.stage-controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  box-sizing: border-box;
+  inline-size: 100%;
+  /* As tall as the segmented switch (a 44px button in its 3px padding and 1px border), whatever
+     the row holds, so screens that share the row keep the same layout. */
+  min-block-size: calc(var(--space-2) + var(--target-comfort) + 8px);
+  padding: var(--space-2) max(var(--gutter), var(--safe-right)) 0
+    max(var(--gutter), var(--safe-left));
+}
+
+.stage-controls > * {
+  flex: none;
+  margin-inline-start: auto;
+}
+
+/* What the row holds at its start (Cancel while another look is made), the switch at its end. */
+.stage-controls > .stage-controls__start {
+  margin-inline: 0 auto;
+}
+
+/* A mark at the picture's top edge moves down below the overlay, which can rest on the picture
+   itself where the picture reaches the stage's edge. */
+.stage--overlay .stage__picture .image-card__badges {
+  inset-block-start: calc(var(--space-4) + var(--target-comfort) + var(--space-3));
+}
+
+/* Focus on a picture surface: a white ring with an ink edge. */
+.stage :focus-visible {
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  box-shadow: var(--ring);
+}
+
+/*
+ * The segmented switch on a stage: a dark glass pill with white type. The glass is dark enough
+ * that white 13px type keeps 4.5:1 even over a white picture (about 6.3:1 at worst).
+ */
+.segmented--on-stage {
+  border-color: var(--stage-line);
+  background: rgb(var(--scrim-rgb) / 0.66);
+  -webkit-backdrop-filter: blur(12px) saturate(1.2);
+  backdrop-filter: blur(12px) saturate(1.2);
+  box-shadow: 0 8px 24px -12px rgb(var(--scrim-rgb) / 0.6);
+}
+
+.segmented--on-stage button {
+  color: var(--on-stage);
+}
+
+.segmented--on-stage button:hover {
+  background: rgb(255 255 255 / 0.12);
+}
+
+.segmented--on-stage button[aria-pressed='true'] {
+  background: var(--on-stage);
+  color: var(--ink);
+}
+
+/* The same switch on paper (under the stage on phones) is the paper segmented control. */
+.stage-controls .segmented--on-stage {
+  border-color: var(--line-strong);
+  background: var(--paper-raised);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  box-shadow: none;
+}
+
+.stage-controls .segmented--on-stage button {
+  min-inline-size: var(--target-comfort);
+  color: var(--ink-soft);
+}
+
+.stage-controls .segmented--on-stage button:hover {
+  background: transparent;
+  color: var(--ink);
+}
+
+.stage-controls .segmented--on-stage button[aria-pressed='true'] {
+  background: var(--ink);
+  color: var(--accent-ink);
+}
+
+/*
+ * A slow, soft sheen across a picture that is being decorated. It stops short of the picture's
+ * lower edge, where a Street View frame carries Google's logo and copyright.
+ */
+.stage__sheen {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  overflow: hidden;
+  pointer-events: none;
+  -webkit-mask-image: linear-gradient(to bottom, #000 0, #000 86%, transparent 92%);
+  mask-image: linear-gradient(to bottom, #000 0, #000 86%, transparent 92%);
+}
+
+.stage__sheen::before {
+  content: '';
+  position: absolute;
+  inset: -20% auto -20% 0;
+  inline-size: 45%;
+  background: linear-gradient(
+    100deg,
+    rgb(255 255 255 / 0) 0%,
+    rgb(255 255 255 / 0.16) 45%,
+    rgb(255 255 255 / 0.22) 50%,
+    rgb(255 255 255 / 0.16) 55%,
+    rgb(255 255 255 / 0) 100%
+  );
+  transform: translateX(-120%) skewX(-12deg);
+  animation: stage-sheen 4.8s var(--ease-in-out) infinite;
+}
+
+@keyframes stage-sheen {
+  0% {
+    transform: translateX(-120%) skewX(-12deg);
+  }
+  70%,
+  100% {
+    transform: translateX(340%) skewX(-12deg);
+  }
+}
+
+/* What hangs from the stage's top edge while a look is being made (the light string and the
+   status card). Above the picture and its sheen, below the stage's controls. */
+.stage__top {
+  position: absolute;
+  inset: 0 0 auto 0;
+  z-index: 3;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stage__ambient img {
+    animation: none;
+  }
+
+  .stage__sheen {
+    display: none;
+  }
+}

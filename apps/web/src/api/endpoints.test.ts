@@ -1,19 +1,22 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { buildErrorBody } from '@holiday/core';
+import { buildErrorBody } from '@hailiday/core';
 import {
   SESSION_REQUEST_TIMEOUT_MS,
   createRender,
   createUpload,
   ensureSession,
   getMe,
+  getRender,
   hasSession,
+  listGallery,
+  listVariants,
   onSessionReady,
   resetSession,
   verifyMagicLink,
 } from './endpoints';
 import { isApiError, type ApiError } from './errors';
 import { inlineMessage } from './present';
-import { allowance, renderStatus } from '../test/fixtures';
+import { allowance, renderStatus, variant } from '../test/fixtures';
 
 const PROJECT = '018f0000-0000-7000-8000-aaaaaaaaaaaa';
 const ASSET = '018f0000-0000-7000-8000-bbbbbbbbbbbb';
@@ -70,7 +73,7 @@ describe('endpoints', () => {
       fileName: 'decline-kitchen.jpg',
     });
     expect(Object.keys(upload.init.headers as Record<string, string>)).not.toContain(
-      'X-Holiday-Upload-Name',
+      'X-Hailiday-Upload-Name',
     );
   });
 
@@ -210,7 +213,7 @@ describe('endpoints', () => {
       expect(failure.session).toBe(true);
       expect(failure.copyKey).toBe('session.failed');
       expect(inlineMessage(failure).message).toBe(
-        "We couldn't get Holiday ready for you. Check your connection and try again.",
+        "We couldn't get Hailiday ready for you. Check your connection and try again.",
       );
       await expect(getMe()).resolves.toBeTruthy();
       expect(calls).toEqual(['/v1/sessions', '/v1/sessions', '/v1/me']);
@@ -228,6 +231,18 @@ describe('endpoints', () => {
     });
   });
 
+  it('reads the gallery without starting a session or running the bot check', async () => {
+    resetSession();
+    const calls: string[] = [];
+    vi.spyOn(window, 'fetch').mockImplementation(async (input) => {
+      calls.push(String(input));
+      return json(200, { items: [], nextCursor: null });
+    });
+    await expect(listGallery('c1', 60)).resolves.toEqual({ items: [], nextCursor: null });
+    expect(calls).toEqual(['/v1/gallery?cursor=c1&limit=60']);
+    expect(hasSession()).toBe(false);
+  });
+
   it('tells listeners when the session exists', async () => {
     stubFetch(() => json(200, {}));
     resetSession();
@@ -238,6 +253,48 @@ describe('endpoints', () => {
     expect(hasSession()).toBe(true);
     expect(listener).toHaveBeenCalledTimes(1);
     stop();
+  });
+});
+
+describe('statuses from a newer server', () => {
+  const NEW_KEY = 'stage.somethingNew';
+
+  it('reads a render status with an unknown stage key as a status without one', async () => {
+    const status = renderStatus({ state: 'preparing' });
+    stubFetch(() => json(200, { ...status, stageLabelKey: NEW_KEY }));
+    const read = await getRender(status.renderJobId);
+    expect(read.renderJobId).toBe(status.renderJobId);
+    expect(read.stageLabelKey).toBeNull();
+  });
+
+  it('reads a variants list whose running job has an unknown stage key', async () => {
+    const running = renderStatus({ state: 'rendering' });
+    const items = [variant()];
+    stubFetch(() =>
+      json(200, { items, activeRender: { ...running, stageLabelKey: NEW_KEY }, offered: null }),
+    );
+    const list = await listVariants(PROJECT);
+    expect(list.items).toHaveLength(1);
+    expect(list.activeRender?.renderJobId).toBe(running.renderJobId);
+    expect(list.activeRender?.stageLabelKey).toBeNull();
+  });
+
+  it('reads a queued render answer with an unknown stage key', async () => {
+    const status = renderStatus();
+    stubFetch(() =>
+      json(202, { ...status, stageLabelKey: NEW_KEY, cached: false, supersededRenderJobId: null }),
+    );
+    const response = await createRender(
+      {
+        projectId: PROJECT,
+        projectVersion: 3,
+        holidayId: 'christmas',
+        style: 'classic',
+        lightingMode: 'source',
+      },
+      'key-new-stage',
+    );
+    expect(response).toMatchObject({ cached: false, stageLabelKey: null });
   });
 });
 

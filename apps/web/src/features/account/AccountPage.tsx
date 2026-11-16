@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import type { Me } from '@holiday/core';
+import type { Me } from '@hailiday/core';
 import { deleteMe, getMe, logout, resetSession } from '../../api/endpoints';
 import { presentError } from '../../api/present';
 import { t } from '../../copy';
@@ -65,19 +65,23 @@ export function AccountPage() {
         {me === null && !error ? <div className="indeterminate" aria-hidden="true" /> : null}
         {me && !me.user ? <p className="lede">{t('account.signedOut')}</p> : null}
         {me?.user ? (
-          <div className="card stack">
-            <p className="fine">{t('account.emailLabel')}</p>
+          <div className="card stack account__card">
+            <p className="eyebrow">{t('account.emailLabel')}</p>
             <p className="account__email">{me.user.email}</p>
-            <div className="row">
-              <Link to="/places" className="button button--small">
+            <div className="row account__actions">
+              <Link to="/places" className="button button--small button--quiet">
                 {t('places.title')}
               </Link>
-              <button type="button" className="button button--small" onClick={() => void signOut()}>
+              <button
+                type="button"
+                className="button button--small button--quiet"
+                onClick={() => void signOut()}
+              >
                 {t('account.signOut')}
               </button>
               <button
                 type="button"
-                className="button button--small button--quiet"
+                className="button button--small button--quiet account__delete"
                 onClick={() => setConfirming(true)}
               >
                 {t('account.delete')}
@@ -97,7 +101,11 @@ export function AccountPage() {
             >
               {t('delete.yes')}
             </button>
-            <button type="button" className="button" onClick={() => setConfirming(false)}>
+            <button
+              type="button"
+              className="button button--quiet"
+              onClick={() => setConfirming(false)}
+            >
               {t('common.cancel')}
             </button>
           </div>

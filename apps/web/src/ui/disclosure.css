@@ -1,0 +1,107 @@
+/* ---------- Disclosure rows ---------- */
+
+/*
+ * A full-width row under a hairline: the label at the left, a quiet one-line summary at the
+ * right and a chevron. The panel opens below the row.
+ */
+.disclosure {
+  border-top: 1px solid var(--line);
+}
+
+.disclosure__heading {
+  margin: 0;
+  font: inherit;
+}
+
+.disclosure__toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  width: 100%;
+  min-height: 60px;
+  padding: var(--space-3) 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* The ring is a shadow; the transparent outline is what forced-colors mode draws instead. */
+.disclosure__toggle:focus-visible {
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  border-radius: var(--radius-xs);
+  box-shadow: var(--ring);
+}
+
+.disclosure__label {
+  flex: none;
+  font-size: var(--text-m);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-item);
+  line-height: var(--leading-snug);
+}
+
+.disclosure__summary {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--text-s);
+  font-weight: var(--weight-regular);
+  color: var(--ink-muted);
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color var(--dur-hover) var(--ease-out);
+}
+
+.disclosure__toggle:hover .disclosure__summary {
+  color: var(--ink-soft);
+}
+
+.disclosure__chevron {
+  width: 16px;
+  height: 16px;
+  margin-left: auto;
+  color: var(--ink-muted);
+  transition:
+    transform var(--dur-hover) var(--ease-out),
+    color var(--dur-hover) var(--ease-out);
+}
+
+.disclosure__summary + .disclosure__chevron {
+  margin-left: 0;
+}
+
+.disclosure__toggle:hover .disclosure__chevron {
+  color: var(--ink);
+}
+
+.disclosure[data-open] .disclosure__chevron {
+  transform: rotate(180deg);
+}
+
+.disclosure__panel {
+  padding: var(--space-4) 0 var(--space-5);
+}
+
+/*
+ * On narrow screens the summary gets the room the gaps would take, and a summary still too long
+ * for its line wraps after a separator instead of being cut: its parts keep no-break spaces.
+ */
+@media (max-width: 419px) {
+  .disclosure__toggle {
+    gap: var(--space-2);
+  }
+
+  .disclosure__summary {
+    white-space: normal;
+  }
+}
+
+.disclosure__panel[hidden] {
+  display: none;
+}

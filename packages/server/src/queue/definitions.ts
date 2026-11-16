@@ -100,6 +100,14 @@ export interface QueueDefinition {
   schedule?: string;
 }
 
+/**
+ * How long the `render` queue keeps a job past the render job's time limit before it expires it
+ * (seconds). The pipeline's own deadline, set at the limit from the job's start, therefore always
+ * fires first, and the fallbacks that run on it (delivering a picture the job already has) finish
+ * before the queue aborts the handler.
+ */
+export const RENDER_QUEUE_EXPIRY_MARGIN_S = 30;
+
 /** Queue definitions with values from configuration (architecture "Jobs and queue"). */
 export function queueDefinitions(config: AppConfig): Record<QueueName, QueueDefinition> {
   const q = config.queue;
@@ -130,7 +138,7 @@ export function queueDefinitions(config: AppConfig): Record<QueueName, QueueDefi
     render: {
       name: 'render',
       policy: 'exclusive',
-      expireInSeconds: q.renderMaxJobDurationSeconds,
+      expireInSeconds: q.renderMaxJobDurationSeconds + RENDER_QUEUE_EXPIRY_MARGIN_S,
       retryLimit: q.renderTransportRetryLimit,
       retryDelay: q.renderRetryDelaySeconds,
       retryBackoff: true,
@@ -166,7 +174,8 @@ export function queueDefinitions(config: AppConfig): Record<QueueName, QueueDefi
     attempt_sweep: scheduled('attempt_sweep', '5 * * * *'),
     coordinate_expiry: scheduled('coordinate_expiry', '20 3 * * *'),
     reconciliation: scheduled('reconciliation', '*/10 * * * *'),
-    street_view_revalidation: scheduled('street_view_revalidation', '35 * * * *'),
+    // Expires after 55 minutes: above the run's 50-minute batch budget, below the hourly interval.
+    street_view_revalidation: scheduled('street_view_revalidation', '35 * * * *', 3300),
     offer_verification: scheduled('offer_verification', '40 4 * * *'),
     affiliate_report_import: scheduled('affiliate_report_import', '50 5 * * *', 1800),
     coverage_probe: {

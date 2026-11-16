@@ -33,6 +33,21 @@ export {
   verifyFixtureDisplayQuery,
 } from './street-view/fixture.js';
 export {
+  ViewpointFramingSchema,
+  directionOf,
+  frameView,
+  framedViewOf,
+  framingOf,
+  normalizeHeading,
+  pointOf,
+  viewpointFramed,
+  type FrameGeometry,
+  type FramePoint,
+  type FramedView,
+  type FramingParams,
+  type ViewDirection,
+} from './street-view/framing.js';
+export {
   STREET_VIEW_STATIC_URL,
   buildStaticUrl,
   createGoogleStreetViewProvider,
@@ -52,10 +67,12 @@ export * from './vision/prompts.js';
 export {
   LOCALIZE_MAX_ITEMS,
   LocalizeModelOutputSchema,
+  LocateModelOutputSchema,
   clampBoxes,
   imageMediaType,
   toJudgeResult,
   toLocalizeResult,
+  toLocateResult,
   toSceneAnalysis,
 } from './vision/records.js';
 export { createFixtureImageEditor, requestedSize } from './image-editor/fixture.js';

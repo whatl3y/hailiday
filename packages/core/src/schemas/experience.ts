@@ -34,10 +34,16 @@ export const ExperienceQuerySchema = z.strictObject({
 });
 export type ExperienceQuery = z.infer<typeof ExperienceQuerySchema>;
 
-/** Offered styles and lighting modes for one scene type. */
+/**
+ * Offered styles and lighting modes for one scene type of a project, with the look a project
+ * starts from. The defaults are computed after the server's filters: a default lighting mode the
+ * filters removed falls back to `source`.
+ */
 export const OfferedSetSchema = z.strictObject({
   styles: z.array(StyleSchema),
+  defaultStyle: StyleSchema,
   lightingModes: z.array(LightingModeSchema),
+  defaultLightingMode: LightingModeSchema,
 });
 export type OfferedSet = z.infer<typeof OfferedSetSchema>;
 
@@ -125,6 +131,11 @@ export const ClientConfigSchema = z.strictObject({
   uploadAcceptedTypes: z.array(z.string()),
   pollRenderMs: z.int().positive(),
   pollUploadMs: z.int().positive(),
+  /**
+   * Whether projects, sources and renderings are deleted by age and inactivity (runtime setting
+   * `retention.time_based_deletion`). While false, the client makes no promise of deletion.
+   */
+  retention: z.strictObject({ timeBasedDeletion: z.boolean() }),
 });
 export type ClientConfig = z.infer<typeof ClientConfigSchema>;
 

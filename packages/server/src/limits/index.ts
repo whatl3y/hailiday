@@ -1,6 +1,6 @@
 import { sql } from 'kysely';
-import { LEDGER_SKU_CEILING_KEYS, NON_TERMINAL_RENDER_JOB_STATES } from '@holiday/core';
-import type { LedgerSku, RateLimitScope, SpendCeilingKey } from '@holiday/core';
+import { LEDGER_SKU_CEILING_KEYS, NON_TERMINAL_RENDER_JOB_STATES } from '@hailiday/core';
+import type { LedgerSku, RateLimitScope, SpendCeilingKey } from '@hailiday/core';
 import { HOUR_MS, MINUTE_MS, startOfNextUtcDay, startOfNextUtcMonth } from '../clock/index.js';
 import { startOfUtcDay, startOfUtcMonth } from '../clock/index.js';
 import type { DbOrTx, Tx } from '../db/client.js';
@@ -216,7 +216,9 @@ export function isUnsentAttempt(attempt: AttemptSendRecord): boolean {
  * including deleted ones through their residue. An attempt that was never sent does not count:
  * it ended `canceled` or `timeout` with no provider operation, no send time and no ledger entry,
  * so the provider never saw it and nothing was charged. `projected` adds attempts about to be
- * reserved (2 at `POST /v1/renders`, 1 before a repair). Pass `limit` to skip the settings read.
+ * made: at `POST /v1/renders` two for every job (`STANDARD_RENDER_ATTEMPTS`: the first attempt and
+ * its repair or relight), and 1 before each further attempt in the worker, which is how a relit
+ * look's third attempt is checked. Pass `limit` to skip the settings read.
  */
 export async function attemptQuota(
   db: DbOrTx,
@@ -422,24 +424,89 @@ export async function checkSpend(
 }
 
 /**
- * Counts Static display URLs against the per-address display budget atomically. Throws
+ * How long a property's display budget window lasts: the budget counts the display URLs issued
+ * since the window opened, and the first URL issued 24 hours or more after it opens a new one.
+ */
+export const DISPLAY_LOAD_WINDOW_MS = ROLLING_WINDOW_MS;
+
+/** Whether a display budget window that opened at `startedAt` still counts at `now`. */
+function displayWindowOpen(startedAt: Date | null, now: Date): boolean {
+  return startedAt !== null && now.getTime() - startedAt.getTime() < DISPLAY_LOAD_WINDOW_MS;
+}
+
+/**
+ * The display URLs a property may still issue at `now`: the limit less the count of its open
+ * window (a window that opened 24 hours ago or more counts nothing). Read sites that report
+ * `remainingDisplayLoads` use this rather than the stored count alone.
+ */
+export function displayLoadsRemaining(
+  property: { displayLoadsIssued: number; displayLoadsWindowStartedAt: Date | null } | null,
+  limit: number,
+  now: Date,
+): number {
+  if (!property || !displayWindowOpen(property.displayLoadsWindowStartedAt, now)) {
+    return Math.max(0, limit);
+  }
+  return Math.max(0, limit - property.displayLoadsIssued);
+}
+
+/**
+ * Counts Static display URLs against the per-address display budget atomically: within the
+ * property's open 24-hour window the count grows; when the window opened 24 hours ago or more (or
+ * none is open) a new window opens at `now` with this issue as its first count. Throws
  * `RATE_LIMITED` (`scope: viewpoints`, no `Retry-After`) when the budget cannot cover `count`.
- * Returns the loads remaining after this issue.
+ * Returns the loads remaining in the window after this issue.
  */
 export async function consumeDisplayLoads(
   db: DbOrTx,
-  input: { propertyId: string; limit: number; count?: number },
+  input: { propertyId: string; limit: number; count?: number; now?: Date },
 ): Promise<number> {
   const count = input.count ?? 1;
+  const now = input.now ?? new Date();
+  const expired = sql<boolean>`(display_loads_window_started_at is null
+    or display_loads_window_started_at <= ${new Date(now.getTime() - DISPLAY_LOAD_WINDOW_MS)})`;
+  const issued = sql<number>`(case when ${expired} then 0 else display_loads_issued end) + ${count}`;
   const row = await db
     .updateTable('properties')
-    .set({ displayLoadsIssued: sql<number>`display_loads_issued + ${count}` })
+    .set({
+      displayLoadsIssued: issued,
+      displayLoadsWindowStartedAt: sql<Date>`case when ${expired} then ${now}::timestamptz
+        else display_loads_window_started_at end`,
+    })
     .where('id', '=', input.propertyId)
-    .where(sql<boolean>`display_loads_issued + ${count} <= ${input.limit}`)
+    .where(sql<boolean>`${issued} <= ${input.limit}`)
     .returning('displayLoadsIssued')
     .executeTakeFirst();
   if (!row) throw rateLimited('viewpoints', null);
   return Math.max(0, input.limit - row.displayLoadsIssued);
+}
+
+/**
+ * Clears a property's display count when its window opened 24 hours ago or more, so readers of
+ * the stored count see the fresh budget before the next display URL is issued. Returns whether
+ * anything changed.
+ */
+export async function resetExpiredDisplayLoads(
+  db: DbOrTx,
+  input: { propertyId: string; now: Date },
+): Promise<boolean> {
+  const result = await db
+    .updateTable('properties')
+    .set({ displayLoadsIssued: 0, displayLoadsWindowStartedAt: null })
+    .where('id', '=', input.propertyId)
+    .where('displayLoadsIssued', '>', 0)
+    .where((eb) =>
+      eb.or([
+        eb('displayLoadsWindowStartedAt', 'is', null),
+        eb(
+          'displayLoadsWindowStartedAt',
+          '<=',
+          new Date(input.now.getTime() - DISPLAY_LOAD_WINDOW_MS),
+        ),
+      ]),
+    )
+    .executeTakeFirst();
+  return Number(result.numUpdatedRows) > 0;
 }
 
 /**

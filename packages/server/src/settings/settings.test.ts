@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SPEND_CEILING_KEYS, runtimeSettingSchemaFor } from '@holiday/core';
+import { SPEND_CEILING_KEYS, runtimeSettingSchemaFor } from '@hailiday/core';
 import { parseConfig, testConfig } from '../config/index.js';
 import {
   DEFAULT_SKU_DAILY_CEILINGS_MICROS,
@@ -10,14 +10,14 @@ import {
 
 const STAGING = {
   APP_ENV: 'staging',
-  DATABASE_URL: 'postgres://u:p@db/holiday',
+  DATABASE_URL: 'postgres://u:p@db/hailiday',
   SESSION_SECRET: 'staging-secret-value-that-is-long-enough-123',
-  PUBLIC_BASE_URL: 'https://staging.holiday.example',
+  PUBLIC_BASE_URL: 'https://staging.hailiday.example',
   S3_ENDPOINT: 'https://s3.example',
   S3_ACCESS_KEY_ID: 'id',
   S3_SECRET_ACCESS_KEY: 'secret-value',
-  S3_PRIVATE_BUCKET: 'holiday-staging-private',
-  S3_PUBLIC_BUCKET: 'holiday-staging-public',
+  S3_PRIVATE_BUCKET: 'hailiday-staging-private',
+  S3_PUBLIC_BUCKET: 'hailiday-staging-public',
   SMTP_URL: 'smtp://mail.example:587',
   EMAIL_PROVIDER: 'smtp',
   TURNSTILE_MODE: 'live',
@@ -57,6 +57,7 @@ describe('runtime setting defaults', () => {
       'sse.heartbeat_s',
       'poll.render_ms',
       'poll.upload_ms',
+      'retention.time_based_deletion',
       ...SPEND_CEILING_KEYS.map((sku) => `spend.sku_daily_micros.${sku}`),
       'pause.provider.openai',
       'admission.provider_concurrency.openai',
@@ -71,8 +72,34 @@ describe('runtime setting defaults', () => {
     expect(defaults['spend.daily_micros']).toBe(700_000_000);
     expect(defaults['spend.monthly_micros']).toBe(15_000_000_000);
     expect(DEFAULT_SKU_DAILY_CEILINGS_MICROS.image_edit_attempt).toBe(481_000_000);
+    // 7,000 vision calls at the $0.04 list price: $280.
+    expect(DEFAULT_SKU_DAILY_CEILINGS_MICROS.vision_call).toBe(280_000_000);
+    expect(defaults['spend.sku_daily_micros.vision_call']).toBe(280_000_000);
     expect(defaults['admission.max_queue_depth']).toBe(36);
     expect(defaults['admission.max_wait_s']).toBe(240);
+  });
+
+  it('keeps everything by default and restores time-based deletion from the environment', () => {
+    for (const config of [testConfig(), parseConfig({}), parseConfig(STAGING)]) {
+      expect(settingDefaults(config)['retention.time_based_deletion']).toBe(false);
+    }
+    expect(settingEnvName('retention.time_based_deletion')).toBe('RETENTION_TIME_BASED_DELETION');
+    const restored = settingDefaults({
+      ...testConfig(),
+      settingOverrides: { RETENTION_TIME_BASED_DELETION: 'true' },
+    });
+    expect(restored['retention.time_based_deletion']).toBe(true);
+    expect(
+      settingDefaults(testConfig({ RETENTION_TIME_BASED_DELETION: 'true' }))[
+        'retention.time_based_deletion'
+      ],
+    ).toBe(true);
+    expect(() =>
+      settingDefaults({
+        ...testConfig(),
+        settingOverrides: { RETENTION_TIME_BASED_DELETION: 'sometimes' },
+      }),
+    ).toThrow();
   });
 
   it('delivers without review locally and reviews before delivery elsewhere', () => {

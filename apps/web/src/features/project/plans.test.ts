@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { RenderStatus } from '@holiday/core';
-import { noStreetViewReasonKey, renderErrorPlan } from './plans';
+import type { RenderStatus } from '@hailiday/core';
+import { isRelitLook, noStreetViewReasonKey, renderErrorPlan, secondPassMayCure } from './plans';
 
 function terminal(overrides: Partial<RenderStatus>): RenderStatus {
   return {
@@ -22,11 +22,18 @@ describe('no Street View reasons', () => {
 });
 
 describe('render error plans', () => {
-  it('offers retry for provider failures', () => {
-    expect(renderErrorPlan(terminal({ failureKind: 'timeout' }), true)).toEqual({
-      messageKey: 'error.PROVIDER_UNAVAILABLE',
+  it('says calmly that a look could not be finished and offers it again', () => {
+    const unfinished = {
+      messageKey: 'result.lookUnfinished',
       actions: ['try_again', 'another_photo'],
-    });
+    };
+    expect(renderErrorPlan(terminal({ failureKind: 'timeout' }), true)).toEqual(unfinished);
+    expect(renderErrorPlan(terminal({ failureKind: 'provider_error' }), false)).toEqual(unfinished);
+    expect(renderErrorPlan(terminal({ failureKind: null }), true)).toEqual(unfinished);
+    expect(
+      renderErrorPlan(terminal({ state: 'rejected', rejectionReason: 'qa_critical' }), true),
+    ).toEqual(unfinished);
+    expect(renderErrorPlan(terminal({ state: 'expired' }), true)).toEqual(unfinished);
   });
 
   it('never offers retry for nothing to decorate, and offers views only for Street View', () => {
@@ -41,7 +48,7 @@ describe('render error plans', () => {
     expect(renderErrorPlan(failure, false).actions).toEqual(['another_photo']);
   });
 
-  it('handles owner-blurred, wrong house and refusals', () => {
+  it('handles owner-blurred, wrong house, a street photo without a clear view and refusals', () => {
     expect(
       renderErrorPlan(
         terminal({ failureKind: 'source_rejected', failureDetail: 'owner_blurred' }),
@@ -54,15 +61,63 @@ describe('render error plans', () => {
         true,
       ).messageKey,
     ).toBe('wait.wrongHouse');
+    expect(
+      renderErrorPlan(
+        terminal({ failureKind: 'source_rejected', failureDetail: 'facade_not_in_frame' }),
+        true,
+      ),
+    ).toEqual({ messageKey: 'wait.noClearView', actions: ['another_view', 'another_photo'] });
+    expect(
+      renderErrorPlan(
+        terminal({ failureKind: 'source_rejected', failureDetail: 'facade_not_in_frame' }),
+        false,
+      ),
+    ).toEqual({ messageKey: 'wait.nothingToDecorate', actions: ['another_photo'] });
     expect(renderErrorPlan(terminal({ failureKind: 'moderation_blocked' }), false)).toEqual({
       messageKey: 'wait.policyDeclined',
       actions: ['another_photo'],
     });
   });
 
-  it('offers "Show it as photographed" after a rejected evening look', () => {
+  it('takes a second pass only where a second try may cure the reason', () => {
+    expect(secondPassMayCure(terminal({ state: 'rejected', rejectionReason: 'qa_critical' }))).toBe(
+      true,
+    );
     expect(
-      renderErrorPlan(terminal({ state: 'rejected', lightingMode: 'evening' }), true).actions,
-    ).toEqual(['try_again', 'another_photo', 'show_as_photographed']);
+      secondPassMayCure(terminal({ state: 'rejected', rejectionReason: 'qa_uncertain' })),
+    ).toBe(true);
+    for (const failureKind of [
+      'provider_error',
+      'timeout',
+      'unknown_outcome',
+      'internal_error',
+    ] as const) {
+      expect(secondPassMayCure(terminal({ failureKind })), failureKind).toBe(true);
+    }
+    for (const failureKind of [
+      'source_rejected',
+      'source_unavailable',
+      'moderation_blocked',
+      'policy_denied',
+    ] as const) {
+      expect(secondPassMayCure(terminal({ failureKind })), failureKind).toBe(false);
+    }
+    expect(secondPassMayCure(terminal({ state: 'expired' }))).toBe(false);
+    expect(secondPassMayCure(terminal({ state: 'canceled' }))).toBe(false);
+  });
+
+  it('knows which looks set their light in a second pass', () => {
+    expect(isRelitLook({ lightingMode: 'evening' })).toBe(true);
+    expect(isRelitLook({ lightingMode: 'bright' })).toBe(true);
+    expect(isRelitLook({ lightingMode: 'source' })).toBe(false);
+  });
+
+  it('offers no "Show it as photographed" after any look', () => {
+    for (const lightingMode of ['evening', 'bright', 'source'] as const) {
+      expect(renderErrorPlan(terminal({ state: 'rejected', lightingMode }), true).actions).toEqual([
+        'try_again',
+        'another_photo',
+      ]);
+    }
   });
 });

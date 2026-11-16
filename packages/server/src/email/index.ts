@@ -46,7 +46,7 @@ function maskAddress(address: string): string {
 }
 
 function messageId(config: AppConfig): string {
-  const host = new URL(config.publicBaseUrl).hostname || 'holiday.local';
+  const host = new URL(config.publicBaseUrl).hostname || 'hailiday.local';
   return `<${randomToken(12)}@${host}>`;
 }
 
@@ -125,7 +125,7 @@ export function createSmtpEmailSender(
         text: message.text,
         html: message.html,
         messageId: messageId(config),
-        headers: message.tag ? { 'X-Holiday-Tag': message.tag } : undefined,
+        headers: message.tag ? { 'X-Hailiday-Tag': message.tag } : undefined,
       });
       options.logger?.info(
         { recipient: maskAddress(message.to), tag: message.tag ?? null },

@@ -14,7 +14,7 @@ async function main(): Promise<void> {
   const db = createDb({
     connectionString: config.database.url,
     max: 2,
-    applicationName: 'holiday-seed',
+    applicationName: 'hailiday-seed',
     logger,
   });
   try {

@@ -1,4 +1,4 @@
-import { isTerminalRenderJobState } from '@holiday/core';
+import { isTerminalRenderJobState } from '@hailiday/core';
 import type { Clock } from '../../clock/index.js';
 import type { AppConfig } from '../../config/index.js';
 import type { DbOrTx } from '../../db/client.js';

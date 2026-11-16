@@ -1,5 +1,5 @@
 import { useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent } from 'react';
-import { straightenScale, type NormalizedBox } from '@holiday/core';
+import { straightenScale, type NormalizedBox } from '@hailiday/core';
 import { t } from '../../copy';
 import { CLIENT_DEFAULTS } from '../../config/values';
 import { Sheet } from '../../ui/Sheet';
@@ -78,13 +78,18 @@ function CropTool({
       style={{ aspectRatio: String(ratio), '--ratio': String(ratio) } as CSSProperties}
       ref={frameRef}
     >
-      <img
-        src={imageUrl}
-        alt=""
-        className="crop__image"
-        draggable={false}
-        style={rotation === 0 ? undefined : { transform: `rotate(${rotation}deg) scale(${scale})` }}
-      />
+      <div className="crop__clip">
+        <img
+          src={imageUrl}
+          alt=""
+          className="crop__image"
+          draggable={false}
+          style={
+            rotation === 0 ? undefined : { transform: `rotate(${rotation}deg) scale(${scale})` }
+          }
+        />
+        <div className="crop__shade" style={boxStyle(box)} aria-hidden="true" />
+      </div>
       <div
         className="crop__frame"
         style={boxStyle(box)}
@@ -197,7 +202,7 @@ export function PeopleSheet({
               {message}
             </p>
           ) : null}
-          <div className="row">
+          <div className="row people__actions">
             <button
               type="button"
               className="button button--primary"
@@ -236,7 +241,7 @@ export function PeopleSheet({
               {message}
             </p>
           ) : null}
-          <div className="row">
+          <div className="row people__actions">
             <button
               type="button"
               className="button button--primary"
@@ -244,7 +249,7 @@ export function PeopleSheet({
             >
               {t('upload.cropOut')}
             </button>
-            <button type="button" className="button" onClick={onKeep}>
+            <button type="button" className="button button--quiet" onClick={onKeep}>
               {t('upload.keepAsIs')}
             </button>
             <button type="button" className="button button--quiet" onClick={onReplace}>

@@ -1,4 +1,4 @@
-import type { AnchorCategory, NormalizedBox, PlacementRule } from '@holiday/core';
+import type { AnchorCategory, NormalizedBox, PlacementRule } from '@hailiday/core';
 
 /** A planned placement as the compositor needs it (a subset of `DecorationPlan.placements`). */
 export interface FixturePlacement {

@@ -6,8 +6,8 @@ import {
   type CaptureGranularity,
   type Discovery,
   type HeadingMode,
-} from '@holiday/core';
-import { addMs } from '@holiday/server/clock';
+} from '@hailiday/core';
+import { addMs } from '@hailiday/server/clock';
 import {
   toJson,
   type Project,
@@ -15,15 +15,27 @@ import {
   type Row,
   type SourceAsset,
   type Tx,
-} from '@holiday/server/db';
-import { AppError } from '@holiday/server/errors';
-import { newId } from '@holiday/server/ids';
-import { createAssetPolicy, defaultPolicyTemplate } from '@holiday/server/policy';
-import type { StreetViewProvider, ViewCandidate } from '@holiday/server/providers';
+} from '@hailiday/server/db';
+import { AppError } from '@hailiday/server/errors';
+import { newId } from '@hailiday/server/ids';
+import { displayLoadsRemaining } from '@hailiday/server/limits';
+import {
+  createAssetPolicy,
+  recordPermissionEvaluation,
+  streetViewSourceMode,
+} from '@hailiday/server/policy';
+import type { StreetViewProvider, ViewCandidate } from '@hailiday/server/providers';
 import type { ApiDeps } from '../deps.js';
 import type { AuthState } from '../auth/session.js';
 import { discoveredCandidates, projectExpiry } from './projects.js';
-import { streetViewProviderFor, viewOf } from './sources.js';
+import {
+  evaluateFor,
+  refreshStreetViewPolicyOf,
+  streetViewPolicyTemplate,
+  streetViewProviderFor,
+  viewOf,
+  type StreetViewCapabilityStates,
+} from './sources.js';
 
 /** One candidate as stored on `source_discoveries.candidates` (never sent as is). */
 export interface StoredCandidate {
@@ -127,7 +139,7 @@ export async function discoveryDto(
   deps: ApiDeps,
   auth: AuthState,
   row: Row<'sourceDiscoveries'>,
-  property: Pick<Property, 'displayLoadsIssued'> | null,
+  property: Pick<Property, 'displayLoadsIssued' | 'displayLoadsWindowStartedAt'> | null,
 ): Promise<Discovery> {
   const provider = await streetViewProviderFor(deps, auth.audience);
   const limit = await deps.settings.get('rate.static_display_loads_per_address');
@@ -157,11 +169,65 @@ export async function discoveryDto(
     sourceMode: row.sourceMode,
     thresholdsVersion: row.thresholdsVersion,
     sourceAssetId: boundSourceAssetId,
-    remainingDisplayLoads: Math.max(0, limit - (property?.displayLoadsIssued ?? 0)),
+    remainingDisplayLoads: displayLoadsRemaining(property, limit, deps.clock.now()),
     candidates,
     attribution: candidates.length > 0 ? { logo: 'google_maps', required: true } : null,
     nextAction,
   };
+}
+
+/**
+ * Re-derives the source mode of a stored discovery from its asset policy, brought up to the
+ * current Street View template first, so a discovery recorded under an earlier template (or use
+ * policy) offers what the current one allows. The match class is kept; a re-derived mode is
+ * stored on the row and the evaluation recorded. A skip, an `unavailable` discovery and a mode
+ * that would become `unavailable` are left as stored.
+ */
+export async function refreshDiscoveryMode(
+  deps: ApiDeps,
+  auth: AuthState,
+  row: Row<'sourceDiscoveries'>,
+): Promise<Row<'sourceDiscoveries'>> {
+  if (row.matchClass === 'skip_to_upload' || row.sourceMode === 'unavailable') return row;
+  const stored = asStoredCandidates(discoveredCandidates(row.candidates));
+  const primary = stored.find((candidate) => candidate.isPrimary) ?? stored[0];
+  if (!primary) return row;
+  const policy = await deps.db
+    .selectFrom('assetPolicies')
+    .select('id')
+    .where('subjectKind', '=', 'source_asset')
+    .where('subjectId', '=', row.id)
+    .orderBy('createdAt', 'desc')
+    .executeTakeFirst();
+  if (!policy) return row;
+  await refreshStreetViewPolicyOf(deps, deps.db, policy.id);
+  const evaluated = await evaluateFor(deps, {
+    policyId: policy.id,
+    kind: 'street_view',
+    isGoogleImagery: primary.isGoogleImagery,
+    copyright: primary.copyright,
+    audience: auth.audience,
+  });
+  const sourceMode = streetViewSourceMode(evaluated.permission);
+  if (sourceMode === row.sourceMode || sourceMode === 'unavailable') return row;
+  await recordPermissionEvaluation(
+    deps.db,
+    {
+      assetPolicyId: policy.id,
+      sourceAssetId: null,
+      context: 'discovery',
+      result: evaluated.permission,
+      capabilityState: evaluated.capabilityState,
+      evaluatedAt: deps.clock.now(),
+    },
+    deps.clock,
+  );
+  return deps.db
+    .updateTable('sourceDiscoveries')
+    .set({ sourceMode })
+    .where('id', '=', row.id)
+    .returningAll()
+    .executeTakeFirstOrThrow();
 }
 
 function viewpointMatches(source: SourceAsset, candidate: StoredCandidate): boolean {
@@ -180,12 +246,17 @@ function viewpointMatches(source: SourceAsset, candidate: StoredCandidate): bool
 
 /**
  * Binds a Street View candidate as the project's active source inside a transaction: an existing
- * source asset with the same frozen view is reused; otherwise a `ready` `street_view` asset is
- * created with its own asset policy. The project version is incremented by compare-and-set
- * (`STALE_PROJECT_VERSION` when it moved). Returns the source and the updated project.
+ * source asset with the same frozen view is reused (its template-derived policy brought up to the
+ * current template, and its mode set from its own policy evaluated for `audience`, so a source an
+ * operator denied stays display-only; `NO_STREET_VIEW` when that policy no longer allows display);
+ * otherwise a `ready` `street_view` asset is created in `streetViewMode` with its own asset policy
+ * from the current template. The project version is incremented by compare-and-set
+ * (`STALE_PROJECT_VERSION` when it moved). Every read goes through `trx` (the capability states
+ * come in as `capabilities`), so concurrent binds never wait on the pool while holding a
+ * connection. Returns the source and the updated project.
  */
 export async function bindCandidate(
-  deps: Pick<ApiDeps, 'clock'>,
+  deps: Pick<ApiDeps, 'capabilities' | 'clock' | 'config' | 'db'>,
   trx: Tx,
   input: {
     project: Project;
@@ -193,6 +264,9 @@ export async function bindCandidate(
     candidate: StoredCandidate;
     streetViewMode: SourceAsset['streetViewMode'];
     attachedFacade: boolean;
+    audience: AuthState['audience'];
+    /** The Street View capability states, read before the transaction. */
+    capabilities: StreetViewCapabilityStates;
   },
 ): Promise<{ source: SourceAsset; project: Project; created: boolean }> {
   const now = deps.clock.now();
@@ -213,7 +287,7 @@ export async function bindCandidate(
     const policy = await createAssetPolicy(trx, {
       subjectKind: 'source_asset',
       subjectId: sourceId,
-      template: defaultPolicyTemplate('street_view', { attributionText: 'Google Maps' }),
+      template: streetViewPolicyTemplate(deps),
     });
     source = await trx
       .insertInto('sourceAssets')
@@ -251,13 +325,27 @@ export async function bindCandidate(
       })
       .returningAll()
       .executeTakeFirstOrThrow();
-  } else if (source.streetViewMode !== input.streetViewMode) {
-    source = await trx
-      .updateTable('sourceAssets')
-      .set({ streetViewMode: input.streetViewMode })
-      .where('id', '=', source.id)
-      .returningAll()
-      .executeTakeFirstOrThrow();
+  } else {
+    const policy = await refreshStreetViewPolicyOf(deps, trx, source.assetPolicyId);
+    const own = await evaluateFor(deps, {
+      policyId: null,
+      policy,
+      kind: 'street_view',
+      isGoogleImagery: source.isGoogleImagery,
+      copyright: source.copyright,
+      audience: input.audience,
+      streetViewCapabilities: input.capabilities,
+    });
+    const mode = streetViewSourceMode(own.permission);
+    if (mode === 'unavailable') throw new AppError('NO_STREET_VIEW', {});
+    if (source.streetViewMode !== mode) {
+      source = await trx
+        .updateTable('sourceAssets')
+        .set({ streetViewMode: mode })
+        .where('id', '=', source.id)
+        .returningAll()
+        .executeTakeFirstOrThrow();
+    }
   }
   if (project.activeSourceAssetId === source.id) {
     return { source, project, created: false };

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import type { GeocodeCandidate, Project } from '@holiday/core';
+import type { GeocodeCandidate, Project } from '@hailiday/core';
 import { resolveAddress } from '../../api/endpoints';
 import { presentError } from '../../api/present';
 import type { CopyKey } from '../../copy';

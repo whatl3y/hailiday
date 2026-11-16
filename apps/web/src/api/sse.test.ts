@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { RenderStatus } from '@holiday/core';
+import type { RenderStatus } from '@hailiday/core';
 import { apiError } from '../test/fixtures';
 import { subscribeToRender } from './sse';
 
@@ -96,6 +96,38 @@ describe('subscribeToRender', () => {
     expect(onStatus.mock.calls.map(([value]) => (value as RenderStatus).seq)).toEqual([3, 5]);
     expect(source.closed).toBe(true);
     expect(subscription.mode).toBe('closed');
+  });
+
+  it('delivers an event with a stage key this build does not know, with that key cleared', () => {
+    const onStatus = vi.fn();
+    subscribeToRender(
+      JOB,
+      { onStatus },
+      {
+        eventSource: FakeEventSource as unknown as typeof EventSource,
+        fetchStatus: vi.fn(),
+      },
+    );
+    const source = FakeEventSource.instances[0]!;
+    source.emit('render', { ...status(2, 'preparing'), stageLabelKey: 'stage.somethingNew' });
+    expect(onStatus).toHaveBeenCalledTimes(1);
+    expect(onStatus.mock.calls[0]![0]).toMatchObject({ seq: 2, stageLabelKey: null });
+  });
+
+  it('delivers the framing stage with its key, which this page shows', () => {
+    const onStatus = vi.fn();
+    subscribeToRender(
+      JOB,
+      { onStatus },
+      {
+        eventSource: FakeEventSource as unknown as typeof EventSource,
+        fetchStatus: vi.fn(),
+      },
+    );
+    const source = FakeEventSource.instances[0]!;
+    source.emit('render', { ...status(2, 'preparing'), stageLabelKey: 'stage.framing' });
+    expect(onStatus).toHaveBeenCalledTimes(1);
+    expect(onStatus.mock.calls[0]![0]).toMatchObject({ seq: 2, stageLabelKey: 'stage.framing' });
   });
 
   it('falls back to polling after two failed reconnects and backs off after a minute', async () => {

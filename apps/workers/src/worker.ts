@@ -1,18 +1,18 @@
-import { createServerContext, type ServerContext } from '@holiday/server';
-import type { AppConfig } from '@holiday/server/config';
-import { loadContent, type Content } from '@holiday/server/content';
-import type { Logger } from '@holiday/server/logger';
+import { createServerContext, type ServerContext } from '@hailiday/server';
+import type { AppConfig } from '@hailiday/server/config';
+import { loadContent, type Content } from '@hailiday/server/content';
+import type { Logger } from '@hailiday/server/logger';
 import {
   registerConsumers,
   type PipelineDeps,
   type PipelineOptions,
-} from '@holiday/server/pipeline';
+} from '@hailiday/server/pipeline';
 import {
   createProviders,
   summarizeProviders,
   type ProviderDependencies,
-} from '@holiday/server/providers';
-import type { QueueName } from '@holiday/server/queue';
+} from '@hailiday/server/providers';
+import type { QueueName } from '@hailiday/server/queue';
 
 export interface WorkerOptions {
   config?: AppConfig;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { HOLIDAY_IDS } from '@holiday/core';
+import { HOLIDAY_IDS, SCENE_TYPES, packOfferFor } from '@hailiday/core';
 import { heroRenditionSizes, loadContent, occurrenceYears, readPackByRef } from './index.js';
 
 describe('loadContent', () => {
@@ -20,6 +20,60 @@ describe('loadContent', () => {
     for (const { kit } of content.kits) {
       for (const item of kit.items)
         expect(item.specAttributes.colorFamily.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('offers abundant first everywhere, evening first outdoors and only the bright look inside', async () => {
+    const content = await loadContent();
+    const offers: Record<string, unknown> = {};
+    for (const pack of content.packs) {
+      expect(pack.version).toBe('2.0.0');
+      for (const sceneType of SCENE_TYPES) {
+        const offer = packOfferFor(pack.pack, sceneType);
+        if (offer) offers[`${pack.holidayId}.${sceneType}`] = offer;
+      }
+    }
+    const styles = ['subtle', 'classic', 'abundant'];
+    const outdoors = {
+      styles,
+      defaultStyle: 'abundant',
+      lightingModes: ['source', 'evening'],
+      defaultLightingMode: 'evening',
+    };
+    const bright = {
+      styles,
+      defaultStyle: 'abundant',
+      lightingModes: ['bright'],
+      defaultLightingMode: 'bright',
+    };
+    expect(offers).toEqual({
+      'christmas.house_exterior': outdoors,
+      'christmas.apartment_entry': bright,
+      'christmas.balcony': outdoors,
+      'christmas.interior': bright,
+      'halloween.house_exterior': outdoors,
+      'halloween.apartment_entry': bright,
+      'halloween.balcony': outdoors,
+      'halloween.interior': bright,
+      'new_years_eve.house_exterior': outdoors,
+      'new_years_eve.balcony': outdoors,
+      'new_years_eve.interior': bright,
+      'thanksgiving_us.house_exterior': outdoors,
+      'thanksgiving_us.apartment_entry': bright,
+      'thanksgiving_us.balcony': outdoors,
+      'thanksgiving_us.interior': bright,
+    });
+    for (const pack of content.packs) {
+      expect(pack.pack.lightingPolicy.eveningGuidance).toBeTruthy();
+      expect(pack.pack.lightingPolicy.eveningGuidance).not.toMatch(/interiors only/i);
+    }
+    for (const kit of content.kits) expect(kit.packVersion).toBe('2.0.0');
+    for (const example of content.examples) {
+      expect(example.packVersion).toBe('2.0.0');
+      if (example.lightingMode === 'evening') expect(example.sceneType).toBe('house_exterior');
+      const indoors = example.sceneType === 'interior' || example.sceneType === 'apartment_entry';
+      expect(example.lightingMode === 'bright').toBe(indoors);
+      expect(example.exampleId).toContain(`.${example.lightingMode}.`);
     }
   });
 

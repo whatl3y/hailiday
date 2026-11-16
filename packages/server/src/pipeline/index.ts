@@ -5,6 +5,7 @@ export * from './plan/index.js';
 export * from './compile/index.js';
 export * from './imaging/index.js';
 export * from './render/index.js';
+export * from './enhance/index.js';
 export * from './uploads/index.js';
 export * from './jobs/index.js';
 export * from './handlers.js';

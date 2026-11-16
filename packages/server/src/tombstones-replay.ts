@@ -68,7 +68,7 @@ export async function runTombstonesReplay(
     createDb({
       connectionString: config.database.url,
       max: 2,
-      applicationName: 'holiday-tombstones-replay',
+      applicationName: 'hailiday-tombstones-replay',
       logger,
     });
   const storage = options.storage ?? createStorage(config, { logger });

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { AddressSuggestionsResponseSchema, type Project } from '@holiday/core';
+import { AddressSuggestionsResponseSchema, type Project } from '@hailiday/core';
 import { createHarness, json, type Harness, type TestClient } from './test/harness.js';
 import { operatorClient, signInSameSession } from './test/operator.js';
 import { placesTokenForClient } from './test/places-token.js';

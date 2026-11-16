@@ -1,5 +1,5 @@
 import sharp from 'sharp';
-import type { NormalizedBox } from '@holiday/core';
+import type { NormalizedBox } from '@hailiday/core';
 import {
   libraryAnchorsOf,
   loadPhotoLibrary,

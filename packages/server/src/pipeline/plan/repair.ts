@@ -1,13 +1,15 @@
 import {
+  boxArea,
   boxCenter,
   intersectBoxes,
   isRepairableFailureCode,
+  MAX_RESTORE_BOXES,
   type DecorationPlan,
   type FailureCode,
   type JudgeResult,
   type NormalizedBox,
   type RepairConstraint,
-} from '@holiday/core';
+} from '@hailiday/core';
 import { PIPELINE_DEFAULTS } from '../versions.js';
 import { positionWords } from './phrases.js';
 import type { RepairAdjustments, RepairInput } from './types.js';
@@ -23,15 +25,21 @@ export function isRepairable(codes: readonly FailureCode[]): boolean {
   return codes.length > 0 && codes.every((code) => isRepairableFailureCode(code));
 }
 
-/** Findings from a judge result and the deterministic codes of one attempt. */
+/**
+ * Findings from a judge result and the deterministic codes of one attempt: critical findings at
+ * or above the critical threshold, or at or above the uncertainty floor when `uncertain` is given
+ * (an attempt rejected as uncertain), and major findings at or above the major threshold, each
+ * with its box when the judge gave one.
+ */
 export function findingsFrom(
   judge: JudgeResult | null,
   deterministic: readonly FailureCode[],
-  thresholds: { critical: number; major: number },
+  thresholds: { critical: number; major: number; uncertain?: number },
 ): RepairFinding[] {
   const findings: RepairFinding[] = deterministic.map((code) => ({ code }));
+  const criticalFloor = Math.min(thresholds.critical, thresholds.uncertain ?? thresholds.critical);
   for (const finding of judge?.critical ?? []) {
-    if (finding.confidence >= thresholds.critical) {
+    if (finding.confidence >= criticalFloor) {
       findings.push({ code: finding.code, ...(finding.box ? { box: finding.box } : {}) });
     }
   }
@@ -43,6 +51,34 @@ export function findingsFrom(
   return findings;
 }
 
+/** Codes whose small judge boxes a repair restores from the original. */
+export const RESTORE_FINDING_CODES: readonly FailureCode[] = [
+  'text_added',
+  'people_altered',
+  'privacy_regression',
+  'unrequested_change',
+  'structure_changed',
+];
+
+/**
+ * The judge boxes a repair restores from the original: the boxes of findings with a restoring code
+ * whose area is at most `PIPELINE_DEFAULTS.restoreBoxMaxArea` of the frame, without duplicates, in
+ * the order of the findings and at most `MAX_RESTORE_BOXES` of them (the plan schema's limit).
+ * Larger boxes and boxless findings restore nothing.
+ */
+export function restoreBoxesOf(findings: readonly RepairFinding[]): NormalizedBox[] {
+  const boxes: NormalizedBox[] = [];
+  for (const finding of findings) {
+    if (boxes.length >= MAX_RESTORE_BOXES) break;
+    const box = finding.box;
+    if (!box || !RESTORE_FINDING_CODES.includes(finding.code)) continue;
+    if (boxArea(box) > PIPELINE_DEFAULTS.restoreBoxMaxArea) continue;
+    if (boxes.some((other) => other.every((value, i) => value === box[i]))) continue;
+    boxes.push([...box] as NormalizedBox);
+  }
+  return boxes;
+}
+
 const distance = (a: NormalizedBox, b: NormalizedBox) => {
   const [ax, ay] = boxCenter(a);
   const [bx, by] = boxCenter(b);
@@ -52,7 +88,8 @@ const distance = (a: NormalizedBox, b: NormalizedBox) => {
 /**
  * Builds the repair constraints and plan adjustments for plan version 2 from attempt 1's
  * findings (render spec, repair and retries, code classes). Instructions come from fixed
- * templates and analysis-derived position words, never from model text.
+ * templates and analysis-derived position words, never from model text. Small judge boxes of the
+ * restoring codes become `restoreBoxes`, which the repaired attempt pastes back from the original.
  */
 export function deriveRepair(
   previous: DecorationPlan,
@@ -141,7 +178,7 @@ export function deriveRepair(
         constraints.push({
           code,
           instruction:
-            'Do not add any text, lettering, signage or numbers, and keep house numbers exactly as they are.',
+            'Do not add any text, lettering, signage or numbers. Keep every house number and sign exactly as it is and fully visible, with no decoration over it.',
           placementIds: [],
         });
         break;
@@ -196,5 +233,7 @@ export function deriveRepair(
         break;
     }
   }
+  const restoreBoxes = restoreBoxesOf(findings);
+  if (restoreBoxes.length > 0) adjustments.restoreBoxes = restoreBoxes;
   return { constraints, adjustments };
 }

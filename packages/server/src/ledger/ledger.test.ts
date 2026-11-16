@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  ENHANCE_LEDGER_STAGE,
+  FRAMING_LEDGER_STAGE,
   PRICE_LIST,
   VISION_LEDGER_STAGES,
   VISION_PRICES_MICROS,
@@ -9,6 +11,7 @@ import {
   microsFor,
   microsToMinor,
   openAmount,
+  renderEditAttempts,
   renderReservationLines,
   unitPriceFor,
   usageCostMicros,
@@ -50,7 +53,10 @@ describe('ledger arithmetic', () => {
     expect(PRICE_LIST.street_view_static_fetch.unitPriceMicros).toBe(7_000);
     expect(PRICE_LIST.street_view_metadata.unitPriceMicros).toBe(0);
     expect(unitPriceFor('image_edit_attempt', { provider: 'gemini' })).toBe(134_000);
-    expect(unitPriceFor('vision_call', { visionStage: 'analysis' })).toBe(30_000);
+    expect(unitPriceFor('vision_call', { visionStage: 'analysis' })).toBe(42_000);
+    expect(unitPriceFor('vision_call', { visionStage: 'judge' })).toBe(40_000);
+    expect(unitPriceFor('vision_call', { visionStage: 'escalation' })).toBe(45_000);
+    expect(PRICE_LIST.vision_call.unitPriceMicros).toBe(40_000);
   });
 });
 
@@ -59,19 +65,23 @@ describe('render reservation lines', () => {
   const shape = (lines: ReturnType<typeof renderReservationLines>) =>
     lines.map((line) => `${line.sku}:${line.stage}:${line.unitPriceMicros}`);
 
-  it('reserves analysis, two attempts, two judges, one escalation and two localizations', () => {
+  it('reserves analysis, two attempts, two judges, two escalations and two localizations', () => {
     const lines = renderReservationLines({ ...base, streetViewFetch: false, reuseAnalysis: false });
     expect(shape(lines)).toEqual([
-      'vision_call:analyzing:30000',
+      'vision_call:analyzing:42000',
       'image_edit_attempt:rendering:130000',
       'image_edit_attempt:rendering:130000',
-      'vision_call:checking:20000',
-      'vision_call:checking:20000',
       'vision_call:checking:40000',
-      'vision_call:localizing:20000',
-      'vision_call:localizing:20000',
+      'vision_call:checking:40000',
+      'vision_call:checking:45000',
+      'vision_call:checking:45000',
+      'vision_call:localizing:40000',
+      'vision_call:localizing:40000',
     ]);
-    expect(linesTotalMicros(lines)).toBe(30_000 + 2 * 130_000 + 2 * 20_000 + 40_000 + 2 * 20_000);
+    expect(linesTotalMicros(lines)).toBe(
+      42_000 + 2 * 130_000 + 2 * 40_000 + 2 * 45_000 + 2 * 40_000,
+    );
+    expect(linesTotalMicros(lines)).toBe(552_000);
     expect(
       shape(
         renderReservationLines({
@@ -86,13 +96,19 @@ describe('render reservation lines', () => {
 
   it('prices a localization like a judge call, on its own ledger stage', () => {
     expect(VISION_PRICES_MICROS.localization).toBe(VISION_PRICES_MICROS.judge);
-    expect(unitPriceFor('vision_call', { visionStage: 'localization' })).toBe(20_000);
+    expect(unitPriceFor('vision_call', { visionStage: 'localization' })).toBe(40_000);
+    // The judge and the escalation share the checking stage and are told apart by price.
+    expect(VISION_PRICES_MICROS.escalation).not.toBe(VISION_PRICES_MICROS.judge);
     expect(VISION_LEDGER_STAGES).toEqual({
       analysis: 'analyzing',
       judge: 'checking',
       escalation: 'checking',
       localization: 'localizing',
+      enhancement: 'enhancing',
+      locate: 'framing',
     });
+    expect(FRAMING_LEDGER_STAGE).toBe('framing');
+    expect(unitPriceFor('vision_call', { visionStage: 'locate' })).toBe(20_000);
   });
 
   it('reserves an evening relight of an accepted daylight variant without localizations', () => {
@@ -106,48 +122,56 @@ describe('render reservation lines', () => {
     expect(shape(lines)).toEqual([
       'image_edit_attempt:rendering:130000',
       'image_edit_attempt:rendering:130000',
-      'vision_call:checking:20000',
-      'vision_call:checking:20000',
       'vision_call:checking:40000',
+      'vision_call:checking:40000',
+      'vision_call:checking:45000',
+      'vision_call:checking:45000',
     ]);
+    expect(linesTotalMicros(lines)).toBe(430_000);
     expect(decoratingAttempts({ lightingMode: 'evening', relightBase: true })).toBe(0);
   });
 
-  it('reserves the daylight base attempt of an evening job that has none yet', () => {
-    const lines = renderReservationLines({
-      ...base,
-      streetViewFetch: false,
-      reuseAnalysis: false,
-      lightingMode: 'evening',
-    });
-    // Attempt 1 decorates (analysis, edit, localization, judge); attempt 2 relights (edit, judge).
-    expect(shape(lines)).toEqual([
-      'vision_call:analyzing:30000',
-      'image_edit_attempt:rendering:130000',
-      'image_edit_attempt:rendering:130000',
-      'vision_call:checking:20000',
-      'vision_call:checking:20000',
-      'vision_call:checking:40000',
-      'vision_call:localizing:20000',
-    ]);
-    expect(
-      shape(
-        renderReservationLines({
+  it('reserves a relight-mode job without a base for three attempts: base, relight and a repair', () => {
+    // Attempt 1 decorates the base (analysis, edit, localization, judge); attempt 2 relights it
+    // (edit, judge) or, after a repairable rejection, repairs the base (edit, localization,
+    // judge); attempt 3 repairs the rejected relight or relights the repaired base (edit, judge).
+    for (const lightingMode of ['evening', 'bright'] as const) {
+      for (const relightBase of [undefined, false]) {
+        const lines = renderReservationLines({
           ...base,
           streetViewFetch: false,
           reuseAnalysis: false,
-          lightingMode: 'evening',
-          relightBase: false,
-        }),
-      ),
-    ).toEqual(shape(lines));
-    // The daylight shape (the default) covers every evening shape.
-    const daylight = renderReservationLines({
-      ...base,
-      streetViewFetch: false,
-      reuseAnalysis: false,
-    });
-    expect(linesTotalMicros(daylight)).toBeGreaterThan(linesTotalMicros(lines));
+          lightingMode,
+          ...(relightBase === undefined ? {} : { relightBase }),
+        });
+        expect(shape(lines), `${lightingMode} ${String(relightBase)}`).toEqual([
+          'vision_call:analyzing:42000',
+          'image_edit_attempt:rendering:130000',
+          'image_edit_attempt:rendering:130000',
+          'image_edit_attempt:rendering:130000',
+          'vision_call:checking:40000',
+          'vision_call:checking:40000',
+          'vision_call:checking:40000',
+          'vision_call:checking:45000',
+          'vision_call:checking:45000',
+          'vision_call:checking:45000',
+          'vision_call:localizing:40000',
+          'vision_call:localizing:40000',
+        ]);
+        expect(linesTotalMicros(lines)).toBe(
+          42_000 + 3 * 130_000 + 3 * 40_000 + 3 * 45_000 + 2 * 40_000,
+        );
+        expect(linesTotalMicros(lines)).toBe(767_000);
+      }
+      expect(renderEditAttempts({ lightingMode })).toBe(3);
+      expect(renderEditAttempts({ lightingMode, relightBase: true })).toBe(2);
+      expect(decoratingAttempts({ lightingMode })).toBe(2);
+      expect(decoratingAttempts({ lightingMode, relightBase: true })).toBe(0);
+    }
+    expect(renderEditAttempts({})).toBe(2);
+    expect(renderEditAttempts({ lightingMode: 'source' })).toBe(2);
+    expect(renderEditAttempts({ lightingMode: 'source', relightBase: true })).toBe(2);
+    expect(decoratingAttempts({ lightingMode: 'source', relightBase: true })).toBe(2);
   });
 
   it('marks each line served by a fixture adapter as fixture work', () => {
@@ -159,7 +183,7 @@ describe('render reservation lines', () => {
     });
     expect(
       lines.filter((line) => line.sku === 'vision_call').map((line) => line.isFixture),
-    ).toEqual([true, true, true, true, true, true]);
+    ).toEqual([true, true, true, true, true, true, true]);
     expect(
       lines.filter((line) => line.sku === 'image_edit_attempt').map((l) => l.isFixture),
     ).toEqual([undefined, undefined]);
@@ -178,6 +202,62 @@ describe('render reservation lines', () => {
     }
   });
 
+  it('appends the enhancement edit and its judge last, on the enhancing stage', () => {
+    expect(ENHANCE_LEDGER_STAGE).toBe('enhancing');
+    expect(VISION_PRICES_MICROS.enhancement).toBe(40_000);
+    for (const lightingMode of ['source', 'evening', 'bright'] as const) {
+      const shapeInput = { ...base, streetViewFetch: true, reuseAnalysis: false, lightingMode };
+      const without = renderReservationLines(shapeInput);
+      const lines = renderReservationLines({ ...shapeInput, enhance: true });
+      expect(lines.slice(0, without.length)).toEqual(without);
+      expect(shape(lines.slice(without.length))).toEqual([
+        'image_edit_attempt:enhancing:130000',
+        'vision_call:enhancing:40000',
+      ]);
+      expect(linesTotalMicros(lines) - linesTotalMicros(without)).toBe(170_000);
+      expect(lines.slice(without.length).every((line) => line.isFixture === true)).toBe(true);
+      expect(renderReservationLines({ ...shapeInput, enhance: false })).toEqual(without);
+    }
+    const live = renderReservationLines({
+      imageEditProvider: 'gemini',
+      imageEditModel: 'gemini-3-pro-image',
+      visionProvider: 'anthropic',
+      visionModel: 'claude-opus-5-5',
+      streetViewFetch: false,
+      reuseAnalysis: true,
+      lightingMode: 'evening',
+      enhance: true,
+    });
+    expect(live.slice(-2)).toEqual([
+      {
+        provider: 'gemini',
+        sku: 'image_edit_attempt',
+        modelId: 'gemini-3-pro-image',
+        stage: 'enhancing',
+        unitPriceMicros: 134_000,
+      },
+      {
+        provider: 'anthropic',
+        sku: 'vision_call',
+        modelId: 'claude-opus-5-5',
+        stage: 'enhancing',
+        unitPriceMicros: 40_000,
+      },
+    ]);
+    // The worst case of an address's first evening look: $0.767 + $0.007 fetch + $0.17.
+    expect(
+      linesTotalMicros(
+        renderReservationLines({
+          ...base,
+          streetViewFetch: true,
+          reuseAnalysis: false,
+          lightingMode: 'evening',
+          enhance: true,
+        }),
+      ),
+    ).toBe(944_000);
+  });
+
   it('adds a transient Street View fetch and drops a reusable analysis', () => {
     const lines = renderReservationLines({ ...base, streetViewFetch: true, reuseAnalysis: true });
     expect(lines[0]?.sku).toBe('street_view_static_fetch');
@@ -185,7 +265,7 @@ describe('render reservation lines', () => {
     const bySku = linesBySku(lines);
     expect(bySku.get('street_view_static_fetch')).toBe(7_000);
     expect(bySku.get('image_edit_attempt')).toBe(260_000);
-    expect(bySku.get('vision_call')).toBe(2 * 20_000 + 40_000 + 2 * 20_000);
+    expect(bySku.get('vision_call')).toBe(2 * 40_000 + 2 * 45_000 + 2 * 40_000);
   });
 });
 

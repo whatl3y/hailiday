@@ -1,7 +1,7 @@
 import type { FastifyRequest } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { MeSchema } from '@holiday/core';
-import { sha256Hex } from '@holiday/server/ids';
+import { MeSchema } from '@hailiday/core';
+import { sha256Hex } from '@hailiday/server/ids';
 import { DEVICE_COOKIE, deviceHashOf } from './auth/session.js';
 import { createHarness, json, type Harness } from './test/harness.js';
 import { signInSameSession } from './test/operator.js';
@@ -92,7 +92,7 @@ describe('the device key of the render backstop', () => {
 
     const rows = await Promise.all(
       [first, second].map((response) =>
-        sessionByCookie(cookieValue(response, 'holiday_session')?.value ?? ''),
+        sessionByCookie(cookieValue(response, 'hailiday_session')?.value ?? ''),
       ),
     );
     expect(rows[0]?.deviceHash).not.toBe(rows[1]?.deviceHash);
@@ -109,7 +109,7 @@ describe('the device key of the render backstop', () => {
       payload: { turnstileToken: 'fixture-pass' },
     });
     expect(cookieValue(again, DEVICE_COOKIE)).toBeUndefined();
-    const againRow = await sessionByCookie(cookieValue(again, 'holiday_session')?.value ?? '');
+    const againRow = await sessionByCookie(cookieValue(again, 'hailiday_session')?.value ?? '');
     expect(againRow.deviceHash).toBe(rows[0]?.deviceHash);
   });
 
@@ -146,7 +146,7 @@ describe('Global Privacy Control', () => {
       headers: { 'sec-gpc': '1' },
       payload: { turnstileToken: 'fixture-pass' },
     });
-    const signaledToken = cookieValue(signaled, 'holiday_session')?.value ?? '';
+    const signaledToken = cookieValue(signaled, 'hailiday_session')?.value ?? '';
     expect((await sessionByCookie(signaledToken)).gpcSignaledAt).toBeInstanceOf(Date);
 
     const plain = harness.client();

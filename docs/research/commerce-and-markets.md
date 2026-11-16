@@ -7,7 +7,7 @@ Dated research behind the affiliate commerce direction (D-05): what Amazon and t
 
 ## Summary
 
-Holiday earns revenue through affiliate links on "Shop the look" ([commerce spec](../specs/commerce.md#shop-the-look)). The research changes four assumptions a reader might otherwise make:
+Hailiday earns revenue through affiliate links on "Shop the look" ([commerce spec](../specs/commerce.md#shop-the-look)). The research changes four assumptions a reader might otherwise make:
 
 1. **Amazon is not an instant, API-backed catalog.** A new Associates account is provisional until three qualifying sales occur within 180 days of applying. The catalog API (Creators API) needs at least 10 qualifying sales in the trailing 30 days. The first catalog is therefore hand-curated. See [Amazon Associates](#amazon-associates).
 2. **Decor merchants are spread across several networks.** Impact, CJ, Rakuten, Partnerize, FlexOffers and Sovrn all appear; most rates and cookie windows are third-party claims that must be read from each network dashboard after approval. See [Retail affiliate programs and networks](#retail-affiliate-programs-and-networks).
@@ -22,7 +22,7 @@ Status labels used in this file: **Verified** (read on a primary page on 2026-11
 
 Primary sources (all retrieved 2026-11-08): [application and approval help](https://affiliate-program.amazon.com/help/node/topic/G7MJTPEP9NC3YKMG), [program policies](https://affiliate-program.amazon.com/help/operating/policies), [Operating Agreement](https://affiliate-program.amazon.com/help/operating/agreement), [commission rates](https://affiliate-program.amazon.com/help/node/topic/GRXPHT8U84RAYDXZ), [Creators API introduction](https://affiliate-program.amazon.com/creatorsapi/docs/en-us/introduction), [PA-API 5 deprecation](https://affiliate-program.amazon.com/creatorsapi/docs/en-us/paapiv5-deprecation).
 
-| Topic | Fact | Status | Consequence for Holiday |
+| Topic | Fact | Status | Consequence for Hailiday |
 | --- | --- | --- | --- |
 | Application gate | A new applicant has 180 days from application to refer sales. Three qualifying sales trigger Amazon's review of the account. Without them the application can be withdrawn. A rejected Associates ID cannot be reinstated; a fresh application is needed. | Verified | Amazon is `provisional` (merchant program status) until approval. The application is submitted only when three qualifying sales within 180 days are plausible ([D-25](../decisions.md#d-25)). Timing and the dated decision are in the [onboarding runbook](../specs/commerce.md#merchant-onboarding). |
 | Catalog API | PA-API 5 is deprecated and calls return HTTP 403 (AccessDeniedException). Its replacement, the Creators API, requires an enrolled Associate, registration in Associates Central, credentials and at least 10 qualifying sales in the past 30 days. Exact retirement dates were not on the fetched Amazon pages; third-party sources cite 2026-04-30 (migration cutoff) and 2026-05-15 (retirement). | Verified (requirements); Unverified (dates) | A new account has no catalog data. Offers are curated by hand with Associates-generated links and self-written titles and descriptions. API-backed refresh is a later capability gated on granted access. |

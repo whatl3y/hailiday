@@ -4,34 +4,61 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import {
   SCENE_ANALYSIS_SCHEMA_VERSION,
   STYLES,
+  isRelightLightingMode,
   type FailureCode,
   type HolidayPack,
+  type LightingMode,
+  type NormalizedBox,
+  type RelightLightingMode,
   type SceneAnalysis,
   type SceneType,
-} from '@holiday/core';
+} from '@hailiday/core';
 import { loadContent, type Content } from '../../content/load.js';
 import { genericUploadGeometry } from '../../fixtures/layouts.js';
 import { geometryToModelOutput } from '../../fixtures/scene.js';
 import { buildPlan, compileContentFor, deriveRepair, planAndCompile } from '../plan/index.js';
 import { COMPILER_RELEASE, PIPELINE_DEFAULTS } from '../versions.js';
 import {
+  BRIGHT_RELIGHT_EXPOSURE,
+  BRIGHT_RELIGHT_KEEP,
+  BRIGHT_RELIGHT_LIGHT,
+  BRIGHT_RELIGHT_SCOPE,
   COMPILER_PROVIDERS,
+  ENHANCE_KEEP,
+  ENHANCE_PROTECT,
+  ENHANCE_QUALITY,
+  ENHANCE_SCOPE,
+  ENHANCE_STYLE,
   EVENING_KEEP,
+  KEEP_MARKS,
+  KEEP_MARKS_EXTERIOR,
+  houseNumberSentences,
   RELIGHT_KEEP,
+  RELIGHT_REPAIR_BRIGHT_LIGHT,
   RELIGHT_REPAIR_KEEP,
   RELIGHT_REPAIR_LIGHT,
   compilePlan,
+  compileEnhanceRequest,
   compileRelightRequest,
+  isEnhanceRequest,
   isRelightRequest,
   providerParameters,
+  relightTargetOf,
   type CompilerProvider,
 } from './compiler.js';
 
 /**
- * Golden files: every example pack scene section × style × offered lighting mode, and every
- * repair constraint type, compiled per provider. Regenerate with `UPDATE_GOLDEN=1` only together
- * with a `COMPILER_RELEASE` bump.
+ * Golden files: every example pack scene section × style × offered lighting mode (a `bright` cell
+ * decorates as photographed, so it compiles as the `source` request), the relight of every cell
+ * that offers a relit mode, every repair constraint type and the Street View enhancement, compiled
+ * per provider. Regenerate
+ * with `UPDATE_GOLDEN=1` only together with a `COMPILER_RELEASE` bump.
  */
+
+/** The lighting a cell's decorate request is compiled in: as photographed, or legacy evening. */
+function decorateLightingOf(mode: LightingMode): 'source' | 'evening' {
+  return mode === 'evening' ? 'evening' : 'source';
+}
 const GOLDEN = fileURLToPath(new URL('./compiler.golden.json', import.meta.url));
 const SNAPSHOTS: Record<CompilerProvider, string> = {
   openai: 'gpt-image-golden',
@@ -121,7 +148,24 @@ function compileCase(
   };
 }
 
-/** The relight of a `source` plan of one pack cell (the evening variant's request). */
+/** The enhance request of a Street View frame on the working grid. */
+function enhanceCase(provider: CompilerProvider) {
+  const request = compileEnhanceRequest({
+    provider,
+    modelSnapshot: SNAPSHOTS[provider],
+    image: { width: 1024, height: 1024, checksum: 'golden-frame' },
+    compilerVersion: `${COMPILER_RELEASE}-${provider}`,
+  });
+  return {
+    instructionText: request.instructionText,
+    parameters: request.parameters,
+    settingsHash: request.settingsHash,
+    mask: request.mask !== undefined,
+    kind: request.kind,
+  };
+}
+
+/** The relight of a `source` plan of one pack cell (the relit variant's request). */
 function relightCase(
   pack: HolidayPack,
   sceneType: SceneType,
@@ -129,6 +173,7 @@ function relightCase(
   style: (typeof STYLES)[number],
   provider: CompilerProvider,
   repairCodes: FailureCode[] = [],
+  target: RelightLightingMode = 'evening',
 ) {
   const built = buildPlan({
     renderJobId: 'job_golden',
@@ -149,6 +194,7 @@ function relightCase(
   });
   if (!built.validator.passed) return { failure: built.validator.failure };
   const request = compileRelightRequest({
+    target,
     basePlan: built.draft,
     provider,
     modelSnapshot: SNAPSHOTS[provider],
@@ -171,8 +217,10 @@ function allCases(): Record<string, unknown> {
     for (const sceneType of Object.keys(pack.sceneSections) as SceneType[]) {
       const section = pack.sceneSections[sceneType];
       const roomType = sceneType === 'interior' ? (section?.roomTypes?.[0] ?? 'living_room') : null;
+      const offered = pack.lightingPolicy.bySceneType[sceneType]?.offered ?? [];
+      const decorateModes = [...new Set(offered.map(decorateLightingOf))];
       for (const style of STYLES) {
-        for (const lightingMode of pack.lightingPolicy.bySceneType[sceneType]?.offered ?? []) {
+        for (const lightingMode of decorateModes) {
           for (const provider of COMPILER_PROVIDERS) {
             cases[`${pack.holidayId}.${sceneType}.${style}.${lightingMode}.${provider}`] =
               compileCase(pack, sceneType, roomType, style, lightingMode, provider);
@@ -208,21 +256,17 @@ function allCases(): Record<string, unknown> {
       );
     }
   }
-  // Evening relights of the daylight plan of every cell that offers evening, and relight repairs.
+  // Relights of the daylight plan of every cell that offers a relit mode, and relight repairs.
   for (const { pack } of content.packs) {
     for (const sceneType of Object.keys(pack.sceneSections) as SceneType[]) {
-      if (!(pack.lightingPolicy.bySceneType[sceneType]?.offered ?? []).includes('evening'))
-        continue;
       const section = pack.sceneSections[sceneType];
       const roomType = sceneType === 'interior' ? (section?.roomTypes?.[0] ?? 'living_room') : null;
-      for (const provider of COMPILER_PROVIDERS) {
-        cases[`relight.${pack.holidayId}.${sceneType}.classic.${provider}`] = relightCase(
-          pack,
-          sceneType,
-          roomType,
-          'classic',
-          provider,
-        );
+      for (const target of pack.lightingPolicy.bySceneType[sceneType]?.offered ?? []) {
+        if (!isRelightLightingMode(target)) continue;
+        for (const provider of COMPILER_PROVIDERS) {
+          cases[`relight.${target}.${pack.holidayId}.${sceneType}.classic.${provider}`] =
+            relightCase(pack, sceneType, roomType, 'classic', provider, [], target);
+        }
       }
     }
   }
@@ -242,8 +286,18 @@ function allCases(): Record<string, unknown> {
         provider,
         codes,
       );
+      cases[`relight.repair.bright.${codes.join('+')}.${provider}`] = relightCase(
+        christmas,
+        'interior',
+        'living_room',
+        'classic',
+        provider,
+        codes,
+        'bright',
+      );
     }
   }
+  for (const provider of COMPILER_PROVIDERS) cases[`enhance.${provider}`] = enhanceCase(provider);
   return cases;
 }
 
@@ -309,7 +363,7 @@ describe('prompt compiler', () => {
       permissionEvaluationId: 'pe',
     });
     const contentFor = compileContentFor(pack, 'house_exterior', 'abundant');
-    const caps = { source: 1500, evening: 2000 };
+    const caps = { source: 1600, evening: 2000 };
     const result = compilePlan(built.draft, contentFor, {
       provider: 'openai',
       modelSnapshot: 'm',
@@ -342,8 +396,9 @@ describe('prompt compiler', () => {
         const section = pack.sceneSections[sceneType];
         const roomType =
           sceneType === 'interior' ? (section?.roomTypes?.[0] ?? 'living_room') : null;
+        const offered = pack.lightingPolicy.bySceneType[sceneType]?.offered ?? [];
         for (const style of ['classic', 'abundant'] as const) {
-          for (const lightingMode of pack.lightingPolicy.bySceneType[sceneType]?.offered ?? []) {
+          for (const lightingMode of [...new Set(offered.map(decorateLightingOf))]) {
             for (const provider of COMPILER_PROVIDERS) {
               const built = buildPlan({
                 renderJobId: 'job',
@@ -388,7 +443,7 @@ describe('prompt compiler', () => {
     let evening = 0;
     for (const [label, value] of Object.entries(cases)) {
       const text = (value as { instructionText?: string }).instructionText;
-      if (!text || label.startsWith('relight.')) continue;
+      if (!text || label.startsWith('relight.') || label.startsWith('enhance.')) continue;
       if (label.includes('.evening.')) {
         evening += 1;
         expect(text, label).toContain(EVENING_KEEP);
@@ -401,6 +456,84 @@ describe('prompt compiler', () => {
       }
     }
     expect(evening).toBeGreaterThan(10);
+  });
+
+  it('asks every decorate edit to neither alter nor cover house numbers, signs and logos', () => {
+    const cases = allCases();
+    let decorate = 0;
+    for (const [label, value] of Object.entries(cases)) {
+      const text = (value as { instructionText?: string }).instructionText;
+      if (!text || label.startsWith('relight.') || label.startsWith('enhance.')) continue;
+      decorate += 1;
+      // Outside a house a listed decoration may take the place of a removable one.
+      const exterior = text.startsWith('Edit only the target house ');
+      expect(text, label).toContain(exterior ? KEEP_MARKS_EXTERIOR : KEEP_MARKS);
+      expect(text, label).not.toContain(exterior ? KEEP_MARKS : KEEP_MARKS_EXTERIOR);
+    }
+    expect(decorate).toBeGreaterThan(50);
+    const textRepair = (cases['repair.text_added.openai'] as { instructionText: string })
+      .instructionText;
+    expect(textRepair).toContain(
+      'Do not add any text, lettering, signage or numbers. Keep every house number and sign exactly as it is and fully visible, with no decoration over it.',
+    );
+  });
+
+  it('tells the editor where each recorded house number is, for at most two of them', () => {
+    const preserve = (boxes: NormalizedBox[]) =>
+      ({
+        preserve: {
+          regions: [
+            { kind: 'sign', box: [0.1, 0.1, 0.2, 0.2] },
+            ...boxes.map((box) => ({ kind: 'house_number', box })),
+          ],
+        },
+      }) as unknown as Parameters<typeof houseNumberSentences>[0];
+    expect(houseNumberSentences(preserve([]))).toEqual([]);
+    expect(houseNumberSentences(preserve([[0.44, 0.45, 0.47, 0.55]]))).toEqual([
+      'The house number in the center of the image stays fully visible: put no decoration on or in front of it.',
+    ]);
+    expect(houseNumberSentences(preserve([[0.44, 0.62, 0.47, 0.72]]))).toEqual([
+      'The house number in the lower middle of the image stays fully visible: put no decoration on or in front of it.',
+    ]);
+    expect(
+      houseNumberSentences(
+        preserve([
+          [0.05, 0.8, 0.1, 0.9],
+          [0.9, 0.1, 0.95, 0.2],
+          [0.44, 0.62, 0.47, 0.72],
+        ]),
+      ),
+    ).toHaveLength(2);
+    // A compiled decorate request of a plan with a house number carries the sentence.
+    const pack = content.packFor('christmas')?.pack as HolidayPack;
+    const built = buildPlan({
+      renderJobId: 'job',
+      planVersion: 1,
+      sourceAssetId: 'sa',
+      sceneAnalysisId: 'an',
+      analysis: {
+        ...analysisFor('house_exterior', null),
+        preserveRegions: [{ kind: 'house_number', box: [0.9, 0.45, 0.93, 0.55] }],
+      },
+      sourceKind: 'upload',
+      pack,
+      holidayPackVersion: pack.version,
+      styleKitVersionId: 'kit',
+      sceneType: 'house_exterior',
+      style: 'classic',
+      lightingMode: 'source',
+      compilerVersion: 'test',
+      permissionEvaluationId: 'pe',
+    });
+    const result = compilePlan(built.draft, compileContentFor(pack, 'house_exterior', 'classic'), {
+      provider: 'openai',
+      modelSnapshot: 'm',
+      working: WORKING,
+      supportsMask: true,
+    });
+    expect(result.request.instructionText).toContain(
+      `${KEEP_MARKS_EXTERIOR} The house number on the right side of the image stays fully visible: put no decoration on or in front of it.`,
+    );
   });
 
   it('never compiles input_fidelity for OpenAI or the low thinking level for Gemini', () => {
@@ -504,7 +637,66 @@ describe('prompt compiler', () => {
     expect(tight.settingsHash).not.toBe(none.settingsHash);
   });
 
-  it('compiles the relight of a daylight variant: keep clause, lit decorations, no mask', () => {
+  it('compiles the enhancement of a Street View frame: five sentences, no mask, the marker', () => {
+    const input = {
+      provider: 'openai' as const,
+      modelSnapshot: 'gpt-image-golden',
+      image: WORKING,
+      compilerVersion: `${COMPILER_RELEASE}-openai`,
+    };
+    const request = compileEnhanceRequest(input);
+    expect(request.instructionText).toBe(
+      [ENHANCE_SCOPE, ENHANCE_KEEP, ENHANCE_QUALITY, ENHANCE_STYLE, ENHANCE_PROTECT].join(' '),
+    );
+    expect(request.kind).toBe('enhance');
+    expect(request.mask).toBeUndefined();
+    expect(request.images).toEqual([{ role: 'source', ...WORKING }]);
+    expect(request.compilerVersion).toBe(`${COMPILER_RELEASE}-openai`);
+    expect(request.parameters).toEqual({
+      size: '1024x1024',
+      quality: 'medium',
+      output_format: 'jpeg',
+      enhance: true,
+    });
+    expect(
+      compileEnhanceRequest({ ...input, settings: { openaiQuality: 'high' } }).parameters.quality,
+    ).toBe('high');
+    expect(isEnhanceRequest(request)).toBe(true);
+    expect(isRelightRequest(request)).toBe(false);
+    expect(isEnhanceRequest({ parameters: { enhance: true } })).toBe(true);
+    expect(JSON.stringify(compileEnhanceRequest(input))).toBe(JSON.stringify(request));
+    for (const provider of COMPILER_PROVIDERS) {
+      const enhance = enhanceCase(provider);
+      expect(enhance.kind).toBe('enhance');
+      expect(enhance.mask).toBe(false);
+      expect(enhance.parameters.enhance).toBe(true);
+    }
+    // Another kind of request of the same image never shares its frozen settings.
+    const relight = compileRelightRequest({
+      target: 'evening',
+      basePlan: {
+        sceneType: 'house_exterior',
+        placements: [],
+        compilerVersion: input.compilerVersion,
+      },
+      provider: 'openai',
+      modelSnapshot: input.modelSnapshot,
+      image: WORKING,
+    });
+    expect(relight.settingsHash).not.toBe(request.settingsHash);
+    expect(isEnhanceRequest(relight)).toBe(false);
+    const decorate = compileCase(
+      content.packFor('christmas')?.pack as HolidayPack,
+      'house_exterior',
+      null,
+      'classic',
+      'source',
+      'openai',
+    ) as { parameters: Record<string, string | number | boolean> };
+    expect(isEnhanceRequest({ parameters: decorate.parameters })).toBe(false);
+  });
+
+  it('compiles the relight of a decorated photo: keep clause, lit decorations, no mask', () => {
     const cases = allCases();
     let relights = 0;
     for (const [label, value] of Object.entries(cases)) {
@@ -520,7 +712,9 @@ describe('prompt compiler', () => {
       expect(compiled.kind, label).toBe('relight');
       expect(compiled.mask, label).toBe(false);
       expect(compiled.parameters?.relight, label).toBe(true);
-      expect(compiled.instructionText, label).toContain(RELIGHT_KEEP);
+      expect(compiled.instructionText, label).toContain(
+        label.includes('.bright.') ? BRIGHT_RELIGHT_KEEP : RELIGHT_KEEP,
+      );
       expect(compiled.instructionText, label).toContain('Only the lighting changes');
       expect(compiled.instructionText, label).toContain(
         'do not sharpen, reconstruct or replace them',
@@ -558,17 +752,22 @@ describe('prompt compiler', () => {
       ),
     };
     const day = compileRelightRequest({
+      target: 'evening',
       basePlan: lit,
       provider: 'openai',
       modelSnapshot: 'm',
       image: WORKING,
     });
-    // The lit decorations of the daylight plan are named once; the porch light and windows glow.
+    // The lit decorations of the daylight plan are named once; the decorated home's porch light
+    // and windows glow, and the other buildings get no new light.
     expect(day.instructionText).toContain(
       'glow warmly and cast soft light on nearby surfaces: the outdoor warm-white LED string lights on the roofline',
     );
     expect(day.instructionText.match(/string lights on the roofline/g)).toHaveLength(1);
-    expect(day.instructionText).toContain('porch and entry lights are on');
+    expect(day.instructionText).toContain(
+      'On the decorated home the existing porch and entry lights are on and warm interior light shows through its existing windows. Other buildings in the photograph get no new light: their windows and lamps stay as they are.',
+    );
+    expect(day.instructionText).not.toContain('The existing porch and entry lights are on');
     expect(day.instructionText).not.toContain(RELIGHT_REPAIR_KEEP);
     const structure = relightCase(pack, 'house_exterior', null, 'classic', 'openai', [
       'structure_changed',
@@ -584,6 +783,122 @@ describe('prompt compiler', () => {
       'camera_changed',
     ]) as { parameters: Record<string, unknown> };
     expect(camera.parameters.quality).toBe('medium');
+    // A room's evening relight keeps its own fixtures sentence.
+    const room = relightCase(pack, 'interior', 'living_room', 'classic', 'openai') as {
+      instructionText: string;
+    };
+    expect(room.instructionText).toContain('The existing lamps and ceiling fixtures are on.');
+    expect(room.instructionText).not.toContain('Other buildings');
+  });
+
+  it('compiles the bright relight from the tested instruction, naming the lit decorations', () => {
+    const cases = allCases();
+    const bright = Object.entries(cases).filter(([label]) => label.startsWith('relight.bright.'));
+    // Every interior and apartment entry of every pack relights to the bright look.
+    expect(bright.map(([label]) => label.split('.').slice(2, 4).join('.')).sort()).toEqual(
+      [
+        ...['christmas', 'halloween', 'thanksgiving_us'].flatMap((h) =>
+          COMPILER_PROVIDERS.map(() => `${h}.apartment_entry`),
+        ),
+        ...['christmas', 'halloween', 'new_years_eve', 'thanksgiving_us'].flatMap((h) =>
+          COMPILER_PROVIDERS.map(() => `${h}.interior`),
+        ),
+      ].sort(),
+    );
+    expect(
+      Object.keys(cases).some(
+        (label) => label.includes('.bright.') && !label.startsWith('relight.'),
+      ),
+    ).toBe(false);
+    for (const [label, value] of bright) {
+      const compiled = value as {
+        instructionText: string;
+        parameters: Record<string, unknown>;
+        mask: boolean;
+        kind: string;
+      };
+      expect(compiled.kind, label).toBe('relight');
+      expect(compiled.mask, label).toBe(false);
+      expect(compiled.parameters.relight_target, label).toBe('bright');
+      const text = compiled.instructionText;
+      expect(text.startsWith(BRIGHT_RELIGHT_SCOPE), label).toBe(true);
+      for (const sentence of [BRIGHT_RELIGHT_LIGHT, BRIGHT_RELIGHT_KEEP, BRIGHT_RELIGHT_EXPOSURE]) {
+        expect(text, label).toContain(sentence);
+      }
+      expect(text, label).toContain('The lights on the holiday decorations stay on and glow');
+      expect(text, label).not.toMatch(/dusk|evening|blue hour/i);
+      expect(text, label).not.toContain(RELIGHT_KEEP);
+      expect(text, label).toMatch(/only the light changed\.$/);
+    }
+    // The tested sentences, verbatim.
+    expect(BRIGHT_RELIGHT_SCOPE).toBe(
+      'Relight this exact photograph so the space is bright, airy and cheerful, as on a sunny day with every light on.',
+    );
+    expect(BRIGHT_RELIGHT_KEEP).toContain('Nothing is added, removed, moved, replaced or restyled');
+
+    const pack = content.packFor('christmas')?.pack as HolidayPack;
+    const built = buildPlan({
+      renderJobId: 'job',
+      planVersion: 1,
+      sourceAssetId: 'sa',
+      sceneAnalysisId: 'an',
+      analysis: analysisFor('interior', 'living_room'),
+      sourceKind: 'upload',
+      pack,
+      holidayPackVersion: pack.version,
+      styleKitVersionId: 'kit',
+      sceneType: 'interior',
+      roomType: 'living_room',
+      style: 'abundant',
+      lightingMode: 'source',
+      compilerVersion: 'test',
+      permissionEvaluationId: 'pe',
+    });
+    const lit = {
+      ...built.draft,
+      placements: built.draft.placements.map((p, i) => (i === 0 ? { ...p, lit: true } : p)),
+    };
+    const request = compileRelightRequest({
+      target: 'bright',
+      basePlan: lit,
+      provider: 'openai',
+      modelSnapshot: 'm',
+      image: WORKING,
+    });
+    expect(request.instructionText).toMatch(
+      /The lights on the holiday decorations stay on and glow: the [^;]+ on the [^;]+; any other bulbs, candles and lanterns on the decorations stay lit too\./,
+    );
+    expect(relightTargetOf(request)).toBe('bright');
+    const evening = compileRelightRequest({
+      target: 'evening',
+      basePlan: lit,
+      provider: 'openai',
+      modelSnapshot: 'm',
+      image: WORKING,
+    });
+    expect(evening.settingsHash).not.toBe(request.settingsHash);
+    // A bright repair after implausible light uses the bright light sentence, never the dusk one.
+    const light = relightCase(
+      pack,
+      'interior',
+      'living_room',
+      'classic',
+      'openai',
+      ['lighting_implausible'],
+      'bright',
+    ) as { instructionText: string };
+    expect(light.instructionText).toContain(RELIGHT_REPAIR_BRIGHT_LIGHT);
+    expect(light.instructionText).not.toContain(RELIGHT_REPAIR_LIGHT);
+    const structure = relightCase(
+      pack,
+      'interior',
+      'living_room',
+      'classic',
+      'openai',
+      ['structure_changed'],
+      'bright',
+    ) as { instructionText: string };
+    expect(structure.instructionText).toContain(RELIGHT_REPAIR_KEEP);
   });
 
   it('marks relight requests for the fixture editor and keeps them deterministic', () => {
@@ -608,6 +923,7 @@ describe('prompt compiler', () => {
       permissionEvaluationId: 'pe',
     });
     const request = compileRelightRequest({
+      target: 'evening',
       basePlan: built.draft,
       provider: 'openai',
       modelSnapshot: 'm',
@@ -615,6 +931,8 @@ describe('prompt compiler', () => {
       settings: { openaiQuality: 'high', providerMask: 'tight' },
     });
     expect(isRelightRequest(request)).toBe(true);
+    expect(relightTargetOf(request)).toBe('evening');
+    expect(request.parameters.relight_target).toBe('evening');
     expect(request.mask).toBeUndefined();
     expect(request.parameters).toMatchObject({ quality: 'high', size: '1024x1024' });
     expect(request.images).toEqual([{ role: 'source', ...WORKING }]);

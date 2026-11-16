@@ -17,6 +17,11 @@ export interface RequestOptions<T> {
   signal?: AbortSignal;
   /** Whether a session must exist before the call (default true). */
   session?: boolean;
+  /**
+   * Whether `VERIFICATION_REQUIRED` is retried once with a fresh bot-check token (default
+   * true). Calls that must never start a session turn it off.
+   */
+  verify?: boolean;
   keepalive?: boolean;
 }
 
@@ -130,6 +135,7 @@ export function createApiClient(deps: ApiClientDeps): ApiClient {
         if (
           error instanceof ApiError &&
           error.code === 'VERIFICATION_REQUIRED' &&
+          options.verify !== false &&
           deps.getVerificationToken
         ) {
           // A challenge that cannot produce a token leaves the request needing verification.

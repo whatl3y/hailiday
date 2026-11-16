@@ -3,8 +3,8 @@ import type {
   UploadDeclineCode,
   UploadDeclineReason,
   UploadDeclineReasonClass,
-} from '@holiday/core';
-import { DEFAULT_UPLOAD_MAX_BYTES } from '@holiday/core';
+} from '@hailiday/core';
+import { DEFAULT_UPLOAD_MAX_BYTES } from '@hailiday/core';
 import { withTransaction } from '../../db/client.js';
 import type { SourceAsset } from '../../db/schema.js';
 import { sha256Hex } from '../../ids/index.js';

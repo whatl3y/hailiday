@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { ERROR_CODE_VALUES, ProjectResponseSchema, buildErrorBody } from '@holiday/core';
+import { ERROR_CODE_VALUES, ProjectResponseSchema, buildErrorBody } from '@hailiday/core';
 import { isCopyKey } from '../copy';
 import { ApiError, errorFromResponse, errorSurface, parseRetryAfter } from './errors';
 import { createApiClient } from './http';
@@ -172,6 +172,26 @@ describe('api client', () => {
       .catch((e: unknown) => e)) as ApiError;
     expect(failure).toBeInstanceOf(ApiError);
     expect(failure.code).toBe('VERIFICATION_REQUIRED');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('never runs the bot check for a call that must not start a session', async () => {
+    const fetchMock = vi.fn(async () =>
+      jsonResponse(403, buildErrorBody('VERIFICATION_REQUIRED', { requestId: 'r' })),
+    );
+    const getVerificationToken = vi.fn(async () => 'fixture-pass');
+    const ensureSession = vi.fn(async () => undefined);
+    const client = createApiClient({
+      fetch: fetchMock as typeof fetch,
+      getVerificationToken,
+      ensureSession,
+    });
+    const failure = (await client
+      .request('/v1/gallery', { session: false, verify: false })
+      .catch((e: unknown) => e)) as ApiError;
+    expect(failure.code).toBe('VERIFICATION_REQUIRED');
+    expect(getVerificationToken).not.toHaveBeenCalled();
+    expect(ensureSession).not.toHaveBeenCalled();
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 

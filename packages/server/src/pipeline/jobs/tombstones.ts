@@ -1,5 +1,5 @@
 import { sql } from 'kysely';
-import type { TombstoneKind } from '@holiday/core';
+import type { TombstoneKind } from '@hailiday/core';
 import { DAY_MS, addMs } from '../../clock/index.js';
 import type { DbOrTx } from '../../db/client.js';
 import { newId } from '../../ids/index.js';

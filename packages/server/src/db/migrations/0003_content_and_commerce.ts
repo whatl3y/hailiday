@@ -15,7 +15,7 @@ import {
   SCENE_TYPES,
   STYLES,
   VERIFICATION_METHODS,
-} from '@holiday/core';
+} from '@hailiday/core';
 import {
   ID_CREATED_UPDATED,
   checkIn,

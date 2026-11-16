@@ -183,6 +183,7 @@ export const RUNTIME_SETTING_SCHEMAS = {
   'sse.heartbeat_s': positiveInt,
   'poll.render_ms': positiveInt,
   'poll.upload_ms': positiveInt,
+  'retention.time_based_deletion': z.boolean(),
 } as const;
 export type RuntimeSettingKey = keyof typeof RUNTIME_SETTING_SCHEMAS;
 

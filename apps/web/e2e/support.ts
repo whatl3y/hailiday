@@ -1,13 +1,13 @@
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
-import { expect, request, type Page } from '@playwright/test';
+import { expect, request, type Locator, type Page } from '@playwright/test';
 
 /** Sample photos shipped with the content library (fictional, rights-cleared test images). */
 export const SAMPLES_DIR = fileURLToPath(
   new URL('../../../packages/server/content/photos/samples/', import.meta.url),
 );
 
-export const MAILPIT_API = process.env.HOLIDAY_E2E_MAILPIT_URL ?? 'http://localhost:8025/api/v1';
+export const MAILPIT_API = process.env.HAILIDAY_E2E_MAILPIT_URL ?? 'http://localhost:8025/api/v1';
 
 /** Copy the tests look for (from the experience copy deck). */
 export const COPY = {
@@ -15,21 +15,31 @@ export const COPY = {
   headline: 'Imagine your place for the holidays.',
   confirmHeading: 'Is this the right place?',
   confirmYes: 'Yes, decorate this place',
+  /** The empty state when address lookup runs on the fixture provider (no Google keys). */
+  sampleModeNotice:
+    'No matches. This setup has no Google Maps keys, so address search only knows the sample places. Try one below, or upload a photo to decorate your own place.',
   nosvHeading: "We can't use a street photo for this address",
   resultHeading: /Your place, ready for/,
   notYourPlace: 'Not your place?',
   /** Fixture stand-in street photos credit their photographer, never Google. */
   fixturePhotoCredit: /Fixture photo: \S.* \/ \S/,
+  /** The fixture stand-in for a street photo credited to a contributor (not Google). */
+  contributorCredit: '(contributor imagery stand-in)',
+  /** The confirmation-only screen's explanation (a place whose photo may not be decorated). */
+  confirmOnly:
+    "We can show this street photo so you can check the place, but we can't decorate it.",
   stageLabels:
-    /Getting your photo ready|Planning the decorations|Decorating|Checking the details|A person is checking your preview/,
+    /Getting your photo ready|Zooming in on your home|Sharpening your street photo|Planning the decorations|Decorating|Checking the details|Setting the evening light|Brightening the room|A person is checking your preview/,
+  /** The lock line: a control that would start another look while one is being made. */
+  locked: 'You can pick another look when this one is ready.',
   allowanceHeading: "That's all the looks for today",
   shopHeading: 'Shop the look',
   shareHeading: 'Share this preview',
-  shareCaption: 'A holiday preview made with Holiday',
+  shareCaption: 'A holiday preview made with Hailiday',
   shareCta: 'See your place for the holidays',
   shareRevoked: 'This preview is no longer shared.',
   saveHeading: 'Save this place',
-  saveSent: /Check your email for a link from Holiday/,
+  saveSent: /Check your email for a link from Hailiday/,
   saveDone: 'Saved. Find it any time under Your places.',
   placesEmpty: 'Nothing saved yet. Decorate a place and tap Save.',
   peopleHeading: 'This photo seems to include people',
@@ -40,6 +50,14 @@ export const COPY = {
   noOffers: "Matching decorations aren't available for this look yet.",
   offSeason: /Plan ahead: decorations for .* appear here closer to the season\./,
 } as const;
+
+/**
+ * The status card of the look being made (on the stage, on paper, or over the title): a group
+ * named "Decorating your place" on a first look, "Decorating the {holiday} look…" for another.
+ */
+export function lookCard(page: Page): Locator {
+  return page.getByRole('group', { name: /^Decorating (your place|the .* look…)$/ });
+}
 
 /**
  * Opens the landing page with Christmas preselected by deep link, so a render can start even
@@ -77,7 +95,7 @@ export async function expectResult(page: Page, timeout = 90_000): Promise<void> 
   await expect(page.getByRole('heading', { level: 1, name: COPY.resultHeading })).toBeVisible({
     timeout,
   });
-  await expect(page.locator('.variant-card .badge--ai')).toBeVisible();
+  await expect(page.locator('.variant .badge--ai')).toBeVisible();
   await expect(page.getByRole('slider', { name: 'Compare before and after' })).toBeVisible();
 }
 
@@ -100,6 +118,43 @@ export async function uploadSample(
     .locator('input[type="file"]')
     .first()
     .setInputFiles({ name: fileName, mimeType: 'image/jpeg', buffer });
+}
+
+/**
+ * Opens one of the collapsed rows under the result ("Try another look", "Shop the look",
+ * "How does it look?", "More"); a row that is already open stays open.
+ */
+export async function openResultRow(page: Page, label: string): Promise<void> {
+  const pattern = new RegExp(`^${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`);
+  const toggle = page.locator('.disclosure__toggle').filter({ hasText: pattern });
+  await expect(toggle).toHaveCount(1);
+  if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+}
+
+/** The look a `POST /v1/renders` request asks for. */
+export interface RequestedLook {
+  holidayId: string;
+  style: string;
+  lightingMode: string;
+}
+
+/**
+ * Resolves with the look of the next render request the page sends. Call it before the action
+ * that starts the render.
+ */
+export function nextRenderRequest(page: Page): Promise<RequestedLook> {
+  return page
+    .waitForRequest(
+      (request) => request.method() === 'POST' && new URL(request.url()).pathname === '/v1/renders',
+      { timeout: 90_000 },
+    )
+    .then((request) => request.postDataJSON() as RequestedLook);
+}
+
+/** The "Try another look" row toggle, whose summary names the look on screen. */
+export function lookRow(page: Page): Locator {
+  return page.getByRole('button', { name: /^Try another look/ });
 }
 
 /** Renders a decorated result from an uploaded sample photo. */

@@ -1,16 +1,16 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { CreateUploadResponseSchema, type Project } from '@holiday/core';
-import { renderFixturePanorama } from '@holiday/server/fixtures';
+import { CreateUploadResponseSchema, type Project } from '@hailiday/core';
+import { renderFixturePanorama } from '@hailiday/server/fixtures';
 import {
   createCroppedChild,
   fixturePlace,
   screenUpload,
   validateUpload,
-} from '@holiday/server/pipeline';
-import type * as Pipeline from '@holiday/server/pipeline';
+} from '@hailiday/server/pipeline';
+import type * as Pipeline from '@hailiday/server/pipeline';
 import { createHarness, type Harness, type TestClient } from './test/harness.js';
 
-vi.mock('@holiday/server/pipeline', async (importOriginal) => {
+vi.mock('@hailiday/server/pipeline', async (importOriginal) => {
   const actual = await importOriginal<typeof Pipeline>();
   return { ...actual, createCroppedChild: vi.fn(actual.createCroppedChild) };
 });

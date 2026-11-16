@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { PauseStateSchema } from '@holiday/core';
+import { PauseStateSchema } from '@hailiday/core';
 import { createHarness, json, type Harness, type TestClient } from './test/harness.js';
 import { operatorClient } from './test/operator.js';
 import type * as Events from './domain/events.js';

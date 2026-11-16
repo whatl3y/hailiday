@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { testConfig } from '@holiday/server/config';
-import { createSilentLogger } from '@holiday/server/logger';
+import { testConfig } from '@hailiday/server/config';
+import { createSilentLogger } from '@hailiday/server/logger';
 import { RenderEventHub } from './hub.js';
 
 function hub(limits: { perOwnerJob?: number; perOwner?: number; total?: number } = {}) {

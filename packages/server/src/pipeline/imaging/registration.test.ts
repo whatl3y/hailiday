@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import sharp from 'sharp';
 import { beforeAll, describe, expect, it } from 'vitest';
-import type { NormalizedBox } from '@holiday/core';
+import type { NormalizedBox } from '@hailiday/core';
 import { medianDeltaE } from './checks.js';
 import { alignAndComposite, pasteBack } from './composite.js';
 import { buildCompositeMask, featherBand, type CompositeMask } from './mask.js';

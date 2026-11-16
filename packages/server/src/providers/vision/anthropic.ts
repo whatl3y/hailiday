@@ -4,7 +4,7 @@ import {
   JudgeModelOutputSchema,
   SceneAnalysisModelOutputSchema,
   UploadTriageSchema,
-} from '@holiday/core';
+} from '@hailiday/core';
 import type { z } from 'zod';
 import type { Logger } from '../../logger/index.js';
 import { anthropicErrorDiagnostics, diagnosticFields, logProviderFailure } from '../diagnostics.js';
@@ -15,22 +15,31 @@ import { modelJsonSchema } from './json-schema.js';
 import {
   ANALYSIS_PROMPT_VERSION,
   ANALYSIS_SYSTEM_PROMPT,
+  FRAME_PROMPT_VERSION,
+  FRAME_SYSTEM_PROMPT,
+  FRAME_USER_PROMPT,
+  JUDGE_ENHANCE_SYSTEM_PROMPT,
   JUDGE_PROMPT_VERSION,
   LOCALIZE_PROMPT_VERSION,
   LOCALIZE_SYSTEM_PROMPT,
   TRIAGE_PROMPT_VERSION,
   TRIAGE_SYSTEM_PROMPT,
   analysisUserPrompt,
+  judgeEnhanceUserPrompt,
   judgeSystemPrompt,
   judgeUserPrompt,
+  relightJudgeTarget,
   localizeUserPrompt,
 } from './prompts.js';
 import {
   LocalizeModelOutputSchema,
+  LocateModelOutputSchema,
   clampBoxes,
   imageMediaType,
+  toEnhanceJudgeResult,
   toJudgeResult,
   toLocalizeResult,
+  toLocateResult,
   toSceneAnalysis,
 } from './records.js';
 
@@ -122,7 +131,7 @@ export interface AnthropicMessagesClient {
     messages: {
       parse(
         params: Record<string, unknown>,
-        options?: { signal?: AbortSignal; timeout?: number },
+        options?: { signal?: AbortSignal; timeout?: number; maxRetries?: number },
       ): Promise<AnthropicParsedMessage>;
     };
   };
@@ -252,6 +261,7 @@ export interface AnthropicVisionOptions {
     judge?: Effort;
     escalation?: Effort;
     localize?: Effort;
+    locate?: Effort;
   };
   timeouts?: {
     triage?: number;
@@ -259,15 +269,16 @@ export interface AnthropicVisionOptions {
     judge?: number;
     escalation?: number;
     localize?: number;
+    locate?: number;
   };
   /** Receives a warn line with the redacted vendor diagnostics of every failed call. */
   logger?: Logger;
 }
 
 /**
- * Live vision model on Claude: upload triage, scene analysis, QA judging and localization of the
- * editor's additions. The SDK client is
- * pinned to the vendor's API host and sends every request through `guardedAnthropicFetch`.
+ * Live vision model on Claude: upload triage, scene analysis, QA judging, localization of the
+ * editor's additions and locating the home in a Street View frame. The SDK client is pinned to
+ * the vendor's API host and sends every request through `guardedAnthropicFetch`.
  */
 export function createAnthropicVisionModel(options: AnthropicVisionOptions): VisionModel {
   const client =
@@ -286,6 +297,7 @@ export function createAnthropicVisionModel(options: AnthropicVisionOptions): Vis
     request: Omit<VisionRequestInput, 'format' | 'model' | 'maxTokens'>,
     timeoutMs: number,
     callOptions?: CallOptions,
+    transport: { maxRetries?: number } = {},
   ): Promise<{ value: T; usage: VisionUsage; model: string; elapsedMs: number }> {
     const started = Date.now();
     const format = outputFormat(schema);
@@ -309,6 +321,7 @@ export function createAnthropicVisionModel(options: AnthropicVisionOptions): Vis
         response = await client.beta.messages.parse(params, {
           timeout: callOptions?.timeoutMs ?? timeoutMs,
           ...(callOptions?.signal ? { signal: callOptions.signal } : {}),
+          ...(transport.maxRetries !== undefined ? { maxRetries: transport.maxRetries } : {}),
         });
       } catch (error) {
         const mapped = mapSdkError(error, [options.apiKey]);
@@ -448,7 +461,7 @@ export function createAnthropicVisionModel(options: AnthropicVisionOptions): Vis
       const result = await run(
         JudgeModelOutputSchema,
         {
-          system: judgeSystemPrompt(mode),
+          system: judgeSystemPrompt(mode, relightJudgeTarget(input.plan)),
           images: [first.bytes, input.candidate.bytes],
           text: judgeUserPrompt(input.plan, input.hints, { mode }),
           effort: escalated
@@ -460,6 +473,32 @@ export function createAnthropicVisionModel(options: AnthropicVisionOptions): Vis
       );
       return {
         result: toJudgeResult(result.value, input, {
+          judgeModel: result.model,
+          judgePromptVersion: JUDGE_PROMPT_VERSION,
+          elapsedMs: result.elapsedMs,
+        }),
+        usage: result.usage,
+        model: result.model,
+        promptVersion: JUDGE_PROMPT_VERSION,
+        elapsedMs: result.elapsedMs,
+        providerMode: 'live',
+      };
+    },
+
+    async judgeEnhancement(input, callOptions) {
+      const result = await run(
+        JudgeModelOutputSchema,
+        {
+          system: JUDGE_ENHANCE_SYSTEM_PROMPT,
+          images: [input.original.bytes, input.candidate.bytes],
+          text: judgeEnhanceUserPrompt(input),
+          effort: options.effort?.judge ?? 'medium',
+        },
+        options.timeouts?.judge ?? 30_000,
+        callOptions,
+      );
+      return {
+        result: toEnhanceJudgeResult(result.value, input, {
           judgeModel: result.model,
           judgePromptVersion: JUDGE_PROMPT_VERSION,
           elapsedMs: result.elapsedMs,
@@ -489,6 +528,31 @@ export function createAnthropicVisionModel(options: AnthropicVisionOptions): Vis
         usage: result.usage,
         model: result.model,
         promptVersion: LOCALIZE_PROMPT_VERSION,
+        elapsedMs: result.elapsedMs,
+        providerMode: 'live',
+      };
+    },
+
+    // The locate call is sent once: the SDK does not send it again after a timeout or a
+    // transport error, so a slow answer costs its timeout and the job goes on with the frame.
+    async locateHome(input, callOptions) {
+      const result = await run(
+        LocateModelOutputSchema,
+        {
+          system: FRAME_SYSTEM_PROMPT,
+          images: [input.image.bytes],
+          text: FRAME_USER_PROMPT,
+          effort: options.effort?.locate ?? 'low',
+        },
+        options.timeouts?.locate ?? 20_000,
+        callOptions,
+        { maxRetries: 0 },
+      );
+      return {
+        result: toLocateResult(result.value),
+        usage: result.usage,
+        model: result.model,
+        promptVersion: FRAME_PROMPT_VERSION,
         elapsedMs: result.elapsedMs,
         providerMode: 'live',
       };

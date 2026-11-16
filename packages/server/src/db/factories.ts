@@ -5,7 +5,8 @@ import type {
   RenderJobState,
   SourceKind,
   Style,
-} from '@holiday/core';
+} from '@hailiday/core';
+import { DEFAULT_STREET_VIEW_CONTRIBUTOR_IMAGERY } from '../config/index.js';
 import { newId, randomToken, sha256Hex } from '../ids/index.js';
 import { createAssetPolicy, defaultPolicyTemplate, evaluatePermission } from '../policy/index.js';
 import { recordPermissionEvaluation } from '../policy/index.js';
@@ -150,7 +151,13 @@ export const factories = {
       assetPolicyId: policy.id,
       sourceAssetId: input.sourceAssetId,
       context: 'submission',
-      result: evaluatePermission({ policy, capabilityState: 'fixture', appEnv: 'test', now }),
+      result: evaluatePermission({
+        policy,
+        capabilityState: 'fixture',
+        appEnv: 'test',
+        contributorImagery: DEFAULT_STREET_VIEW_CONTRIBUTOR_IMAGERY,
+        now,
+      }),
       capabilityState: 'fixture',
       evaluatedAt: now,
     });

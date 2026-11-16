@@ -1,4 +1,4 @@
-import { ERROR_CODES, ERROR_DETAILS_SCHEMAS, buildErrorBody, isErrorCode } from '@holiday/core';
+import { ERROR_CODES, ERROR_DETAILS_SCHEMAS, buildErrorBody, isErrorCode } from '@hailiday/core';
 import type {
   ErrorBody,
   ErrorCode,
@@ -7,7 +7,7 @@ import type {
   PermittedAction,
   RateLimitScope,
   ValidationFailedReason,
-} from '@holiday/core';
+} from '@hailiday/core';
 
 export interface AppErrorOptions {
   /** Developer-facing message; never shown to users. Defaults to the error table's message. */

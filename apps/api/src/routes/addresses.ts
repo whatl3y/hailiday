@@ -6,9 +6,9 @@ import {
   ResolveAddressRequestSchema,
   ResolveAddressResponseSchema,
   isManualResolveRequest,
-} from '@holiday/core';
-import { addMs, DAY_MS } from '@holiday/server/clock';
-import { toJson } from '@holiday/server/db';
+} from '@hailiday/core';
+import { addMs, DAY_MS } from '@hailiday/server/clock';
+import { sql, toJson, type DbOrTx, type Project } from '@hailiday/server/db';
 import {
   AppError,
   allowanceExhausted,
@@ -16,21 +16,22 @@ import {
   providerUnavailable,
   rateLimited,
   validationFailed,
-} from '@holiday/server/errors';
-import { newId } from '@holiday/server/ids';
+} from '@hailiday/server/errors';
+import { newId } from '@hailiday/server/ids';
 import {
   addressAllowance,
   addressPathRules,
   lockOwnerAllowance,
+  resetExpiredDisplayLoads,
   type CounterState,
-} from '@holiday/server/limits';
+} from '@hailiday/server/limits';
 import {
   derivePropertySignals,
   type AddressProvider,
   type DestinationGeometry,
   type GeocodeSignal,
   type ResolvedPlace,
-} from '@holiday/server/providers';
+} from '@hailiday/server/providers';
 import type { ApiDeps } from '../deps.js';
 import type { App } from '../http/types.js';
 import { enforceLimits } from '../auth/limits.js';
@@ -38,7 +39,7 @@ import { mintPlacesSessionToken, verifyPlacesSessionToken } from '../auth/places
 import { requireSession, type AuthState } from '../auth/session.js';
 import { emitEvent } from '../domain/events.js';
 import { holidayForNewProject } from '../domain/holidays.js';
-import { projectDto, projectExpiry } from '../domain/projects.js';
+import { projectDto, projectExpiry, startingLookFor, touchProject } from '../domain/projects.js';
 import { addressProviderFor } from '../domain/sources.js';
 import { assertSpendAllowed, chargeCall } from '../domain/spend.js';
 
@@ -103,6 +104,47 @@ async function call<T>(provider: AddressProvider, run: () => Promise<T>): Promis
 
 function round6(value: number): number {
   return Math.round(value * 1e6) / 1e6;
+}
+
+/**
+ * The owner's address project at a place (and unit), when one exists and is not deleted: the most
+ * recently active one. Resolving that place again returns it instead of creating another.
+ */
+async function ownedAddressProject(
+  db: DbOrTx,
+  input: { ownerId: string; placeId: string; unit: string | null },
+): Promise<Project | null> {
+  return (
+    (await db
+      .selectFrom('projects')
+      .innerJoin('properties', 'properties.id', 'projects.propertyId')
+      .selectAll('projects')
+      .where('projects.ownerId', '=', input.ownerId)
+      .where('projects.kind', '=', 'address')
+      .where('projects.deletedAt', 'is', null)
+      .where('properties.ownerId', '=', input.ownerId)
+      .where('properties.placeId', '=', input.placeId)
+      .where(sql<boolean>`properties.unit_designation is not distinct from ${input.unit}`)
+      .orderBy('projects.lastActivityAt', 'desc')
+      .orderBy('projects.id', 'desc')
+      .limit(1)
+      .executeTakeFirst()) ?? null
+  );
+}
+
+/** The stored display address of a project's property (manual entry or Geocoding by place ID). */
+async function storedAddressOf(
+  db: DbOrTx,
+  project: Pick<Project, 'propertyId'>,
+): Promise<string | null> {
+  if (!project.propertyId) return null;
+  const property = await db
+    .selectFrom('properties')
+    .select('displayAddress')
+    .where('id', '=', project.propertyId)
+    .where('displayAddressBasis', 'in', ['manual_entry', 'geocoding_place_id'])
+    .executeTakeFirst();
+  return property?.displayAddress ?? null;
 }
 
 /** Records `allowance_reached` for the addresses allowance and returns its error. */
@@ -182,7 +224,7 @@ export function registerAddressRoutes(app: App, deps: ApiDeps): void {
     {
       schema: {
         body: ResolveAddressRequestSchema,
-        response: { 201: ResolveAddressResponseSchema },
+        response: { 200: ResolveAddressResponseSchema, 201: ResolveAddressResponseSchema },
       },
     },
     async (request, reply) => {
@@ -198,12 +240,6 @@ export function registerAddressRoutes(app: App, deps: ApiDeps): void {
         if (tokenState.resolves >= rules.resolvePerToken) throw rateLimited('resolve', null);
       }
 
-      const allowance = await addressAllowance(deps.db, deps.settings, {
-        ownerId: auth.ownerId,
-        now,
-      });
-      if (allowance.exhausted) throw await addressesExhausted(deps, auth, allowance);
-
       const provider = await addressProviderFor(deps, auth.audience);
       const isFixture = provider.mode === 'fixture';
       const ledger = (sku: Parameters<typeof chargeCall>[2]['sku'], projectId: string | null) =>
@@ -216,6 +252,76 @@ export function registerAddressRoutes(app: App, deps: ApiDeps): void {
           projectId,
           stage: 'resolve',
         });
+      const manualPayload = manual
+        ? provider.verifyCandidate(body.candidateId, { sessionId: auth.session.id, now })
+        : null;
+      const requested = manual
+        ? manualPayload && { placeId: manualPayload.placeId, unit: manualPayload.unit }
+        : { placeId: body.placeId, unit: null };
+      if (!requested) {
+        throw validationFailed({
+          reason: 'expired',
+          fields: [{ path: 'body.candidateId', reason: 'invalid_or_expired' }],
+        });
+      }
+      const keepAddress = !(await deps.settings.get('retention.time_based_deletion'));
+
+      // A place the owner already has returns that project: no new project, no allowance unit.
+      const existing = await ownedAddressProject(deps.db, {
+        ownerId: auth.ownerId,
+        ...requested,
+      });
+      if (existing) {
+        if (tokenState) tokenState.resolves += 1;
+        let formattedAddress =
+          manualPayload?.formattedAddress ?? (await storedAddressOf(deps.db, existing));
+        if (!formattedAddress && !manual && existing.propertyId) {
+          // Geocoding by place ID gives the address text (stored while time-based deletion is
+          // off), without a new Place Details call. The label is best effort: the project opens
+          // without one when the spend check refuses or the lookup fails.
+          let signal: GeocodeSignal | null | undefined;
+          try {
+            await assertSpendAllowed(deps, ['geocoding'], isFixture);
+            signal = await call(provider, () => provider.geocodeByPlaceId(requested.placeId));
+          } catch (error) {
+            deps.logger.warn(
+              { code: isAppError(error) ? error.code : 'unexpected', stage: 'resolve_label' },
+              'place label lookup failed; the known project opens without its address',
+            );
+          }
+          if (signal !== undefined) await ledger('geocoding', existing.id);
+          formattedAddress = signal?.formattedAddress || null;
+          if (formattedAddress && keepAddress) {
+            await deps.db
+              .updateTable('properties')
+              .set({
+                displayAddress: formattedAddress,
+                displayAddressBasis: 'geocoding_place_id',
+                displayAddressStoredAt: now,
+              })
+              .where('id', '=', existing.propertyId)
+              .execute();
+          }
+        }
+        // A returning visit starts with the place's display budget as of now.
+        if (existing.propertyId) {
+          await resetExpiredDisplayLoads(deps.db, { propertyId: existing.propertyId, now });
+        }
+        await touchProject(deps, deps.db, existing);
+        const touched = await deps.db
+          .selectFrom('projects')
+          .selectAll()
+          .where('id', '=', existing.id)
+          .executeTakeFirstOrThrow();
+        reply.code(200);
+        return { project: await projectDto(deps, auth, touched, { formattedAddress }) };
+      }
+
+      const allowance = await addressAllowance(deps.db, deps.settings, {
+        ownerId: auth.ownerId,
+        now,
+      });
+      if (allowance.exhausted) throw await addressesExhausted(deps, auth, allowance);
 
       let resolved: ResolvedPlace | null = null;
       let geocode: GeocodeSignal | null;
@@ -223,10 +329,7 @@ export function registerAddressRoutes(app: App, deps: ApiDeps): void {
       let placeId: string;
       let unit: string | null = null;
       if (manual) {
-        const payload = provider.verifyCandidate(body.candidateId, {
-          sessionId: auth.session.id,
-          now,
-        });
+        const payload = manualPayload;
         if (!payload) {
           throw validationFailed({
             reason: 'expired',
@@ -284,14 +387,21 @@ export function registerAddressRoutes(app: App, deps: ApiDeps): void {
         throw new AppError('ADDRESS_OUT_OF_SCOPE', { countryCode: signals.countryCode });
       }
       const formattedAddress = resolved?.formattedAddress ?? geocode?.formattedAddress ?? null;
+      // While time-based deletion is off, the address from Geocoding by place ID is stored so the
+      // gallery and saved places can label the project; otherwise it stays transient.
+      const geocodedAddress =
+        !manual && keepAddress && geocode?.formattedAddress ? geocode.formattedAddress : null;
       const holidayId = await holidayForNewProject(deps, body.holidayId ?? null);
+      const sceneType = signals.multiUnit ? null : ('house_exterior' as const);
+      const look = await startingLookFor(deps, { sceneType }, null, holidayId);
       const signedIn = auth.user !== null;
 
       // Under the owner's allowance lock, re-count on the transaction so parallel resolves never
       // create more address projects than the allowance admits. The clock is read again once the
       // lock is held, so projects committed by requests that were ahead in the queue fall inside
       // the window, and the new project is stamped with that reading. Only `trx` is used inside.
-      const project = await deps.db.transaction().execute(async (trx) => {
+      type Outcome = { refused: CounterState } | { reused: Project } | Project;
+      const project = await deps.db.transaction().execute(async (trx): Promise<Outcome> => {
         await lockOwnerAllowance(trx, auth.ownerId);
         const lockedNow = deps.clock.now();
         const locked = await addressAllowance(trx, deps.settings, {
@@ -299,6 +409,12 @@ export function registerAddressRoutes(app: App, deps: ApiDeps): void {
           now: lockedNow,
           limit: allowance.limit,
         });
+        const raced = await ownedAddressProject(trx, {
+          ownerId: auth.ownerId,
+          placeId,
+          unit,
+        });
+        if (raced) return { reused: raced } as const;
         if (locked.exhausted) return { refused: locked } as const;
         const propertyId = newId();
         await trx
@@ -327,9 +443,13 @@ export function registerAddressRoutes(app: App, deps: ApiDeps): void {
             targetLng: round6(signals.targetPoint.longitude),
             coordsSource: manual ? 'geocoding' : 'places',
             coordsExpireAt: addMs(now, COORDINATE_TTL_MS),
-            displayAddress: manual ? formattedAddress : null,
-            displayAddressBasis: manual ? 'manual_entry' : 'autocomplete_transient',
-            displayAddressStoredAt: manual ? now : null,
+            displayAddress: manual ? formattedAddress : geocodedAddress,
+            displayAddressBasis: manual
+              ? 'manual_entry'
+              : geocodedAddress
+                ? 'geocoding_place_id'
+                : 'autocomplete_transient',
+            displayAddressStoredAt: manual || geocodedAddress ? now : null,
             manualEntry: manual ? toJson({ formattedAddress, unit }) : null,
           })
           .execute();
@@ -344,7 +464,9 @@ export function registerAddressRoutes(app: App, deps: ApiDeps): void {
             propertyId,
             projectVersion: 0,
             holidayId,
-            sceneType: signals.multiUnit ? null : 'house_exterior',
+            sceneType,
+            style: look.style,
+            lightingMode: look.lightingMode,
             buildingForm: signals.multiUnit
               ? null
               : signals.attachedFacade
@@ -359,14 +481,19 @@ export function registerAddressRoutes(app: App, deps: ApiDeps): void {
           .executeTakeFirstOrThrow();
       });
       if ('refused' in project) throw await addressesExhausted(deps, auth, project.refused);
+      const target = 'reused' in project ? project.reused : project;
       await deps.db
         .updateTable('usageLedger')
-        .set({ projectId: project.id })
+        .set({ projectId: target.id })
         .where('sessionId', '=', auth.session.id)
         .where('projectId', 'is', null)
         .where('stage', '=', 'resolve')
         .where('createdAt', '>=', now)
         .execute();
+      if ('reused' in project) {
+        reply.code(200);
+        return { project: await projectDto(deps, auth, project.reused, { formattedAddress }) };
+      }
 
       if (!manual) {
         await emitEvent(deps, deps.db, {

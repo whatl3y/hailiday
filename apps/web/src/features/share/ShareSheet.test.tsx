@@ -48,9 +48,10 @@ describe('ShareSheet card preview badge', () => {
   it('sits in the lower-right corner of an upload-origin preview', () => {
     render(<ShareSheet project={project()} variant={variant()} onClose={() => undefined} />);
     expect(badge().classList.contains('share-card__badge--lower-right')).toBe(true);
+    expect(badge().classList.contains('share-card__badge--upper-left')).toBe(false);
   });
 
-  it('sits in the lower-left corner of a Street View preview', () => {
+  it('sits in the upper-left corner of a Street View preview', () => {
     render(
       <ShareSheet
         project={project()}
@@ -60,7 +61,7 @@ describe('ShareSheet card preview badge', () => {
         onClose={() => undefined}
       />,
     );
-    expect(badge().classList.contains('share-card__badge--lower-left')).toBe(true);
+    expect(badge().classList.contains('share-card__badge--upper-left')).toBe(true);
     expect(badge().classList.contains('share-card__badge--lower-right')).toBe(false);
   });
 });

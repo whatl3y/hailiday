@@ -1,4 +1,4 @@
-import type { EntryMethod, HeadingMode, Precision, PrecisionSource } from '@holiday/core';
+import type { EntryMethod, HeadingMode, Precision, PrecisionSource } from '@hailiday/core';
 import {
   fromLocalMeters,
   initialBearingDeg,

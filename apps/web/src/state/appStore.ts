@@ -10,7 +10,7 @@ import {
   type AllowanceScope,
   type CapabilityKey,
   type HolidayId,
-} from '@holiday/core';
+} from '@hailiday/core';
 import type { ExperienceSnapshot, PublicExperience } from '../experience/payload';
 import { STORAGE_KEYS, readStored, writeStored } from './persist';
 

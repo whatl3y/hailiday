@@ -1,11 +1,12 @@
 import sharp from 'sharp';
 import { describe, expect, it, vi } from 'vitest';
 import { jsonSchemaOutputFormat } from '@anthropic-ai/sdk/helpers/json-schema';
-import { DecorationPlanSchema, type DecorationPlan } from '@holiday/core';
+import { DecorationPlanSchema, type DecorationPlan } from '@hailiday/core';
 import { createAnthropicVisionModel, type SdkFetch } from './anthropic.js';
 import { createFixtureVisionModel } from './fixture.js';
 import { modelJsonSchema } from './json-schema.js';
 import {
+  JUDGE_BRIGHT_RELIGHT_SYSTEM_PROMPT,
   JUDGE_RELIGHT_SYSTEM_PROMPT,
   JUDGE_SYSTEM_PROMPT,
   LOCALIZE_PROMPT_VERSION,
@@ -336,6 +337,27 @@ describe('Anthropic judge modes', () => {
     expect(content[2]?.text).toContain(
       '- p1: 1 x 24-inch fresh fir wreath, switched on (should glow).',
     );
+  });
+
+  it('relight mode of a bright relight uses the bright relight prompt', async () => {
+    const { fetch, sent } = recordingFetch(judgeReply);
+    const vision = createAnthropicVisionModel({
+      apiKey: 'sk-ant-test-123456',
+      model: 'claude-opus-5-5',
+      fetch,
+      maxRetries: 0,
+    });
+    await vision.judge({
+      renderAttemptId: 'attempt-2',
+      original: { bytes: original, width: 96, height: 64 },
+      base: { bytes: base, width: 96, height: 64 },
+      candidate: { bytes: candidate, width: 96, height: 64 },
+      plan: { ...plan, lightingMode: 'bright' },
+      mode: 'relight',
+    });
+    const request = sent[0] as SentRequest;
+    expect(request.system[0]?.text).toBe(JUDGE_BRIGHT_RELIGHT_SYSTEM_PROMPT);
+    expect(request.messages[0]?.content?.[2]?.text).toContain('Requested light: the bright look');
   });
 
   it('decorate mode (the default) compares the original with the candidate', async () => {

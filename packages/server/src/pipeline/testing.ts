@@ -1,5 +1,5 @@
 import { sql } from 'kysely';
-import type { LightingMode, ReviewMode, Style, HolidayId } from '@holiday/core';
+import type { LightingMode, ReviewMode, Style, HolidayId } from '@hailiday/core';
 import type { Clock } from '../clock/index.js';
 import { systemClock } from '../clock/index.js';
 import { createCapabilities } from '../capabilities/index.js';
@@ -17,6 +17,7 @@ import {
   createAssetPolicy,
   defaultPolicyTemplate,
   evaluatePermission,
+  permissionSettingsOf,
   recordPermissionEvaluation,
 } from '../policy/index.js';
 import { createProviders } from '../providers/create.js';
@@ -24,14 +25,13 @@ import { notifyRenderJobChanged } from '../queue/notify.js';
 import type { JobQueue } from '../queue/client.js';
 import { createSettings } from '../settings/index.js';
 import { createStorage } from '../storage/client.js';
+import { SERVER_TEST_BUCKETS } from '../storage/testing.js';
 import type { PipelineDeps, PipelineOptions } from './context.js';
+import { streetViewFetchExpected } from './render/source.js';
 import { compilerVersionFor } from './versions.js';
 
 /** Bucket names used by pipeline integration tests (never the development buckets). */
-export const PIPELINE_TEST_BUCKETS = {
-  private: 'test-pipeline-private',
-  public: 'test-pipeline-public',
-} as const;
+export const PIPELINE_TEST_BUCKETS = SERVER_TEST_BUCKETS.pipeline;
 
 const SEED_LOCK = 734_201;
 let contentPromise: Promise<Content> | null = null;
@@ -298,8 +298,8 @@ export async function createUploadSource(
 
 /**
  * Inserts a `queued` render job the way the API's render transaction does: the submission
- * permission evaluation, the job row with its input snapshot, the worst-case reservation lines and
- * the first `NOTIFY`. The queue job is not enqueued (tests run the handler directly).
+ * permission evaluation, the job row with its input snapshot, the worst-case reservation lines
+ * (with `enhance`, the enhancement's two lines too) and the first `NOTIFY`. The queue job is not enqueued (tests run the handler directly).
  */
 export async function createRenderJobRecord(
   deps: Pick<PipelineDeps, 'db' | 'clock' | 'config'>,
@@ -311,6 +311,8 @@ export async function createRenderJobRecord(
     style?: Style;
     lightingMode?: LightingMode;
     reviewMode?: ReviewMode;
+    /** Reserves the Street View enhancement's edit and judge call, as admission does. */
+    enhance?: boolean;
   },
 ): Promise<RenderJob> {
   const holidayId = input.holidayId ?? 'christmas';
@@ -339,7 +341,7 @@ export async function createRenderJobRecord(
       result: evaluatePermission({
         policy,
         capabilityState: 'fixture',
-        appEnv: deps.config.appEnv,
+        ...permissionSettingsOf(deps.config),
         now,
         sourceKind: input.source.kind,
         isGoogleImagery: input.source.isGoogleImagery,
@@ -377,15 +379,19 @@ export async function createRenderJobRecord(
       .returningAll()
       .executeTakeFirstOrThrow();
     const reuseAnalysis = false;
+    // The API's shape: a relit look is reserved as one that decorates its own base, and the
+    // Street View fetch whenever the job will fetch pixels.
     await reserve(
       trx,
       { ownerId: input.ownerId, jobId: job.id, projectId: input.projectId, isFixture: true },
       renderReservationLines({
         imageEditProvider: 'fixture',
         visionProvider: 'fixture',
-        streetViewFetch:
-          input.source.kind === 'street_view' && input.source.streetViewMode === 'transient',
+        streetViewFetch: streetViewFetchExpected(input.source, input.source.streetViewMode),
         reuseAnalysis,
+        lightingMode: job.lightingMode,
+        relightBase: false,
+        enhance: input.enhance === true,
       }),
       deps.clock,
     );

@@ -7,8 +7,8 @@ import {
   ROOM_TYPES,
   SCENE_TYPES,
   SKIP_REASONS,
-} from '@holiday/core';
-import type { BuildingForm, NormalizedBox, RoomType, SceneType } from '@holiday/core';
+} from '@hailiday/core';
+import type { BuildingForm, NormalizedBox, RoomType, SceneType } from '@hailiday/core';
 import { DEFAULT_FIXTURES_DIR } from '../content/load.js';
 
 /** Render scenarios a fixture place or upload file name can trigger. */
@@ -16,6 +16,7 @@ export const RENDER_SCENARIOS = [
   'pass',
   'repair_then_pass',
   'reject',
+  'relight_reject',
   'provider_error',
   'slow',
   'no_anchors',

@@ -7,11 +7,11 @@ import {
   ExperienceSchema,
   MeSchema,
   validateClientAnalyticsEvent,
-} from '@holiday/core';
-import { AppError } from '@holiday/server/errors';
-import { toJson } from '@holiday/server/db';
-import { newId } from '@holiday/server/ids';
-import { verifyTurnstile } from '@holiday/server/turnstile';
+} from '@hailiday/core';
+import { AppError } from '@hailiday/server/errors';
+import { toJson } from '@hailiday/server/db';
+import { newId } from '@hailiday/server/ids';
+import { verifyTurnstile } from '@hailiday/server/turnstile';
 import type { ApiDeps } from '../deps.js';
 import type { App } from '../http/types.js';
 import { enforceEndpointLimit, enforceSessionCreationLimit } from '../auth/limits.js';

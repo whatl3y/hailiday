@@ -1,4 +1,5 @@
-import type { FailureDetail, FailureKind } from '@holiday/core';
+import type { FailureDetail, FailureKind } from '@hailiday/core';
+import type { EditOutcome } from '../../providers/types.js';
 
 /** A stage ended the job `failed` (render spec, failure kinds). */
 export class JobFailure extends Error {
@@ -36,4 +37,24 @@ export function sleep(ms: number, signal?: AbortSignal): Promise<boolean> {
     };
     signal?.addEventListener('abort', onAbort, { once: true });
   });
+}
+
+/** The editor answered with a reply that carries no image (nothing billed for an image). */
+export const NO_IMAGE = 'no_image';
+
+/**
+ * Whether a failed edit carries the vendor's answer (an HTTP status, or a reply without an
+ * image). A failure without one (connection loss, unreadable body, client timeout, a status
+ * query a provider cannot answer) may have been billed.
+ */
+export function vendorAnswered(outcome: Extract<EditOutcome, { status: 'failed' }>): boolean {
+  return outcome.httpStatus !== undefined || outcome.providerCode === NO_IMAGE;
+}
+
+/**
+ * A 200 response whose body could not be read: the vendor most likely rendered and billed the
+ * image, so the outcome is unknown rather than an unbilled provider error.
+ */
+export function unreadableAnswer(outcome: Extract<EditOutcome, { status: 'failed' }>): boolean {
+  return outcome.httpStatus === 200 && outcome.providerCode === 'invalid_json';
 }

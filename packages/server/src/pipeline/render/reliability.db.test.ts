@@ -7,9 +7,10 @@ import type {
   DecorationPlan,
   JudgeResult,
   NormalizedBox,
-} from '@holiday/core';
+} from '@hailiday/core';
 import type { Capabilities } from '../../capabilities/index.js';
 import type { AppConfig } from '../../config/index.js';
+import { DEFAULT_STREET_VIEW_ATTRIBUTION_REGIONS } from '../../config/index.js';
 import { renderFixturePanorama } from '../../fixtures/street-view.js';
 import type {
   EditOutcome,
@@ -108,7 +109,9 @@ function depsWith(o: Overrides): PipelineDeps {
   const config: AppConfig = {
     ...base.config,
     ...(o.imageEdit ? { imageEdit: { ...base.config.imageEdit, ...o.imageEdit } } : {}),
-    ...(o.attributionRegions ? { streetView: { attributionRegions: o.attributionRegions } } : {}),
+    ...(o.attributionRegions
+      ? { streetView: { ...base.config.streetView, attributionRegions: o.attributionRegions } }
+      : {}),
   };
   return { ...base, settings, capabilities, providers, config };
 }
@@ -188,6 +191,8 @@ function countingVision(
       calls.localize += 1;
       return localize ? localize(input, options) : inner.localizeAdditions(input, options);
     },
+    judgeEnhancement: (input, options) => inner.judgeEnhancement(input, options),
+    locateHome: (input, options) => inner.locateHome(input, options),
   };
   return { vision, calls, judgeInputs };
 }
@@ -959,7 +964,7 @@ describe('evening: the editor relights the accepted daylight variant', () => {
     expect(await openReservationIds(evening.id)).toEqual([]);
   });
 
-  it('never relights a daylight base that failed: a rejected base rejects the job', async () => {
+  it('never relights a daylight base that failed: its repair also fails, so the job is rejected', async () => {
     const inner = base.providers.fixtures.vision;
     const vision = countingVision(inner, async (input, options) => {
       const result = await inner.judge(input, options);
@@ -982,9 +987,19 @@ describe('evening: the editor relights the accepted daylight variant', () => {
     expect(await readJob(base.db, job.id)).toMatchObject({
       rejectionReason: 'qa_critical',
       failureCodes: ['structure_changed'],
-      attemptCount: 1,
+      attemptCount: 2,
+      repairUsed: true,
     });
-    expect(editor.calls).toHaveLength(1);
+    // The rejected base is repaired (as photographed, with the repair constraints); the repaired
+    // base fails too, and nothing is relit.
+    expect(editor.calls.map((call) => call.request.kind ?? 'decorate')).toEqual([
+      'decorate',
+      'decorate',
+    ]);
+    expect((await attemptsOf(job.id)).map((a) => [a.attemptNo, a.isRepair, a.outcome])).toEqual([
+      [1, false, 'qa_rejected'],
+      [2, true, 'qa_rejected'],
+    ]);
     expect(
       await base.db
         .selectFrom('renderAssets')
@@ -1308,14 +1323,14 @@ describe('judge records', () => {
   it('writes the judge row and its settlement together: a crash between them pays once', async () => {
     // A failure while the judge row is written (a worker death at that point) after the call.
     await sql`
-      create or replace function holiday_test_judge_crash() returns trigger as $$
+      create or replace function hailiday_test_judge_crash() returns trigger as $$
       begin raise exception 'worker died while recording the judge'; end;
       $$ language plpgsql`.execute(base.db);
-    await sql`drop trigger if exists holiday_test_judge_crash on judge_results`.execute(base.db);
+    await sql`drop trigger if exists hailiday_test_judge_crash on judge_results`.execute(base.db);
     await sql`
-      create trigger holiday_test_judge_crash before insert on judge_results
+      create trigger hailiday_test_judge_crash before insert on judge_results
       for each row when (new.model_id = 'crash-test')
-      execute function holiday_test_judge_crash()`.execute(base.db);
+      execute function hailiday_test_judge_crash()`.execute(base.db);
     try {
       const controller = new AbortController();
       const inner = base.providers.fixtures.vision;
@@ -1356,8 +1371,8 @@ describe('judge records', () => {
       expect(row.ledgerEntryId).toBe(settled[0]?.id);
       expect(await openReservationIds(job.id)).toEqual([]);
     } finally {
-      await sql`drop trigger if exists holiday_test_judge_crash on judge_results`.execute(base.db);
-      await sql`drop function if exists holiday_test_judge_crash()`.execute(base.db);
+      await sql`drop trigger if exists hailiday_test_judge_crash on judge_results`.execute(base.db);
+      await sql`drop function if exists hailiday_test_judge_crash()`.execute(base.db);
     }
   });
 });
@@ -1747,22 +1762,11 @@ describe('a panorama found removed at render time', () => {
 });
 
 describe('configured Street View attribution rectangles', () => {
-  /** A live editing leg on a Street View source whose licensing grant is recorded. */
+  /** A live editing leg on a Street View source with the default policy template. */
   async function liveStreetViewJob(deps: PipelineDeps) {
     const { ownerId, projectId, source } = await createStreetViewSource(deps, {
       placeId: PLACES.showcase,
     });
-    await base.db
-      .updateTable('assetPolicies')
-      .set({
-        display: 'allowed',
-        store: 'allowed',
-        aiProcess: 'allowed',
-        edit: 'allowed',
-        distributeDerivative: 'allowed',
-      })
-      .where('id', '=', source.assetPolicyId as string)
-      .execute();
     const job = await createRenderJobRecord(deps, { ownerId, projectId, source });
     return { job, source };
   }
@@ -1823,9 +1827,34 @@ describe('configured Street View attribution rectangles', () => {
     };
   }
 
-  it('excludes, restores and checks the configured rectangles; the default changes nothing', async () => {
-    // Default configuration: a live frame has no attribution rectangle.
-    const plain = liveDeps();
+  it('excludes, restores and checks the default measured rectangles of a 640x640 frame', async () => {
+    const deps = liveDeps();
+    expect(deps.config.streetView.attributionRegions).toEqual(
+      DEFAULT_STREET_VIEW_ATTRIBUTION_REGIONS,
+    );
+    const { job, source } = await liveStreetViewJob(deps);
+    const viewpoint = source.viewpoint as { width: number; height: number };
+    expect(`${viewpoint.width}x${viewpoint.height}`).toBe('640x640');
+    expect((await runRenderJob(deps, { renderJobId: job.id })).state).toBe('succeeded');
+    const done = await readJob(base.db, job.id);
+    const mapped = nativeBoxesOnWorkingGrid(
+      DEFAULT_STREET_VIEW_ATTRIBUTION_REGIONS['640x640'] as NormalizedBox[],
+      {
+        cropBox: (done?.workingCropBox as NormalizedBox | null) ?? null,
+        contentBox: (done?.workingPadBox as NormalizedBox | null) ?? null,
+      },
+    );
+    expect(mapped).toHaveLength(2);
+    const result = await outcome(job.id);
+    expect(result.plan.preserve.attributionRegions).toEqual(mapped);
+    for (const box of mapped) expect(pixelsIn(result.mask, box)).toBe(0);
+    expect(result.checks.compositing?.attributionRestored).toBe(true);
+    expect(result.checks.attribution).toMatchObject({ passed: true });
+  });
+
+  it('excludes, restores and checks configured rectangles; an empty configuration has none', async () => {
+    // `{}`: a live frame has no attribution rectangle.
+    const plain = liveDeps({});
     const a = await liveStreetViewJob(plain);
     expect((await runRenderJob(plain, { renderJobId: a.job.id })).state).toBe('succeeded');
     const before = await outcome(a.job.id);

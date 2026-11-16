@@ -1,4 +1,4 @@
-import { sql } from '@holiday/server/db';
+import { sql } from '@hailiday/server/db';
 import { z } from 'zod';
 import {
   CompleteUploadResponseSchema,
@@ -15,15 +15,15 @@ import {
   byteBucket,
   type NormalizedBox,
   type UploadStatus,
-} from '@holiday/core';
-import { DAY_MS, addMs } from '@holiday/server/clock';
-import { toJson } from '@holiday/server/db';
-import { AppError, notFound, rateLimited, validationFailed } from '@holiday/server/errors';
-import { newId } from '@holiday/server/ids';
-import { UPLOAD_BYTES_PER_OWNER_24H } from '@holiday/server/limits';
-import { createAssetPolicy, defaultPolicyTemplate } from '@holiday/server/policy';
-import { EnqueueConflictError } from '@holiday/server/queue';
-import { keys } from '@holiday/server/storage';
+} from '@hailiday/core';
+import { DAY_MS, addMs } from '@hailiday/server/clock';
+import { toJson } from '@hailiday/server/db';
+import { AppError, notFound, rateLimited, validationFailed } from '@hailiday/server/errors';
+import { newId } from '@hailiday/server/ids';
+import { UPLOAD_BYTES_PER_OWNER_24H } from '@hailiday/server/limits';
+import { createAssetPolicy, defaultPolicyTemplate } from '@hailiday/server/policy';
+import { EnqueueConflictError } from '@hailiday/server/queue';
+import { keys } from '@hailiday/server/storage';
 import type { ApiDeps } from '../deps.js';
 import type { App } from '../http/types.js';
 import { enforceEndpointLimit } from '../auth/limits.js';

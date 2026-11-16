@@ -1,9 +1,10 @@
 import { sql } from 'kysely';
-import { TERMINAL_RENDER_JOB_STATES } from '@holiday/core';
+import { TERMINAL_RENDER_JOB_STATES } from '@hailiday/core';
 import { HOUR_MS, addMs } from '../../clock/index.js';
 import { reservationBalance, release, settle } from '../../ledger/index.js';
 import { PRIVATE_PREFIXES, isHeldKey } from '../../storage/keys.js';
 import { pipelineOptions, type PipelineDeps } from '../context.js';
+import { closeEnhancement } from '../enhance/run.js';
 import { inFlightReservationIds } from '../render/terminate.js';
 import { loadHeldSet } from './holds.js';
 
@@ -13,6 +14,8 @@ export interface ReconciliationResult {
   attemptsReleased: number;
   attemptsStillPending: number;
   reservationsReleased: number;
+  /** Street View enhancements left `pending` by a job that ended or is gone, closed. */
+  enhancementsAbandoned: number;
   objectsScanned: number;
   /** Objects with no live owning row (the "objects past expiry" metric; must read zero). */
   objectsPastExpiry: number;
@@ -26,8 +29,10 @@ const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
  * The `reconciliation` job: resolves attempts with an unknown or canceled outcome through
  * `getOperation` (settled at the real cost, or as charged when no status can be had after the
  * window), and attempts still `pending` with an operation ID on a job terminal for over an hour
- * (the worker died mid-call and the job was ended elsewhere) the same way; releases reservations
- * left open on terminal jobs; and deletes storage objects with no live owning row, reporting the
+ * (the worker died mid-call and the job was ended elsewhere) the same way; closes Street View
+ * enhancements left `pending` by a job that is gone or terminal for over an hour (`abandoned`,
+ * with a sent edit charged at the list price); releases reservations left open on terminal jobs;
+ * and deletes storage objects with no live owning row, reporting the
  * "objects past expiry" metric. Objects under `held/` and objects of rows covered by a
  * preservation hold are never deleted.
  */
@@ -51,6 +56,7 @@ export async function runReconciliation(
     attemptsReleased: 0,
     attemptsStillPending: 0,
     reservationsReleased: 0,
+    enhancementsAbandoned: 0,
     objectsScanned: 0,
     objectsPastExpiry: 0,
     objectsDeleted: 0,
@@ -129,6 +135,33 @@ export async function runReconciliation(
     if (reconciled === 'assumed_charged') result.attemptsAssumedCharged += 1;
     else if (units === 0) result.attemptsReleased += 1;
     else result.attemptsSettled += 1;
+  }
+
+  // 1b. Enhancements left `pending` by a job that is gone or has been terminal for over an hour
+  // (the worker died during the enhancement): closed without a decision, so a later job may try.
+  const abandoned = await deps.db
+    .selectFrom('sourceEnhancements as e')
+    .leftJoin('renderJobs as j', 'j.id', 'e.jobId')
+    .select(['e.id', 'e.jobId'])
+    .where('e.status', '=', 'pending')
+    .where((eb) =>
+      eb.or([
+        eb('j.id', 'is', null),
+        eb.and([
+          eb('j.state', 'in', [...TERMINAL_RENDER_JOB_STATES]),
+          eb('j.terminalAt', '<=', addMs(now, -HOUR_MS)),
+        ]),
+      ]),
+    )
+    .$if(options.jobIds !== undefined, (qb) =>
+      qb.where('e.jobId', 'in', options.jobIds?.length ? [...options.jobIds] : [NO_ID]),
+    )
+    .limit(limit)
+    .execute();
+  for (const row of abandoned) {
+    if (await closeEnhancement(deps, row, { reason: 'abandoned' })) {
+      result.enhancementsAbandoned += 1;
+    }
   }
 
   // 2. Reservations still open on jobs terminal for more than an hour (not in flight).
@@ -253,6 +286,29 @@ export async function runReconciliation(
         .where('holdForReview', '=', true)
         .executeTakeFirst();
       return row !== undefined;
+    });
+    // An enhanced picture is live while its row names it and its source is held, or is not
+    // deleted or expired and still keeps the stored frame the picture was made from.
+    await scan(PRIVATE_PREFIXES.enhanced, async (key) => {
+      const row = await deps.db
+        .selectFrom('sourceEnhancements as e')
+        .innerJoin('sourceAssets as s', 's.id', 'e.sourceAssetId')
+        .select(['s.id as sourceId'])
+        .where('e.objectKey', '=', key)
+        .where((eb) =>
+          eb.or([
+            eb('s.preservationHoldId', 'is not', null),
+            eb.and([
+              eb('s.state', 'not in', ['deleted', 'expired']),
+              eb('s.objectKey', 'is not', null),
+              eb('s.checksumSha256', '=', eb.ref('e.frameChecksumSha256')),
+            ]),
+          ]),
+        )
+        .executeTakeFirst();
+      if (row) return true;
+      const [, sourceId] = ids(key);
+      return sourceId !== undefined && held.sources.has(sourceId);
     });
     await scan(PRIVATE_PREFIXES.attempts, jobLive);
     await scan(PRIVATE_PREFIXES.working, jobLive);

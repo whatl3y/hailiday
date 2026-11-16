@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { UploadStatus } from '@holiday/core';
+import type { UploadStatus } from '@hailiday/core';
 import * as endpoints from '../../api/endpoints';
 import type { PublicExperience } from '../../experience/payload';
 import { useAppStore } from '../../state/appStore';
@@ -63,7 +63,11 @@ const api = vi.mocked(endpoints);
 
 const offSeasonExperience = {
   holidays: [{ id: 'christmas' }, { id: 'halloween' }],
-  clientConfig: { uploadMaxBytes: 26214400, pollUploadMs: 2000 },
+  clientConfig: {
+    uploadMaxBytes: 26214400,
+    pollUploadMs: 2000,
+    retention: { timeBasedDeletion: false },
+  },
 } as unknown as PublicExperience;
 
 async function flush() {
@@ -227,7 +231,7 @@ describe('UploadPanel when the session cannot start', () => {
     choosePhoto(container);
     await flush();
     expect(screen.getByRole('alert').textContent).toBe(
-      "We couldn't get Holiday ready for you. Check your connection and try again.",
+      "We couldn't get Hailiday ready for you. Check your connection and try again.",
     );
     expect(
       screen.getByRole('button', { name: 'Try again' }).getAttribute('aria-disabled'),
@@ -337,5 +341,157 @@ describe('UploadPanel at the allowance limit', () => {
     expect(
       screen.getByText(/You've used today's free looks, so a new photo can't be decorated until/),
     ).toBeTruthy();
+  });
+});
+
+describe('UploadPanel pickers and tips', () => {
+  function renderPanel() {
+    return render(
+      <MemoryRouter>
+        <UploadPanel
+          project={project({ kind: 'upload', activeSource: null })}
+          onAttached={vi.fn()}
+        />
+      </MemoryRouter>,
+    );
+  }
+
+  it('draws the library picker beside the solid camera picker as a text link on phones', () => {
+    window.matchMedia = ((query: string) => ({
+      matches: query === '(pointer: coarse)',
+      media: query,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+    })) as unknown as typeof window.matchMedia;
+    const touch = Object.getOwnPropertyDescriptor(Navigator.prototype, 'maxTouchPoints');
+    Object.defineProperty(navigator, 'maxTouchPoints', { configurable: true, get: () => 5 });
+    try {
+      renderPanel();
+      const camera = screen.getByText('Take a photo').closest('label')!;
+      const library = screen.getByText('Choose from library').closest('label')!;
+      expect(camera.className).toContain('button--primary');
+      expect(library.className).toContain('button--quiet');
+      expect(library.className).not.toContain('button--primary');
+    } finally {
+      delete (navigator as { maxTouchPoints?: number }).maxTouchPoints;
+      if (touch) Object.defineProperty(Navigator.prototype, 'maxTouchPoints', touch);
+    }
+  });
+
+  it('opens the photo tips with the same chevron as the result rows', () => {
+    const { container } = renderPanel();
+    const summary = container.querySelector('details.tips > summary')!;
+    expect(summary.textContent).toBe('Tips for a great photo');
+    expect(summary.querySelector('svg.icon.tips__chevron')).not.toBeNull();
+  });
+});
+
+describe('UploadPanel as its own screen', () => {
+  const freshProject = () => project({ kind: 'upload', activeSource: null });
+
+  function renderScreen(props: Partial<Parameters<typeof UploadPanel>[0]> = {}) {
+    return render(
+      <MemoryRouter>
+        <UploadPanel project={freshProject()} onAttached={vi.fn()} layout="screen" {...props} />
+      </MemoryRouter>,
+    );
+  }
+
+  it('rests the step in a dock on the photograph: heading, picker, collapsed tips, the checkbox', () => {
+    const onSurfaceChange = vi.fn();
+    const { container } = renderScreen({
+      onSurfaceChange,
+      lead: <p>lead line</p>,
+      trail: <button type="button">Cancel</button>,
+    });
+    const dock = container.querySelector('.hero-frame.upload-hero .hero-dock.upload--dock')!;
+    expect(dock).not.toBeNull();
+    expect(dock.querySelector('h1')?.textContent).toBe('Upload a photo of your place');
+    expect(dock.querySelector('input[type="file"]')).not.toBeNull();
+    expect(dock.querySelector<HTMLDetailsElement>('details.tips')?.open).toBe(false);
+    expect(dock.querySelector('input[type="checkbox"]')).not.toBeNull();
+    expect(dock.firstElementChild?.textContent).toBe('lead line');
+    expect(dock.lastElementChild?.textContent).toBe('Cancel');
+    expect(container.querySelector('.stage')).toBeNull();
+    expect(onSurfaceChange).toHaveBeenLastCalledWith('photo');
+  });
+
+  it('shows a chosen photo on a stage edge to edge, its words under it, and says so to the page', async () => {
+    vi.mocked(transfer.pollUploadStatus).mockImplementationOnce(() => new Promise(() => undefined));
+    const onSurfaceChange = vi.fn();
+    const { container } = renderScreen({ onSurfaceChange });
+    fireEvent.change(container.querySelector('input[type="file"]')!, {
+      target: { files: [new File(['x'], 'room.jpg', { type: 'image/jpeg' })] },
+    });
+    await flush();
+    expect(container.querySelector('.hero-frame')).toBeNull();
+    const staged = container.querySelector<HTMLElement>('.upload--staged.stage-scope')!;
+    expect(staged.style.getPropertyValue('--stage-w')).toBe('1600');
+    const stage = staged.querySelector<HTMLElement>('.stage.stage--viewport.upload__stage')!;
+    const photo = stage.querySelector<HTMLImageElement>('.stage__picture > img.upload__photo')!;
+    expect(photo.getAttribute('src')).toBe('blob:preview');
+    expect(photo.getAttribute('width')).toBe('1600');
+    expect(photo.getAttribute('height')).toBe('1200');
+    // An upload may carry its own blurred copy behind it.
+    expect(stage.querySelector('.stage__ambient img')?.getAttribute('src')).toBe('blob:preview');
+    expect(stage.querySelector('.stage__sheen')).not.toBeNull();
+    expect(staged.querySelector('.upload__rail')?.getAttribute('data-state')).toBe('working');
+    expect(staged.querySelector('.upload__under .upload__status-text')?.textContent).toBe(
+      'Checking your photo…',
+    );
+    expect(onSurfaceChange).toHaveBeenLastCalledWith('stage');
+    // The page keeps one heading, and focus lands on it instead of falling back to the page.
+    const heading = staged.querySelector('h1.sr-only');
+    expect(heading?.textContent).toBe('Upload a photo of your place');
+    expect(document.activeElement).toBe(heading);
+    expect(container.querySelector('[aria-live="polite"]')?.textContent).toBe(
+      'Checking your photo…',
+    );
+  });
+
+  it('keeps a photo waiting to be decorated on the stage with "Decorate this photo"', () => {
+    const attachedProject = project({ kind: 'upload', variantCount: 0 });
+    useProjectStore.setState({
+      ...INITIAL_PROJECT_FLOW,
+      project: attachedProject,
+      phase: 'upload',
+    });
+    useAppStore.setState({ explicitHolidayId: 'christmas' });
+    const onAttached = vi.fn();
+    const { container } = renderScreen({ project: attachedProject, onAttached });
+    const photo = container.querySelector<HTMLImageElement>('.stage img.upload__photo')!;
+    expect(photo.getAttribute('src')).toBe(attachedProject.activeSource!.displayUrl);
+    // Another photo can still replace it: the pickers follow, as secondary actions.
+    const under = container.querySelector('.upload__under')!;
+    const picker = under.querySelector('input[type="file"]')!.closest('label')!;
+    expect(picker.className).not.toContain('button--primary');
+    expect(under.querySelector('input[type="checkbox"]')).not.toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Decorate this photo' }));
+    expect(onAttached).toHaveBeenCalledWith(attachedProject);
+  });
+
+  it('takes a photo dropped anywhere on the screen', async () => {
+    const { container } = renderScreen();
+    const target = container.querySelector<HTMLElement>('.upload-screen')!;
+    fireEvent.dragOver(target);
+    expect(target.hasAttribute('data-dragging')).toBe(true);
+    const file = new File(['x'], 'dropped.jpg', { type: 'image/jpeg' });
+    fireEvent.drop(target, { dataTransfer: { files: [file] } });
+    expect(target.hasAttribute('data-dragging')).toBe(false);
+    await flush();
+    expect(api.createUpload).toHaveBeenCalledWith(
+      expect.objectContaining({ projectId: freshProject().id }),
+      'dropped.jpg',
+    );
+  });
+
+  it('stays in the column of the screen around it by default', () => {
+    const { container } = render(
+      <MemoryRouter>
+        <UploadPanel project={freshProject()} onAttached={vi.fn()} />
+      </MemoryRouter>,
+    );
+    expect(container.querySelector('.hero-frame, .stage, .upload-step')).toBeNull();
+    expect(container.querySelector('.upload.stack .dropzone')).not.toBeNull();
   });
 });

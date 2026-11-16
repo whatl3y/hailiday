@@ -10,6 +10,14 @@ import * as m0008 from './0008_holds_and_tombstone_mirror.js';
 import * as m0009 from './0009_usage_and_fallback.js';
 import * as m0010 from './0010_session_gpc.js';
 import * as m0011 from './0011_attempt_repair_flag.js';
+import * as m0012 from './0012_project_look_defaults.js';
+import * as m0013 from './0013_bright_lighting.js';
+import * as m0014 from './0014_three_attempt_relights.js';
+import * as m0015 from './0015_keep_every_rendering.js';
+import * as m0016 from './0016_street_view_template_mark.js';
+import * as m0017 from './0017_display_load_window.js';
+import * as m0018 from './0018_street_view_enhancement.js';
+import * as m0019 from './0019_framing_sub_stage.js';
 
 /**
  * Every migration, in order. A static registry (no filesystem scanning) so the compiled release
@@ -29,4 +37,12 @@ export const MIGRATIONS: Readonly<Record<string, Migration>> = {
   '0009_usage_and_fallback': m0009,
   '0010_session_gpc': m0010,
   '0011_attempt_repair_flag': m0011,
+  '0012_project_look_defaults': m0012,
+  '0013_bright_lighting': m0013,
+  '0014_three_attempt_relights': m0014,
+  '0015_keep_every_rendering': m0015,
+  '0016_street_view_template_mark': m0016,
+  '0017_display_load_window': m0017,
+  '0018_street_view_enhancement': m0018,
+  '0019_framing_sub_stage': m0019,
 };

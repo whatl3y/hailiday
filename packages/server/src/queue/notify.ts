@@ -78,7 +78,7 @@ export function createNotificationListener(options: {
     if (stopped) return;
     const next = new pg.Client({
       connectionString: options.connectionString,
-      application_name: 'holiday-listener',
+      application_name: 'hailiday-listener',
       keepAlive: true,
     });
     next.on('notification', (message) => options.onNotification(message.channel, message.payload));

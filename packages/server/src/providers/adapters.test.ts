@@ -7,7 +7,7 @@ import {
   UploadTriageSchema,
   type CompiledRequest,
   type SceneAnalysisModelOutput,
-} from '@holiday/core';
+} from '@hailiday/core';
 import type { Logger } from '../logger/index.js';
 import { createGoogleAddressProvider } from './address/google.js';
 import { isProviderError } from './errors.js';

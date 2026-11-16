@@ -8,7 +8,7 @@ import type {
   BuildingForm,
   NormalizedBox,
   PreserveRegion,
-} from '@holiday/core';
+} from '@hailiday/core';
 import { DEFAULT_CONTENT_DIR } from '../content/load.js';
 import { CONTRIBUTOR_STAND_IN_SUFFIX, FIXTURE_PHOTO_COPYRIGHT_PREFIX } from './copyright.js';
 import { signedAngleDelta } from '../providers/geo.js';

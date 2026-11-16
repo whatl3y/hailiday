@@ -8,9 +8,9 @@ import {
   normalizeEmail,
   type AuthTokenPurpose,
   type UserRole,
-} from '@holiday/core';
+} from '@hailiday/core';
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import { MINUTE_MS, addMs } from '@holiday/server/clock';
+import { MINUTE_MS, addMs } from '@hailiday/server/clock';
 import {
   isUniqueViolation,
   toJson,
@@ -18,17 +18,17 @@ import {
   type DbOrTx,
   type Tx,
   type User,
-} from '@holiday/server/db';
-import { validationFailed } from '@holiday/server/errors';
-import { newId, randomToken, sha256Hex } from '@holiday/server/ids';
-import { charge } from '@holiday/server/ledger';
+} from '@hailiday/server/db';
+import { validationFailed } from '@hailiday/server/errors';
+import { newId, randomToken, sha256Hex } from '@hailiday/server/ids';
+import { charge } from '@hailiday/server/ledger';
 import {
   RETENTION,
   TOMBSTONE_RETENTION_MS,
   deleteProject,
   mirrorTombstones,
   setDeletionRequestStatus,
-} from '@holiday/server/pipeline';
+} from '@hailiday/server/pipeline';
 import type { ApiDeps } from '../deps.js';
 import type { App } from '../http/types.js';
 import { enforceEndpointLimit } from '../auth/limits.js';
@@ -105,10 +105,10 @@ export async function sendAuthLink(
   const reauth = input.purpose === 'operator_reauth';
   await deps.email.send({
     to: input.email,
-    subject: reauth ? 'Confirm it is you' : 'Your Holiday sign-in link',
+    subject: reauth ? 'Confirm it is you' : 'Your Hailiday sign-in link',
     text: reauth
       ? `Use this link within ${minutes} minutes to confirm an operations change:\n\n${link}\n`
-      : `Here is your link to sign in to Holiday and save your places. It works for ${minutes} minutes and can be used once.\n\n${link}\n\nIf you didn't ask for it, you can ignore this email.`,
+      : `Here is your link to sign in to Hailiday and save your places. It works for ${minutes} minutes and can be used once.\n\n${link}\n\nIf you didn't ask for it, you can ignore this email.`,
     tag: input.purpose,
   });
   await charge(
@@ -366,12 +366,12 @@ async function sendDeletionConfirmation(
   try {
     await deps.email.send({
       to: email,
-      subject: 'Your Holiday account is being deleted',
+      subject: 'Your Hailiday account is being deleted',
       text:
-        'We received your request to delete your Holiday account. Your account, your saved places, ' +
+        'We received your request to delete your Hailiday account. Your account, your saved places, ' +
         'their photos and decorated images, and your share links are being deleted now; nothing ' +
         'else is needed from you.\n\nThis is the last email we will send to this address, which ' +
-        'is removed from Holiday with your account.',
+        'is removed from Hailiday with your account.',
       tag: 'account_deleted',
     });
   } catch (error) {

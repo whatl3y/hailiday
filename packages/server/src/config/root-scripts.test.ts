@@ -17,7 +17,7 @@ describe('root database scripts', () => {
   it('runs host bucket setup through the .env preload, like db:migrate', () => {
     const script = scripts['db:storage-init'];
     expect(script).toBeDefined();
-    expect(script).toContain('--filter @holiday/server');
+    expect(script).toContain('--filter @hailiday/server');
     expect(script).toContain('--import ./dist/config/load-env/index.js');
     expect(script).toMatch(/dist\/storage-init\.js$/);
     // The preload and the entry point it names are the server package's build outputs.
@@ -28,7 +28,7 @@ describe('root database scripts', () => {
 
   it('keeps every host database script on the server package', () => {
     for (const name of ['db:migrate', 'db:seed', 'db:storage-init']) {
-      expect(scripts[name], name).toContain('--filter @holiday/server');
+      expect(scripts[name], name).toContain('--filter @hailiday/server');
     }
   });
 });

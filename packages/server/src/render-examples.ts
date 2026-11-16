@@ -34,7 +34,7 @@ export function exampleEditSettings(
 }
 
 /**
- * `pnpm --filter @holiday/server examples:render [exampleId]`: renders the before/after example
+ * `pnpm --filter @hailiday/server examples:render [exampleId]`: renders the before/after example
  * pairs from the licensed photographs through the configured live image editor and publishes
  * them. Examples are never drawn by fixtures, so without a live image editor that is configured
  * and active, the script explains what is missing and exits.
@@ -57,7 +57,7 @@ async function main(): Promise<number> {
   const db = createDb({
     connectionString: config.database.url,
     max: 2,
-    applicationName: 'holiday-examples',
+    applicationName: 'hailiday-examples',
     logger,
   });
   const storage = createStorage(config, { logger });

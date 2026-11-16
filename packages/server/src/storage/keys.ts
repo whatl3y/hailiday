@@ -20,6 +20,7 @@ export const PRIVATE_PREFIXES = {
   held: 'held/',
   tombstones: 'tombstones/',
   reviews: 'reviews/',
+  enhanced: 'enhanced/',
 } as const;
 
 export const PUBLIC_PREFIXES = {
@@ -91,6 +92,14 @@ export const keys = {
   /** The labeled download file of a downloadable variant. */
   download: (ownerId: string, renderAssetId: string) =>
     `${PRIVATE_PREFIXES.downloads}${uuid('ownerId', ownerId)}/${uuid('renderAssetId', renderAssetId)}`,
+  enhancedPrefix: (ownerId: string, sourceAssetId: string) =>
+    `${PRIVATE_PREFIXES.enhanced}${uuid('ownerId', ownerId)}/${uuid('sourceAssetId', sourceAssetId)}/`,
+  /**
+   * The accepted Street View enhancement of a stored frame (PNG on the working grid); it lives as
+   * long as the stored frame.
+   */
+  enhanced: (ownerId: string, sourceAssetId: string, enhancementId: string) =>
+    `${keys.enhancedPrefix(ownerId, sourceAssetId)}${uuid('enhancementId', enhancementId)}.png`,
   /** Reduced-size copy of an upload held for review, the only image reviewers are shown. */
   review: (sourceAssetId: string) =>
     `${PRIVATE_PREFIXES.reviews}${uuid('sourceAssetId', sourceAssetId)}.jpg`,

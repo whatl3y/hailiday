@@ -1,4 +1,4 @@
-import { isTerminalRenderJobState, type FailureKind } from '@holiday/core';
+import { isTerminalRenderJobState, type FailureKind } from '@hailiday/core';
 import { toJson } from '../../db/client.js';
 import { emitServerEvent } from '../analytics.js';
 import type { PipelineDeps } from '../context.js';

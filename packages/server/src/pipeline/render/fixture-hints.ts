@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { NormalizedBox } from '@holiday/core';
+import type { NormalizedBox } from '@hailiday/core';
 import type { Content } from '../../content/load.js';
 import type { SourceAsset } from '../../db/schema.js';
 import { renderGenericScene } from '../../fixtures/art.js';
@@ -11,6 +11,7 @@ import {
 } from '../../fixtures/data.js';
 import type { FixtureSceneGeometry } from '../../fixtures/scene.js';
 import { fixturePanoramaGeometry } from '../../fixtures/street-view.js';
+import { framedViewOf } from '../../providers/street-view/framing.js';
 import type { FixtureHint, FixtureSceneRef } from '../../providers/types.js';
 
 /**
@@ -55,22 +56,17 @@ export function fixtureContextFor(
   let geometry: FixtureSceneGeometry | null = null;
   const viewpoint = source.viewpoint;
   if (viewpoint && (source.kind === 'street_view' || source.kind === 'fixture')) {
+    // The view of the frame the job works on: the framed view once the source was framed.
+    const view = framedViewOf(viewpoint);
     scene = {
       kind: 'street_view',
-      panoId: viewpoint.panoId,
-      heading: viewpoint.heading,
-      fov: viewpoint.fov,
-      pitch: viewpoint.pitch,
+      panoId: view.panoId,
+      heading: view.heading,
+      fov: view.fov,
+      pitch: view.pitch,
     };
-    scenario = renderScenarioForPlace({ panoId: viewpoint.panoId });
-    geometry = fixturePanoramaGeometry({
-      panoId: viewpoint.panoId,
-      heading: viewpoint.heading,
-      fov: viewpoint.fov,
-      pitch: viewpoint.pitch,
-      width: viewpoint.width,
-      height: viewpoint.height,
-    });
+    scenario = renderScenarioForPlace({ panoId: view.panoId });
+    geometry = fixturePanoramaGeometry(view);
   } else if (source.kind === 'fixture' && meta.sceneId) {
     scene = { kind: 'generic_scene', sceneId: meta.sceneId };
     const params = content.genericScenes[meta.sceneId];

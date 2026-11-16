@@ -18,7 +18,7 @@ export const FILE_ONLY_ENV_NAMES = [
 
 /**
  * Variables the Anthropic SDK reads on its own to redirect requests or add credentials and
- * headers. Holiday never uses them: the env loader removes them from the shell and ignores them in
+ * headers. Hailiday never uses them: the env loader removes them from the shell and ignores them in
  * `.env`, and the configuration refuses to start when one reaches it, so the vision key and
  * customer images can only go to the allowlisted vendor host.
  */

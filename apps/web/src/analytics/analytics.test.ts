@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { AnalyticsBatch } from '@holiday/core';
+import type { AnalyticsBatch } from '@hailiday/core';
 import { ensureSession, resetSession } from '../api/endpoints';
 import { CLIENT_DEFAULTS } from '../config/values';
 import { useAppStore } from '../state/appStore';

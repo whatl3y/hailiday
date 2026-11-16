@@ -3,7 +3,7 @@ import type {
   NormalizedBox,
   SceneAnalysisModelOutput,
   UploadTriage,
-} from '@holiday/core';
+} from '@hailiday/core';
 import { loadContent, type Content } from '../../content/load.js';
 import { renderGenericScene } from '../../fixtures/art.js';
 import {
@@ -20,17 +20,20 @@ import { geometryToModelOutput, type FixtureSceneGeometry } from '../../fixtures
 import { fixturePanoramaGeometry } from '../../fixtures/street-view.js';
 import type {
   AnalyzeSceneInput,
+  ImageInput,
   LocalizeAdditionsResult,
+  LocateHomeResult,
   VisionModel,
   VisionUsage,
 } from '../types.js';
 import {
   ANALYSIS_PROMPT_VERSION,
+  FRAME_PROMPT_VERSION,
   JUDGE_PROMPT_VERSION,
   LOCALIZE_PROMPT_VERSION,
   TRIAGE_PROMPT_VERSION,
 } from './prompts.js';
-import { toJudgeResult, toSceneAnalysis } from './records.js';
+import { toEnhanceJudgeResult, toJudgeResult, toSceneAnalysis } from './records.js';
 
 /**
  * Fixture vision model ID, recorded on scene analyses (and part of their reuse key): a change in
@@ -68,13 +71,17 @@ function degradeAnchors(output: SceneAnalysisModelOutput): SceneAnalysisModelOut
   };
 }
 
+/** Confidence the fixture reports for the home it locates. */
+export const FIXTURE_LOCATE_CONFIDENCE = 0.9;
+
 /**
  * Fixture vision model. Scene analysis returns the exact geometry of procedurally drawn
  * fixtures (Street View panoramas and generic scenes); for uploads it returns the measured anchors
  * when the image is a recognized library photo (a shipped sample or house photo) and a generic
  * layout otherwise. The judge and triage follow the render scenario and the upload file-name
  * triggers. Localization reports every planned placement's region as an added item with its
- * placement id and no other change.
+ * placement id and no other change. Locating the home reports the target facade and ambiguity the
+ * scene analysis reports for the same frame.
  */
 export function createFixtureVisionModel(options: { content?: Content } = {}): VisionModel {
   let contentPromise: Promise<Content> | null = options.content
@@ -82,7 +89,11 @@ export function createFixtureVisionModel(options: { content?: Content } = {}): V
     : null;
   const content = () => (contentPromise ??= loadContent());
 
-  async function geometryFor(input: AnalyzeSceneInput): Promise<FixtureSceneGeometry> {
+  async function geometryFor(
+    input: Pick<AnalyzeSceneInput, 'fixture' | 'sceneType' | 'buildingForm' | 'roomType'> & {
+      image: ImageInput;
+    },
+  ): Promise<FixtureSceneGeometry> {
     const scene = input.fixture?.scene;
     if (scene?.kind === 'street_view') {
       const geometry = fixturePanoramaGeometry(scene);
@@ -196,6 +207,15 @@ export function createFixtureVisionModel(options: { content?: Content } = {}): V
         output.scores = { realism: 2, appeal: 2, planAdherence: 2 };
         output.overallConfidence = 0.88;
       }
+      if (scenario === 'relight_reject' && input.mode === 'relight') {
+        output.critical.push({
+          code: 'structure_changed',
+          confidence: 0.92,
+          evidence: 'Fixture scenario: the relit picture changes the home, not only its light.',
+        });
+        output.scores = { realism: 2, appeal: 2, planAdherence: 2 };
+        output.overallConfidence = 0.88;
+      }
       const elapsedMs = Date.now() - started;
       return {
         result: toJudgeResult(output, input, {
@@ -207,6 +227,52 @@ export function createFixtureVisionModel(options: { content?: Content } = {}): V
         model: FIXTURE_VISION_MODEL,
         promptVersion: JUDGE_PROMPT_VERSION,
         elapsedMs,
+        providerMode: 'fixture',
+      };
+    },
+
+    async judgeEnhancement(input) {
+      const started = Date.now();
+      const output: JudgeModelOutput = {
+        critical: [],
+        major: [],
+        placements: [],
+        scores: { realism: 4, appeal: 4, planAdherence: 5 },
+        overallConfidence: 0.9,
+      };
+      const elapsedMs = Date.now() - started;
+      return {
+        result: toEnhanceJudgeResult(output, input, {
+          judgeModel: FIXTURE_VISION_MODEL,
+          judgePromptVersion: JUDGE_PROMPT_VERSION,
+          elapsedMs,
+        }),
+        usage: USAGE,
+        model: FIXTURE_VISION_MODEL,
+        promptVersion: JUDGE_PROMPT_VERSION,
+        elapsedMs,
+        providerMode: 'fixture',
+      };
+    },
+
+    async locateHome(input) {
+      const started = Date.now();
+      const geometry = await geometryFor({
+        image: input.image,
+        sceneType: 'house_exterior',
+        ...(input.fixture ? { fixture: input.fixture } : {}),
+      });
+      const result: LocateHomeResult = {
+        home: geometry.targetFacade ? ([...geometry.targetFacade] as NormalizedBox) : null,
+        ambiguous: geometry.targetFacadeAmbiguous,
+        confidence: FIXTURE_LOCATE_CONFIDENCE,
+      };
+      return {
+        result,
+        usage: USAGE,
+        model: FIXTURE_VISION_MODEL,
+        promptVersion: FRAME_PROMPT_VERSION,
+        elapsedMs: Date.now() - started,
         providerMode: 'fixture',
       };
     },

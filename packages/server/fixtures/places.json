@@ -2046,9 +2046,9 @@
         "match": "confirm",
         "reason": null,
         "render": "pass",
-        "tags": ["contributor_imagery", "display_only", "undated_alternate"]
+        "tags": ["contributor_imagery", "contributor_credit", "undated_alternate"]
       },
-      "exercises": "Confirm with contributor imagery (not Google): the photo only confirms the place (display-only), then the app asks for your own photo. The alternate is undated.",
+      "exercises": "Confirm with contributor imagery (not Google): contributor imagery never auto-starts, so the confirmation screen comes first; once confirmed the place is decorated like any other and credited to its own photographer, never to Google. With STREET_VIEW_CONTRIBUTOR_IMAGERY=display_only the photo only confirms the place and the app asks for your own photo. The alternate is undated.",
       "formattedAddress": "31 Piñon Mesa Rd, Turquoise Flats, NM 87520, USA",
       "primaryText": "31 Piñon Mesa Rd",
       "secondaryText": "Turquoise Flats, NM, USA",

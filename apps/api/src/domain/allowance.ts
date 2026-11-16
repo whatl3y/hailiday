@@ -1,5 +1,5 @@
-import type { Allowance, AllowanceGate } from '@holiday/core';
-import { addressAllowance, variantAllowance, type CounterState } from '@holiday/server/limits';
+import type { Allowance, AllowanceGate } from '@hailiday/core';
+import { addressAllowance, variantAllowance, type CounterState } from '@hailiday/server/limits';
 import type { ApiDeps } from '../deps.js';
 import { queuedRenderCount } from './capacity.js';
 

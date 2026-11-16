@@ -1,17 +1,17 @@
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { HOUR_MS, MINUTE_MS, createManualClock } from '@holiday/server/clock';
-import * as limits from '@holiday/server/limits';
-import * as turnstile from '@holiday/server/turnstile';
+import { HOUR_MS, MINUTE_MS, createManualClock } from '@hailiday/server/clock';
+import * as limits from '@hailiday/server/limits';
+import * as turnstile from '@hailiday/server/turnstile';
 import { createHarness, json, type Harness, type TestClient } from './test/harness.js';
 import { adoptStreetViewProject } from './test/projects.js';
 
-vi.mock('@holiday/server/turnstile', async (importOriginal) => {
+vi.mock('@hailiday/server/turnstile', async (importOriginal) => {
   const original = await importOriginal<typeof turnstile>();
   return { ...original, verifyTurnstile: vi.fn(original.verifyTurnstile) };
 });
 
-vi.mock('@holiday/server/limits', async (importOriginal) => {
+vi.mock('@hailiday/server/limits', async (importOriginal) => {
   const original = await importOriginal<typeof limits>();
   return {
     ...original,

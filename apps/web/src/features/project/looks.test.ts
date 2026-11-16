@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import type { ExperienceHoliday } from '@holiday/core';
-import { SOURCE_ASSET_ID, allowance, variant } from '../../test/fixtures';
+import type { ExperienceHoliday } from '@hailiday/core';
+import { SOURCE_ASSET_ID, allowance, plainSpaces, variant } from '../../test/fixtures';
 import {
   allowanceCounterText,
+  asPhotographedStandIn,
+  defaultLook,
   findCachedVariant,
   holidaysForScene,
+  lookLabel,
   looksExhausted,
   normalizeLook,
   offeredForHoliday,
@@ -132,7 +135,12 @@ describe('offered looks', () => {
     const offered = offeredForHoliday({
       holidayId: 'christmas',
       projectHolidayId: 'christmas',
-      projectOffered: { styles: ['subtle', 'classic'], lightingModes: ['source'] },
+      projectOffered: {
+        styles: ['subtle', 'classic'],
+        defaultStyle: 'classic',
+        lightingModes: ['source'],
+        defaultLightingMode: 'source',
+      },
       sceneType: 'house_exterior',
       holidays,
     });
@@ -140,11 +148,38 @@ describe('offered looks', () => {
     expect(offered.lightingModes).toEqual(['source']);
   });
 
+  it("starts the project's own holiday from the server's default look, evening included", () => {
+    const offered = offeredForHoliday({
+      holidayId: 'christmas',
+      projectHolidayId: 'christmas',
+      projectOffered: {
+        styles: ['subtle', 'classic', 'abundant'],
+        defaultStyle: 'abundant',
+        lightingModes: ['source', 'evening'],
+        defaultLightingMode: 'evening',
+      },
+      sceneType: 'house_exterior',
+      holidays,
+    });
+    expect(offered.defaultStyle).toBe('abundant');
+    expect(offered.defaultLightingMode).toBe('evening');
+    expect(defaultLook('christmas', offered)).toEqual({
+      holidayId: 'christmas',
+      style: 'abundant',
+      lightingMode: 'evening',
+    });
+  });
+
   it("limits another holiday's lighting to what the source allows", () => {
     const offered = offeredForHoliday({
       holidayId: 'halloween',
       projectHolidayId: 'christmas',
-      projectOffered: { styles: ['classic'], lightingModes: ['source'] },
+      projectOffered: {
+        styles: ['classic'],
+        defaultStyle: 'classic',
+        lightingModes: ['source'],
+        defaultLightingMode: 'source',
+      },
       sceneType: 'house_exterior',
       holidays,
     });
@@ -156,6 +191,141 @@ describe('offered looks', () => {
   });
 });
 
+describe('look labels', () => {
+  it('names the lighting where the scene offers a choice of lighting', () => {
+    expect(
+      plainSpaces(
+        lookLabel({ holidayId: 'christmas', style: 'abundant', lightingMode: 'evening' }, [
+          'source',
+          'evening',
+        ]),
+      ),
+    ).toBe('Christmas · Abundant · Evening');
+  });
+
+  it('leaves the lighting out where the scene offers a single lighting mode', () => {
+    expect(
+      plainSpaces(
+        lookLabel({ holidayId: 'christmas', style: 'abundant', lightingMode: 'source' }, [
+          'source',
+        ]),
+      ),
+    ).toBe('Christmas · Abundant');
+    // A look made before the scene lost evening still says it was an evening look.
+    expect(
+      plainSpaces(
+        lookLabel({ holidayId: 'christmas', style: 'abundant', lightingMode: 'evening' }, [
+          'source',
+        ]),
+      ),
+    ).toBe('Christmas · Abundant · Evening');
+  });
+
+  it('wraps only after a separator, never inside a part or before a separator', () => {
+    const label = lookLabel(
+      { holidayId: 'new_years_eve', style: 'abundant', lightingMode: 'source' },
+      ['source', 'evening'],
+    );
+    expect(label).toBe("New\u00a0Year's\u00a0Eve\u00a0· Abundant\u00a0· As\u00a0photographed");
+    // The only break opportunities are the plain spaces after each separator.
+    expect(label.split(' ')).toEqual([
+      "New\u00a0Year's\u00a0Eve\u00a0·",
+      'Abundant\u00a0·',
+      'As\u00a0photographed',
+    ]);
+  });
+});
+
+describe('bright looks', () => {
+  it('never names the lighting of a bright look, even beside other modes', () => {
+    expect(
+      plainSpaces(
+        lookLabel({ holidayId: 'christmas', style: 'abundant', lightingMode: 'bright' }, [
+          'bright',
+        ]),
+      ),
+    ).toBe('Christmas · Abundant');
+    expect(
+      plainSpaces(
+        lookLabel({ holidayId: 'christmas', style: 'abundant', lightingMode: 'bright' }, [
+          'source',
+          'evening',
+          'bright',
+        ]),
+      ),
+    ).toBe('Christmas · Abundant');
+  });
+
+  it('starts an interior from its only lighting, bright', () => {
+    const offered = offeredForHoliday({
+      holidayId: 'halloween',
+      projectHolidayId: 'christmas',
+      projectOffered: {
+        styles: ['subtle', 'classic', 'abundant'],
+        defaultStyle: 'abundant',
+        lightingModes: ['bright'],
+        defaultLightingMode: 'bright',
+      },
+      sceneType: 'interior',
+      holidays: [
+        holiday({
+          id: 'halloween',
+          sceneTypes: {
+            interior: {
+              styles: ['subtle', 'classic', 'abundant'],
+              defaultStyle: 'abundant',
+              lightingModes: ['bright'],
+              defaultLightingMode: 'bright',
+            },
+          },
+        }),
+      ],
+    });
+    expect(offered.lightingModes).toEqual(['bright']);
+    expect(defaultLook('halloween', offered)).toEqual({
+      holidayId: 'halloween',
+      style: 'abundant',
+      lightingMode: 'bright',
+    });
+    // A look remembered from before interiors were brightened moves to bright.
+    expect(
+      normalizeLook({ holidayId: 'halloween', style: 'classic', lightingMode: 'source' }, offered),
+    ).toEqual({ holidayId: 'halloween', style: 'classic', lightingMode: 'bright' });
+  });
+});
+
+describe('a dusk or night photo', () => {
+  const duskEvening = variant({ style: 'abundant', lightingMode: 'evening' });
+  const look = { holidayId: 'christmas', style: 'abundant', lightingMode: 'source' } as const;
+
+  it('lets its evening variant stand in for the look as photographed once evening is gone', () => {
+    expect(asPhotographedStandIn([duskEvening], look, SOURCE_ASSET_ID, ['source'])).toBe(
+      duskEvening,
+    );
+  });
+
+  it('keeps an evening variant apart while evening is offered, or for another look', () => {
+    expect(
+      asPhotographedStandIn([duskEvening], look, SOURCE_ASSET_ID, ['source', 'evening']),
+    ).toBeNull();
+    expect(
+      asPhotographedStandIn([duskEvening], { ...look, style: 'subtle' }, SOURCE_ASSET_ID, [
+        'source',
+      ]),
+    ).toBeNull();
+    expect(
+      asPhotographedStandIn([duskEvening], { ...look, lightingMode: 'bright' }, SOURCE_ASSET_ID, [
+        'bright',
+      ]),
+    ).toBeNull();
+    expect(
+      asPhotographedStandIn([duskEvening], look, '018f0000-0000-7000-8000-cccccccccccc', [
+        'source',
+      ]),
+    ).toBeNull();
+  });
+});
+
 describe('share availability', () => {
   it('has no Share for private-only previews', () => {
     expect(shareAvailability(variant({ privateOnly: true }), true)).toEqual({
@@ -164,7 +334,7 @@ describe('share availability', () => {
     });
   });
 
-  it('explains in the menu when street photos cannot be shared yet', () => {
+  it('explains under More when a street photo cannot be shared', () => {
     const streetView = variant({
       distributable: false,
       attribution: { required: true, text: '© Google', logo: 'google_maps' },

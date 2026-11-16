@@ -8,6 +8,7 @@ import { newId, randomToken, sha256Hex } from '../../ids/index.js';
 import type { SafetyProvider, ScreeningResult } from '../../providers/types.js';
 import { createStorage } from '../../storage/client.js';
 import { keys } from '../../storage/keys.js';
+import { SERVER_TEST_BUCKETS } from '../../storage/testing.js';
 import type { PipelineDeps } from '../context.js';
 import { runRenderJob } from '../render/job.js';
 import {
@@ -22,14 +23,14 @@ import { deleteProject, deleteSharePublicObjects, resumeDeletionRequests } from 
 import { copyHeldObjects, placePreservationHold } from './holds.js';
 import { runReconciliation } from './reconciliation.js';
 import { purgePlace } from './takedown.js';
-import { replayTombstoneMirror } from './tombstones.js';
+import { mirrorTombstones, replayTombstoneMirror } from './tombstones.js';
 
 let base: PipelineDeps & { close(): Promise<void> };
 let deps: PipelineDeps;
 let photo: Buffer;
 
 /** This file's own buckets, so object scans and mirror replays see only its objects. */
-const BUCKETS = { private: 'test-holds-private', public: 'test-holds-public' } as const;
+const BUCKETS = SERVER_TEST_BUCKETS.holds;
 
 beforeAll(async () => {
   base = await createPipelineTestDeps();
@@ -374,13 +375,33 @@ describe('tombstone mirror', () => {
     const outcome = await deleteProject(deps, { project, scope: 'project', requestedBy: 'user' });
     expect(outcome.status).toBe('completed');
 
-    const lines: Record<string, unknown>[] = [];
-    for (const key of await deps.storage.list('private', 'tombstones/')) {
-      expect(key).toMatch(/^tombstones\/\d{4}-\d{2}-\d{2}\/[0-9a-f-]{36}\.jsonl$/);
-      const body = (await deps.storage.get('private', key))?.body.toString() ?? '';
-      for (const line of body.split('\n').filter(Boolean)) lines.push(JSON.parse(line));
-    }
-    const mine = lines.filter((line) => line.deletionRequestId === outcome.deletionRequestId);
+    // The database is shared with test files that run the sweeps, whose mirror may append this
+    // deletion's tombstones to their own bucket first. This deletion's batch is mirrored again
+    // here, and only the object that this mirror wrote is read.
+    const ownBatch = async (): Promise<Record<string, unknown>[]> => {
+      const before = new Set(await deps.storage.list('private', 'tombstones/'));
+      await deps.db
+        .updateTable('tombstones')
+        .set({ mirroredAt: null })
+        .where('deletionRequestId', '=', outcome.deletionRequestId)
+        .execute();
+      await mirrorTombstones(deps, { deletionRequestId: outcome.deletionRequestId });
+      const written = (await deps.storage.list('private', 'tombstones/')).filter(
+        (key) => !before.has(key),
+      );
+      const lines: Record<string, unknown>[] = [];
+      for (const key of written) {
+        expect(key).toMatch(/^tombstones\/\d{4}-\d{2}-\d{2}\/[0-9a-f-]{36}\.jsonl$/);
+        const body = (await deps.storage.get('private', key))?.body.toString() ?? '';
+        for (const line of body.split('\n').filter(Boolean)) lines.push(JSON.parse(line));
+      }
+      return lines;
+    };
+    let mine = await ownBatch();
+    // A sweep that takes the rows between the reset and the mirror leaves this batch empty.
+    for (let attempt = 0; attempt < 3 && mine.length === 0; attempt += 1) mine = await ownBatch();
+    expect(mine.length).toBeGreaterThan(0);
+    expect(mine.every((line) => line.deletionRequestId === outcome.deletionRequestId)).toBe(true);
     expect(mine.find((line) => line.kind === 'project')?.hashSha256).toBe(sha256Hex(projectId));
     expect(mine.find((line) => line.kind === 'source_asset')).toMatchObject({
       hashSha256: sha256Hex(source.id),
@@ -474,7 +495,7 @@ describe('place and panorama purges', () => {
       .where('id', '=', created.source.id)
       .execute();
 
-    const result = await runStreetViewRevalidation(deps);
+    const result = await runStreetViewRevalidation(deps, { sourceAssetIds: [created.source.id] });
     expect(result.removed).toBeGreaterThanOrEqual(1);
     const source = await deps.db
       .selectFrom('sourceAssets')
@@ -527,7 +548,7 @@ describe('place and panorama purges', () => {
       .where('id', '=', created.source.id)
       .execute();
 
-    const result = await runStreetViewRevalidation(deps);
+    const result = await runStreetViewRevalidation(deps, { sourceAssetIds: [created.source.id] });
     expect(result.removed).toBeGreaterThanOrEqual(1);
     const source = await deps.db
       .selectFrom('sourceAssets')
@@ -555,7 +576,7 @@ describe('place and panorama purges', () => {
     expect(await exists(keys.card(grant.token), 'public')).toBe(false);
   });
 
-  it('a stale transient source whose panorama is still present keeps its variants labeled', async () => {
+  it('a stale transient source whose panorama is still present becomes ready again and keeps its variants', async () => {
     const created = await createStreetViewSource(deps, {
       placeId: 'ChIJfxLanternHillColonial01',
     });
@@ -567,13 +588,13 @@ describe('place and panorama purges', () => {
       .where('id', '=', created.source.id)
       .execute();
 
-    await runStreetViewRevalidation(deps);
+    await runStreetViewRevalidation(deps, { sourceAssetIds: [created.source.id] });
     const source = await deps.db
       .selectFrom('sourceAssets')
       .select(['state', 'revalidatedAt'])
       .where('id', '=', created.source.id)
       .executeTakeFirstOrThrow();
-    expect(source.state).toBe('stale');
+    expect(source.state).toBe('ready');
     expect(source.revalidatedAt).not.toBeNull();
     const row = await deps.db
       .selectFrom('renderAssets')

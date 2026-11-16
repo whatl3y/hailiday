@@ -21,7 +21,7 @@ import {
   REVIEW_SUBJECT_KINDS,
   STYLES,
   TERMINAL_RENDER_JOB_STATES,
-} from '@holiday/core';
+} from '@hailiday/core';
 import {
   ID_AND_CREATED,
   ID_CREATED_UPDATED,

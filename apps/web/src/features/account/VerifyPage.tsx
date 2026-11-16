@@ -4,7 +4,7 @@ import {
   RelativePathSchema,
   isVerifyConfirmationRequired,
   type VerifyMagicLinkSignedIn,
-} from '@holiday/core';
+} from '@hailiday/core';
 import { verifyMagicLink } from '../../api/endpoints';
 import { isApiError } from '../../api/errors';
 import { presentError } from '../../api/present';
@@ -173,7 +173,7 @@ export function VerifyPage() {
             >
               {t('auth.confirmContinue')}
             </button>
-            <button type="button" className="button" onClick={notMe}>
+            <button type="button" className="button button--quiet" onClick={notMe}>
               {t('auth.confirmNotMe')}
             </button>
           </div>

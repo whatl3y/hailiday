@@ -12,7 +12,7 @@ import {
   type JudgeResult,
   type RoomType,
   type SceneAnalysis,
-} from '@holiday/core';
+} from '@hailiday/core';
 import {
   GEMINI_IMAGE_SIZES,
   GEMINI_THINKING_LEVELS,
@@ -33,6 +33,7 @@ import {
   compiledRecordOf,
   compilerProviderFor,
   isRelightRequest,
+  relightTargetOf,
 } from './pipeline/compile/compiler.js';
 import {
   ExampleCameraChangedError,
@@ -65,15 +66,18 @@ import type {
  * presence is printed.
  */
 
-/** The curated examples, in run order: houses, an evening relight, rooms, an entry, a balcony. */
+/**
+ * The curated examples, in run order: houses, an evening relight, rooms and an entry in the bright
+ * look (the rooms already bright, the entry relit), a balcony.
+ */
 export const CURATED_EXAMPLE_IDS: readonly string[] = Object.freeze([
   'example.christmas.house_exterior.classic.source.v1',
   'example.christmas.house_exterior.classic.evening.v1',
   'example.halloween.house_exterior.classic.source.v1',
   'example.thanksgiving_us.house_exterior.classic.source.v1',
-  'example.christmas.interior.classic.source.v1',
-  'example.thanksgiving_us.interior.classic.source.v1',
-  'example.christmas.apartment_entry.classic.source.v1',
+  'example.christmas.interior.classic.bright.v1',
+  'example.thanksgiving_us.interior.classic.bright.v1',
+  'example.christmas.apartment_entry.classic.bright.v1',
   'example.christmas.balcony.classic.source.v1',
 ]);
 
@@ -254,7 +258,7 @@ function isInside(parent: string, child: string): boolean {
 
 /**
  * Parses the command line (pnpm may forward a literal `--`, which is skipped). `--out` must lie
- * outside the repository; the default is `holiday-bakeoff-<UTC timestamp>` in the temp directory.
+ * outside the repository; the default is `hailiday-bakeoff-<UTC timestamp>` in the temp directory.
  */
 export function parseBakeoffArgs(
   argv: readonly string[],
@@ -311,7 +315,7 @@ export function parseBakeoffArgs(
   const rawOut = values.get('--out');
   const out = rawOut
     ? path.resolve(context.cwd, rawOut)
-    : path.join(context.tmpDir, `holiday-bakeoff-${timestampSlug(context.now)}`);
+    : path.join(context.tmpDir, `hailiday-bakeoff-${timestampSlug(context.now)}`);
   if (context.workspaceRoot && isInside(path.resolve(context.workspaceRoot), out)) {
     throw new BakeoffUsageError(
       `--out ${out} is inside the repository; choose a folder outside it (the default is in the system temp directory)`,
@@ -618,6 +622,8 @@ function sharedAnalysisVision(
     classifyUpload: (input, options) => vision.classifyUpload(input, options),
     judge: (input, options) => vision.judge(input, options),
     localizeAdditions: (input, options) => vision.localizeAdditions(input, options),
+    judgeEnhancement: (input, options) => vision.judgeEnhancement(input, options),
+    locateHome: (input, options) => vision.locateHome(input, options),
     async analyzeScene(input, options) {
       const key = [
         input.image.checksum,
@@ -748,7 +754,8 @@ const safeName = (text: string) => text.replace(/[^a-zA-Z0-9._-]+/g, '_');
  * and `summary.md` to `deps.out`. Arms run one after another; examples within an arm run with
  * `deps.concurrency` in flight, daylight examples first, so an evening example relights its arm's
  * daylight composite of the same photo (as an evening variant relights the accepted daylight
- * variant) and is judged in relight mode against it.
+ * variant) and is judged in relight mode against it. A bright example relights its own composite
+ * (or keeps it when the photo is already bright).
  */
 export async function runBakeoff(deps: BakeoffDeps): Promise<BakeoffReport> {
   const now = deps.now ?? (() => new Date());
@@ -903,19 +910,24 @@ export async function runBakeoff(deps: BakeoffDeps): Promise<BakeoffReport> {
     }
     let plan: DecorationPlan;
     if (isRelightRequest(request)) {
-      // An evening example relit its daylight composite: the plan is that composite's plan in
-      // evening lighting, and the judge compares the relit output with the composite.
+      // A relit example (evening or bright) relit its daylight composite: the plan is that
+      // composite's plan in the relit lighting, and the judge compares the relit output with the
+      // composite.
       if (!output.relightBase) {
         record.judgeSkipped = 'no_plan';
         return;
       }
+      const target = relightTargetOf(request);
       plan = DecorationPlanSchema.parse({
         ...output.relightBase.plan,
-        lightingMode: 'evening',
+        lightingMode: target,
         fidelityMode: 'global_relight',
         lightingInstruction: {
-          mode: 'evening',
-          text: 'Relight the daylight composite to early evening: dusk ambient light, the decorations’ own lights glowing, existing windows and porch or room lights on; nothing else changes.',
+          mode: target,
+          text:
+            target === 'bright'
+              ? 'Relight the daylight composite to the bright look: bright, airy and cheerful as on a sunny day with every light on, shadows lifted, the decorations’ own lights glowing; nothing else changes.'
+              : 'Relight the daylight composite to early evening: dusk ambient light, the decorations’ own lights glowing, existing windows and porch or room lights on; nothing else changes.',
         },
         compiled: compiledRecordOf(request),
       });
@@ -939,7 +951,8 @@ export async function runBakeoff(deps: BakeoffDeps): Promise<BakeoffReport> {
           buildingForm: source.buildingForm ?? null,
           roomType: source.roomType ?? null,
           style: example.style,
-          lightingMode: example.lightingMode,
+          // Every decorate request is compiled as photographed (a relit example relights it).
+          lightingMode: 'source',
           compilerVersion: compilerVersionFor(provider),
           permissionEvaluationId: `example:${example.exampleId}`,
         },

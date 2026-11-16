@@ -2,7 +2,7 @@ import { existsSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { FastifyReply } from 'fastify';
-import type { AppConfig } from '@holiday/server/config';
+import type { AppConfig } from '@hailiday/server/config';
 
 /** Default location of the built web app relative to `apps/api/{src,dist}`. */
 export const DEFAULT_WEB_DIST_DIR = fileURLToPath(new URL('../../../web/dist/', import.meta.url));
@@ -23,13 +23,14 @@ export const FALLBACK_TEMPLATE = `<!doctype html>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="color-scheme" content="light" />
-    <title>Holiday</title>
-    <!--holiday:head-->
+    <meta name="theme-color" content="#ffffff" />
+    <title>Hailiday</title>
+    <!--hailiday:head-->
   </head>
   <body>
-    <div id="ssr-hero" class="ssr-hero"><!--holiday:hero--></div>
+    <div id="ssr-hero" class="ssr-hero"><!--hailiday:hero--></div>
     <div id="root"></div>
-    <!--holiday:experience-->
+    <!--hailiday:experience-->
   </body>
 </html>
 `;
@@ -70,9 +71,20 @@ export function inlineJson(value: unknown): string {
     .replace(/\u2029/g, '\\u2029');
 }
 
+/**
+ * The browser chrome colour per surface: paper pages, and pages that open on ink (a photograph
+ * or a picture stage). The app's `PageShell` keeps it in step on navigation.
+ */
+export const THEME_COLORS = {
+  paper: '#ffffff',
+  ink: '#0d0d0f',
+} as const;
+
 export interface PageParts {
   title?: string;
   head?: string;
+  /** The page's `theme-color`; the template's value (paper) when omitted. */
+  themeColor?: string;
   /** Markup for the server-rendered region (`#ssr-hero`). */
   ssr?: string;
   /** Inline JSON scripts: element ID → value. */
@@ -80,7 +92,7 @@ export interface PageParts {
 }
 
 function inject(html: string, marker: string, content: string, fallback: (html: string) => string) {
-  const token = `<!--holiday:${marker}-->`;
+  const token = `<!--hailiday:${marker}-->`;
   return html.includes(token) ? html.replace(token, () => content) : fallback(html);
 }
 
@@ -94,6 +106,12 @@ export function renderPage(shell: WebShell, parts: PageParts): string {
           () => `<title>${escapeHtml(parts.title ?? '')}</title>`,
         )
       : html.replace(/<\/head>/i, () => `<title>${escapeHtml(parts.title ?? '')}</title></head>`);
+  }
+  if (parts.themeColor) {
+    const meta = `<meta name="theme-color" content="${escapeHtml(parts.themeColor)}" />`;
+    html = /<meta\s+name="theme-color"[^>]*>/i.test(html)
+      ? html.replace(/<meta\s+name="theme-color"[^>]*>/i, () => meta)
+      : html.replace(/<\/head>/i, () => `${meta}\n</head>`);
   }
   const head = parts.head ?? '';
   html = inject(html, 'head', head, (current) =>

@@ -1,6 +1,6 @@
 # Glossary
 
-The canonical vocabulary for the Holiday plan. This file lists every product, domain, code and status term the other documents use, with its allowed values and a link to the section that sets its behavior. When a document, schema, API field or UI string needs a word for one of these concepts, it uses the term here and no other.
+The canonical vocabulary for the Hailiday plan. This file lists every product, domain, code and status term the other documents use, with its allowed values and a link to the section that sets its behavior. When a document, schema, API field or UI string needs a word for one of these concepts, it uses the term here and no other.
 
 **Owns:** all project vocabulary: term names, enum values, ID schemes and retired synonyms. Behavior, rules and numbers stay in the linked owner sections.
 **Baseline:** planning baseline 2026-11-09; external facts retrieved 2026-11-08.
@@ -25,10 +25,10 @@ The canonical vocabulary for the Holiday plan. This file lists every product, do
 | Journey | A named path through the product, used in PLAN and the experience spec. | A (address, Street View AI active), A′ (address, interim experience), B (upload), C (variations and shopping), D (save, share, return) | [PLAN §4](PLAN.md#4-experience-overview) |
 | Required fallback behavior | The table that maps each situation (no imagery, multi-unit, allowance reached and so on) to the experience it must produce. | — | [PLAN §4](PLAN.md#4-experience-overview) |
 | Friction budget | The maximum number of blocking steps allowed before the first render on each path, plus where every notice is placed. | blocking, passive | [experience](specs/experience.md#friction-budget) |
-| Product owner | The user who commissioned Holiday. The product owner sets Fixed decisions, approves Proposed ones, decides every gate, and appears as "user" in owner columns. | — | [decisions](decisions.md#how-decisions-work) |
+| Product owner | The user who commissioned Hailiday. The product owner sets Fixed decisions, approves Proposed ones, decides every gate, and appears as "user" in owner columns. | — | [decisions](decisions.md#how-decisions-work) |
 | Owner (of data) | The anonymous session or signed-in account that owns a project, render job, share grant or allowance. Both kinds share one `owners` row, the single foreign-key target for owned data. This is not the product owner. | anonymous session, user; `owners` | [data-and-api](specs/data-and-api.md#conventions) |
 | Guest | A visitor with no account. The guest's data is owned by an anonymous session. | `anonymous_sessions` | [experience](specs/experience.md#saving-accounts-and-sharing) |
-| Decision ID | The identifier of a recorded decision. | `D-01` … `D-49` | [decisions](decisions.md#decision-register) |
+| Decision ID | The identifier of a recorded decision. | `D-01` … `D-52` | [decisions](decisions.md#decision-register) |
 | Decision status | Where a decision stands. Fixed: set by the user. Proposed: the recommended default, which the build follows unless amended. Accepted: a Proposed decision the owner has approved. Open: needs a decision or evidence and has a stated default until then. | Fixed, Proposed, Accepted, Open | [decisions](decisions.md#how-decisions-work) |
 | Requirement ID | A requirement from the product owner's original request ([original_prompt.txt](original_prompt.txt)) (REQ) or a derived requirement (NFR). | `REQ-01` … `REQ-12`, `NFR-01` … `NFR-09` | [PLAN §2](PLAN.md#2-requirements) |
 | Interpretation | How the plan reads an ambiguous phrase in the original request, and why. | — | [traceability](traceability.md#interpretations-of-the-brief) |
@@ -78,7 +78,7 @@ The evidence, pass rules and failure branches for each gate are in the backlog's
 | --- | --- |
 | `address_lookup` | Address suggestions, resolution and manual-entry geocoding. |
 | `street_view_display` | Showing Street View imagery for confirmation and as the before image. |
-| `street_view_ai` | Sending Street View imagery to models and decorating it (Journey A). |
+| `street_view_ai` | Sending Street View imagery to models and decorating it (Journey A). In development it defaults to `live_public` when the Street View provider and the image editor are live and `STREET_VIEW_USE_POLICY` is not `display_only`. |
 | `uploads` | Accepting user photos as sources. |
 | `image_editing` | Paid image-edit provider calls. |
 | `vision_analysis` | Vision-model calls for scene analysis and the QA judge. |
@@ -110,7 +110,7 @@ The backlog sets each item's actual phase and dependencies.
 | Project | One owner-scoped place being decorated: one resolved property, or one upload subject with no address. It holds source assets, the current holiday, style and lighting selections, and `projectVersion`. A different address creates a new project. A new photo or viewpoint of the same place stays in the same project. | `projects` | [render](specs/render-pipeline.md#concepts) |
 | `projectVersion` | The optimistic-concurrency counter for the project's current source only. It increments when a source is bound or replaced, and never on a holiday, style or lighting change, so toggling back to an earlier choice returns the cached variant. A request that carries an older value fails with `STALE_PROJECT_VERSION`. | integer | [data-and-api](specs/data-and-api.md#idempotency-and-concurrency) |
 | Property | The address-resolved target location of a project: place ID, target point and precision. | `properties` | [address](specs/address-and-street-view.md#property-resolution-and-precision) |
-| Place ID | Google's identifier for a resolved place, and the address identifier Holiday persists. | — | [address](specs/address-and-street-view.md#saved-projects-and-address-storage) |
+| Place ID | Google's identifier for a resolved place, and the address identifier Hailiday persists. | — | [address](specs/address-and-street-view.md#saved-projects-and-address-storage) |
 | Display address | The human-readable address shown on a saved project. It is obtained on save by geocoding the place ID and stored per owner ([D-23](decisions.md#d-23)). | — | [address](specs/address-and-street-view.md#saved-projects-and-address-storage) |
 | Target point | The coordinates of the property itself, not of the camera. They are kept only for a limited period. | — | [address](specs/address-and-street-view.md#property-resolution-and-precision) |
 | Precision | How exactly the resolved location identifies one building, judged from Geocoding `location_type`, `partial_match` and place types. | — | [address](specs/address-and-street-view.md#property-resolution-and-precision) |
@@ -120,7 +120,7 @@ The backlog sets each item's actual phase and dependencies.
 | Autocomplete session token | A UUID for one address search. It groups the suggestion requests and the resolution that ends them for billing. | `sessionToken` | [address](specs/address-and-street-view.md#address-entry) |
 | Source discovery | The server step after resolution that finds candidate viewpoints and assigns a match class. | `source_discoveries`, `POST /v1/projects/:id/source-discovery` | [address](specs/address-and-street-view.md#viewpoint-selection) |
 | Panorama | One Street View capture, identified by a pano ID and located where the camera stood, not at the house. | pano ID | [address](specs/address-and-street-view.md#viewpoint-selection) |
-| Viewpoint | The Street View camera parameters for one image: pano ID, heading, pitch, fov and size (always 640×640). Images are always requested by pano ID with an explicit heading, and the display and render frames are identical. | — | [address](specs/address-and-street-view.md#viewpoint-selection) |
+| Viewpoint | The Street View camera parameters for one image: pano ID, heading, pitch, fov and size (always 640×640). Images are always requested by pano ID with an explicit heading. The candidate's view is the source's identity; the frame the looks are made on is the framed view once the source is framed (see Framing). | `source_assets.viewpoint` | [address](specs/address-and-street-view.md#viewpoint-selection) |
 | Heading mode | What the explicit heading was aimed at: the building geometry target, or the resolved point when no geometry is available. | `headingMode`: `geometry`, `point` | [address](specs/address-and-street-view.md#viewpoint-selection) |
 | Candidate viewpoint | One viewpoint offered by discovery: a primary plus up to two alternates. | `candidateId` | [address](specs/address-and-street-view.md#viewpoint-selection) |
 | Nudge | A bounded user adjustment to the heading or fov of the chosen candidate ([D-40](decisions.md#d-40) default). | — | [address](specs/address-and-street-view.md#viewpoint-adjustment) |
@@ -171,7 +171,7 @@ Discovery returns up to 3 candidate viewpoints. The [Street View source mode](#s
 | `ready` | Admitted and usable for renders. Street View and fixture assets are created directly in `ready` at confirmation. |
 | `declined` | Refused by content admission. |
 | `failed` | Could not be processed. |
-| `stale` | Revalidation found the Street View panorama changed or removed. |
+| `stale` | Revalidation found the Street View panorama replaced by newer imagery or removed. A difference in the bytes of a refetched frame never marks a source stale. A stale source whose own panorama still resolves becomes ready again at its next check. |
 | `expired` | The retention period has ended. |
 | `deleted` | Removed by the owner or a deletion sweep, and tombstoned. |
 
@@ -187,7 +187,7 @@ Discovery returns up to 3 candidate viewpoints. The [Street View source mode](#s
 | Default holiday | The holiday preselected by precedence: an explicit choice, then the holiday in its promotion window, then none (off-season). | `holidayId` or none | [holidays](specs/holidays-and-content.md#windows-and-selection) |
 | Off-season | Any date outside every promotion window. The landing page shows a neutral hero, the picker lists all supported holidays, and no render auto-starts. | — | [holidays](specs/holidays-and-content.md#off-season-behavior) |
 | Holiday picker | The control that lists the supported holidays. A deep link can preselect one. | `?holiday=<holidayId>` | [holidays](specs/holidays-and-content.md#windows-and-selection) |
-| Hero | The landing image for the holiday currently in its window, or a neutral image off-season. | `hero_assets` | [holidays](specs/holidays-and-content.md#hero-and-example-art) |
+| Hero | The photograph for the holiday currently in its window, or a neutral photograph off-season, shown full-viewport in a hero frame on the landing and the other hero-frame screens. | `hero_assets` | [holidays](specs/holidays-and-content.md#hero-and-example-art) |
 | Example | One permissioned before/after per holiday and scene type, shown behind "See an example" and during waits ([D-11](decisions.md#d-11)). | `example_assets` | [holidays](specs/holidays-and-content.md#hero-and-example-art) |
 | Art direction | The editorial guidance for hero and example images. | — | [holidays](specs/holidays-and-content.md#hero-and-example-art) |
 | Holiday pack | Versioned, reviewed content for one holiday and region: scene sections, styles, lighting policy, kits, prompt fragments, forbidden list and hero references. Packs are repository files, validated in CI and published at deploy ([D-08](decisions.md#d-08)). | `holidayPackVersion` as `MAJOR.MINOR.PATCH` | [holidays](specs/holidays-and-content.md#holiday-packs) |
@@ -198,15 +198,15 @@ Discovery returns up to 3 candidate viewpoints. The [Street View source mode](#s
 | Scene section | A pack's rules for one scene type: allowed anchor categories, placement and preserve rules, styles with quantity rules, the kit, and prompt fragments. | keyed by scene type | [holidays](specs/holidays-and-content.md#pack-schema) |
 | Scene type | The kind of space in a source photo. It selects the scene section. Once a render job exists for a source asset, its scene type is fixed; a correction creates a child source asset (same bytes, new ID). | see [Scene types](#scene-types) | [holidays](specs/holidays-and-content.md#holiday-model), [uploads](specs/uploads.md#scene-type-and-photo-guidance) |
 | Decoration controls | The only three choices a user makes: holiday, style and lighting mode. The US Release has no free-text prompts. | — | [experience](specs/experience.md#changing-holiday-style-and-lighting) |
-| Style | How much decoration a render adds: a tier inside a scene section, chosen by the user. | `subtle`, `classic` (default), `abundant` | [holidays](specs/holidays-and-content.md#holiday-packs), [D-10](decisions.md#d-10) |
-| Lighting mode | Whether the render keeps the photo's light or relights it for evening. | see [Lighting modes](#lighting-modes) | [render](specs/render-pipeline.md#lighting-modes), [D-10](decisions.md#d-10) |
-| Lighting policy | For each holiday and scene type: the default lighting mode, which modes are offered, and evening guidance (for example, no electric lights on Thanksgiving exteriors). | — | [holidays](specs/holidays-and-content.md#lighting-policy) |
+| Style | How much decoration a render adds: a tier inside a scene section, chosen by the user. | `subtle`, `classic`, `abundant` (default) | [holidays](specs/holidays-and-content.md#holiday-packs), [D-10](decisions.md#d-10) |
+| Lighting mode | Whether the render keeps the photo's light or relights it (evening for exteriors, bright for rooms). | see [Lighting modes](#lighting-modes) | [render](specs/render-pipeline.md#lighting-modes), [D-10](decisions.md#d-10) |
+| Lighting policy | For each holiday and scene type: the default lighting mode, which modes are offered, and evening guidance. `evening` is the default for exteriors and balconies (offering `source` as the alternative); interiors and apartment entries offer `bright` only, with no choice. | — | [holidays](specs/holidays-and-content.md#lighting-policy) |
 | Style kit | For one (holiday, scene type) pair, a versioned set of product archetypes with specs written in-house. Each style uses a subset. | versioned | [holidays](specs/holidays-and-content.md#style-kits), [commerce](specs/commerce.md#style-kits-and-products) |
 | Kit item | One archetype in a style kit, with an anchor category, spec text, spec attributes and a quantity per style. | — | [holidays](specs/holidays-and-content.md#style-kits) |
 | Spec text | Our own description of a kit item's public attributes, sent to the renderer. It never contains merchant text or images. | — | [commerce](specs/commerce.md#style-kits-and-products) |
 | Anchor | A real, visible surface or feature in the photo where decor may attach, typed by a fixed anchor-category list. | for example `front_door`, `porch_rail`, `mantel`, `dining_table` | [holidays](specs/holidays-and-content.md#example-packs), [render](specs/render-pipeline.md#scene-analysis) |
 | Forbidden list | A pack's list of things never added, such as people, pets, text, house numbers, unselected religious symbols, and snow that is not visible in the source. | — | [holidays](specs/holidays-and-content.md#pack-schema) |
-| Existing decorations | Decor already present in the source. It is kept and complemented, never removed. | — | [holidays](specs/holidays-and-content.md#climate-culture-and-existing-decorations) |
+| Existing decorations | Decor already present in the source. It is kept and complemented: indoors, in apartment entries and on balconies it is never removed, moved or covered; outside a house (`house_exterior`) a decoration of the chosen holiday may take the place of a removable seasonal item at its spot (a wreath or door hanger, a potted plant, flower pot, planter or urn, a hanging basket, a seasonal flag, a doormat), and furniture, fixtures, mailboxes, anything built, vehicles, bins and plants growing in the ground stay. House numbers, signs and logos are never covered. | `existingDecorations` | [holidays](specs/holidays-and-content.md#climate-culture-and-existing-decorations) |
 
 ### Scene types
 
@@ -223,8 +223,9 @@ A multi-unit building facade is not a scene type. Discovery routes it to `skip_t
 
 | `lightingMode` | UI label | Meaning |
 | --- | --- | --- |
-| `source` | "As photographed" | Keeps the photo's light, and electric decor glows. This is the default. |
-| `evening` | "Evening" | Relights the scene to dusk or evening, with decor lights clearly lit. Offered after the first result where the lighting policy allows it. |
+| `source` | "As photographed" | Keeps the photo's light (for an enhanced Street View frame, the photo's own daylight as redrawn by the enhancement), and electric decor glows. Offered for exteriors and balconies as the alternative to `evening`. |
+| `evening` | "Evening" | Relights the decorated scene to dusk or evening, with decor lights clearly lit. The default for `house_exterior` and `balcony`. A photo already at dusk or night is decorated as photographed and delivered as its evening look. |
+| `bright` | Bright (copy key exists; never shown in a caption) | Relights the decorated photo to a bright, airy, cheerful version of the same room. The only mode, and the default, for `interior` and `apartment_entry`, so no lighting control is shown. A photo that is already bright is not relit. |
 
 ## Rendering terms
 
@@ -232,13 +233,13 @@ A multi-unit building facade is not a scene type. Discovery routes it to `skip_t
 | --- | --- | --- | --- | --- |
 | Render request | A user action that asks for a variant (`POST /v1/renders`). If the variant key already has an accepted variant, that variant is returned and no job is created. | Only through the job it creates | None by itself | [render](specs/render-pipeline.md#variant-key-and-reuse) |
 | Render job | One attempt to produce one variant. A project has at most one non-terminal job. | Through its attempts | Counts one accepted variant, only on `succeeded` | [render](specs/render-pipeline.md#concepts) |
-| Render attempt | One paid image-edit provider call. A job has at most 2: the initial attempt plus one repair. | Yes, one | None directly. Counts toward the paid-attempt quota | [render](specs/render-pipeline.md#concepts) |
-| Repair | The single re-plan after a QA rejection. It always starts from the original and creates attempt 2. | Yes (attempt 2) | None | [render](specs/render-pipeline.md#repair-and-retries) |
+| Render attempt | One paid image-edit provider call that decorates or relights (the enhancement of a Street View frame is not an attempt). A job has at most 2: the initial attempt plus one repair. A relit look that decorates its own base has at most 3: the base, the relight and one repair of either. | Yes, one | None directly. Counts toward the paid-attempt quota | [render](specs/render-pipeline.md#concepts) |
+| Repair | The single re-plan after a QA rejection that a repair can follow, with failure-informed constraints. A decorate repair starts again from the original source, a relight repair from the same decorated base; either creates the next attempt. A job is repaired at most once. | Yes (the next attempt) | None | [render](specs/render-pipeline.md#repair-and-retries) |
 | Transport retry | An infrastructure re-dispatch of the same attempt. It first queries the recorded provider operation and never creates a new paid attempt. | No new call | None | [render](specs/render-pipeline.md#repair-and-retries) |
 | User retry | A new render job started by the user after a terminal job. | Through the new job | As a new job | [render](specs/render-pipeline.md#repair-and-retries) |
-| Accepted variant | The output of a job that reached `succeeded`. Each owner has at most one per variant key. | — | Counted once, when accepted | [render](specs/render-pipeline.md#concepts) |
+| Accepted variant | The output of a job that reached `succeeded`. Every published rendering is kept: an owner may hold several renderings of one variant key, and the newest is the one cached, listed among the project's looks and relit. | — | Counted once, when accepted | [render](specs/render-pipeline.md#concepts) |
 | Preview | The user-facing word for an accepted variant, always shown with the "AI preview" label. | — | — | [experience](specs/experience.md#result-and-comparison) |
-| Cached variant | An existing accepted variant returned for a matching variant key. | No | Free | [render](specs/render-pipeline.md#variant-key-and-reuse) |
+| Cached variant | The newest existing accepted variant returned for a matching variant key. | No | Free | [render](specs/render-pipeline.md#variant-key-and-reuse) |
 
 | Term | Definition | Values / code form | Owner |
 | --- | --- | --- | --- |
@@ -259,27 +260,36 @@ A multi-unit building facade is not a scene type. Discovery routes it to `skip_t
 | Normalized box | A region given as `[x0, y0, x1, y1]` in 0–1 on the working image. Adapters convert vendor formats. | — | [render](specs/render-pipeline.md#coordinate-and-schema-conventions) |
 | Compositing | Pasting original pixels back outside the feathered keep-mask (the plan's decoration shapes and the localized decorations) in `source` mode, plus final encoding. | — | [render](specs/render-pipeline.md#compositing-and-resolution) |
 | Localization | The vision call after registration that boxes each decoration the editor added (and every other change) in the aligned output, so the paste-back keeps what the editor added wherever it placed it. | `LocalizationRecord` | [render](specs/render-pipeline.md#localizing) |
-| Fidelity mode | The render mode recorded on an attempt, which follows from the lighting mode: additive compositing for `source`, a global relight of the accepted daylight variant for `evening`. | `fidelityMode`: `composite_additive`, `global_relight` | [render](specs/render-pipeline.md#lighting-modes) |
+| Framing | The step at a Street View source's next look while no framing is recorded (its first look, or the next look of a place whose looks were made before) that finds the home in the fetched frame with the vision model and fetches the same panorama again at the view that fills the picture with just that home, so every look shows the home zoomed in and without the lawn, trees and neighbors around it. It is recorded on the viewpoint (`framed`, or `kept` when the wide frame stays for good: no home, ambiguous, a gain under 1.15 times, or `refused_framed`, the analysis having refused a framed frame), runs once per source, never for uploads, is recorded only while no other render job of the source is unfinished, and is switched by `STREET_VIEW_FRAMING`. Looks made before it keep their wide picture and a true "Before". The viewpoint's own heading, pitch and fov stay its identity. It is not a render attempt, a look or an allowance unit. | `source_assets.viewpoint.framing`; sub-stage `framing`; ledger stage `framing` | [render](specs/render-pipeline.md#framing), [address](specs/address-and-street-view.md#the-framed-view) |
+| Enhancement | The one global edit by which the image editor redraws a stored Street View frame sharper and cleaner, as a picture of the same place, before any decoration is planned onto it. It is registered to the frame, given the frame's own pixels back inside people, blurred areas, recorded plates, house numbers and signs, given Google's two corner marks back, checked and judged; accepted, the picture is the working image of that source for every look (decorations are composited onto it and relights relight it), and "Before" stays Google's frame. One per (source, stored frame, compiler version), reused by every later look, remembered when rejected, switched by `STREET_VIEW_ENHANCE`. It is not a render attempt, a look or an allowance unit. Uploads are never enhanced. | `source_enhancements`; `render_jobs.enhancement` `outcome`: `made`, `reused`, `rejected`, `failed`, `skipped`; ledger stage `enhancing` | [render](specs/render-pipeline.md#enhancing) |
+| Sub-stage | What the worker is doing inside a job state when the state alone does not say it: `framing` in `preparing`, `enhancing` in `analyzing`, `relight` in `planning` and `rendering` of a relight attempt. It selects the stage label and is cleared by every transition. | `render_jobs.sub_stage`: `framing`, `enhancing`, `relight` | [render](specs/render-pipeline.md#ui-labels) |
+| Stage labels | The words the waiting screen shows for the job's state and sub-stage: "Getting your photo ready", "Zooming in on your home" (framing), "Sharpening your street photo" (enhancing), "Planning the decorations", "Decorating", "Checking the details", "Setting the evening light" and "Brightening the room" (a relight), "A person is checking your preview". | `stage.preparing`, `stage.framing`, `stage.enhancing`, `stage.planning`, `stage.rendering`, `stage.checking`, `stage.eveningLight`, `stage.brightLight`, `stage.review` | [render](specs/render-pipeline.md#ui-labels), [experience](specs/experience.md#copy-deck) |
+| Fidelity mode | The render mode recorded on an attempt, which follows from the lighting mode: additive compositing for `source`, a global relight of the decorated base for `evening` and `bright`. | `fidelityMode`: `composite_additive`, `global_relight` | [render](specs/render-pipeline.md#lighting-modes) |
+| Decorates its own base | A relit job (`evening` or `bright`) with no accepted daylight variant to relight: its first attempt decorates the photo as photographed (the base) and a later attempt relights that base. It may make three attempts. | — | [render](specs/render-pipeline.md#repair-and-retries) |
+| Stroke restoration | How an embedded Street View attribution rectangle is restored in a relit or sharpened picture. Each mark has a place: the logo's is fixed (its letters, x 11 to 97 and rows 992 down at a 1024 working size), the copyright's is the inside of its dark box, found from the picture. Only strokes inside the place are kept: thin (at most 4 px), of enough contrast against their surround and of one brightness in one line. They keep the daylight base's pixels and the ground behind them follows the new light. The rectangle is copied verbatim when the box cannot be seen, when no stroke is validated, when something rejected may be one of the strokes (all or nothing, so a mark is never restored without one of its strokes), when a look-alike or a stroke cut by the place's edge says the strokes are not the mark's, or when the strokes are not found reliably; a relit look with a verbatim mark is likely rejected and the visitor gets the daylight look. Validated for 640 × 640 frames at a 1024 px working size only. | `restoreAttributionRelit`; mode `adapted` or `verbatim` | [render](specs/render-pipeline.md#compositing-and-resolution) |
+| Last resort | What a decorate attempt that failed the checks with no repair to follow gets before it is rejected: every spot the judge objected to is pasted back from the original (each box grown by 3% of the long edge), and the restored picture goes on as an attempt accepted with a doubt when at least 40% of the decorations' area remains, one planned placement keeps 60% of its region and its deterministic checks report no code. The judge is not called again. It does not apply when a critical finding has no box, when a deterministic code is present, when no finding has a box, or when a code is `wrong_property`, `camera_changed`, `unsafe_or_offensive` or `attribution_altered`; a confident major finding without a box is recorded (`composite_mask.restored.recordedMajors`) and the picture goes on. When the boxes of boxed major findings would leave too little of the decorations, only the critical findings' boxes are put back. A doubt that is delivered has its doubted spots put back the same way when at least 85% of the decorations remain. An attempt that would have passed with no repair after it is kept through its repair and delivered as it stands when the repair yields no picture. | `PIPELINE_DEFAULTS.lastResort`; `render_attempts.composite_mask.restored` | [render](specs/render-pipeline.md#decision-policy) |
+| Held base | The daylight base of an `evening` look that ended without its relight, held in `pre_delivery` review as an as-photographed candidate under a companion job; approval publishes it as the daylight variant. | `relight-base:<jobId>`; `heldJobId` | [render](specs/render-pipeline.md#repair-and-retries) |
+| Job time limit | The longest a render job runs, measured from `startedAt`: 240 s by default and at least 240 s: a lower `RENDER_MAX_JOB_DURATION_S` is raised to 240 s. A repair, or the relight that follows a decorated base, starts only while the time left exceeds the repair budget (48 s by default). The render queue expires a job 30 s after the limit (`RENDER_QUEUE_EXPIRY_MARGIN_S`), so the job's own deadline fires first. | `RENDER_MAX_JOB_DURATION_S`, `RENDER_REPAIR_BUDGET_S` | [render](specs/render-pipeline.md#latency-budget) |
 | Provider mode | Whether an attempt used a contract fixture, a replayed render or a live provider call. | `providerMode`: `fixture`, `replay`, `live` | [architecture](architecture.md#external-integrations-and-fixture-modes) |
 | "AI preview" label | The visible label on every generated image, share page and share card ([D-28](decisions.md#d-28)). Downloads also carry a small burned-in "AI preview" corner mark by default (configuration). | — | [render](specs/render-pipeline.md#provenance-and-labeling) |
-| Provenance metadata | IPTC digital source type on delivered files, plus a Holiday-signed C2PA manifest (Phase 4) that includes the provider's manifest as an ingredient where one exists. | — | [render](specs/render-pipeline.md#provenance-and-labeling) |
+| Provenance metadata | IPTC digital source type on delivered files, plus a Hailiday-signed C2PA manifest (Phase 4) that includes the provider's manifest as an ingredient where one exists. | — | [render](specs/render-pipeline.md#provenance-and-labeling) |
 | Latency metric | The automated-path p90 of `qaPassedAt − max(requestedAt, sourceReadyAt)` ([D-14](decisions.md#d-14)). Human-review wait is reported separately. | — | [render](specs/render-pipeline.md#latency-budget) |
 
 ### Render job states
 
-States run in this order: `queued` → `preparing` → `analyzing` → `planning` → `rendering` → `checking` → [`needs_review`] → `succeeded`. The repair edge is `checking` → `planning`. The transitions are defined in [Lifecycle state machines](specs/render-pipeline.md#lifecycle-state-machines).
+States run in this order: `queued` → `preparing` → `analyzing` → `planning` → `rendering` → `checking` → [`needs_review`] → `succeeded`. The repair edge is `checking` → `planning`; a relit job that decorates its own base takes the same edge from its accepted base to its relight. The transitions are defined in [Lifecycle state machines](specs/render-pipeline.md#lifecycle-state-machines).
 
 | State | Kind | Meaning | UI stage label |
 | --- | --- | --- | --- |
 | `queued` | Non-terminal | Accepted and waiting for a worker. | "Getting your photo ready" |
-| `preparing` | Non-terminal | Loading the source and normalizing the working image. | "Getting your photo ready" |
-| `analyzing` | Non-terminal | Running scene analysis. | "Planning the decorations" |
-| `planning` | Non-terminal | Building and validating the plan, then compiling it. Re-entered once for a repair. | "Planning the decorations" |
-| `rendering` | Non-terminal | A paid attempt is in progress. | "Decorating" |
+| `preparing` | Non-terminal | Loading the source and normalizing the working image; at a Street View source's next look while no framing is recorded, first zooming in on the home (sub-stage `framing`). | "Getting your photo ready"; "Zooming in on your home" while the framing runs |
+| `analyzing` | Non-terminal | Running scene analysis and, for a stored Street View frame, the enhancement (sub-stage `enhancing`). | "Planning the decorations"; "Sharpening your street photo" while the enhancement runs |
+| `planning` | Non-terminal | Building and validating the plan, then compiling it. Re-entered for a repair (at most once) and for the relight of a decorated base. | "Planning the decorations"; for a relight (sub-stage `relight`), "Setting the evening light" or "Brightening the room" |
+| `rendering` | Non-terminal | A paid attempt is in progress. | "Decorating"; for a relight attempt, "Setting the evening light" or "Brightening the room" |
 | `checking` | Non-terminal | Quality checks are running on the attempt's output. | "Checking the details" |
 | `needs_review` | Non-terminal | Waiting for a human reviewer. Used only in pilot review mode. | "A person is checking your preview" |
 | `succeeded` | Terminal | The output was accepted and published as an accepted variant. | — |
-| `rejected` | Terminal | An output existed and was not accepted: quality checks rejected it with no repair left (attempt 2 failed, or attempt 1 failed with a non-repairable code), or a reviewer rejected it (there is no repair after review). It carries a `rejectionReason` and surfaces as `RENDER_REJECTED`. | — |
+| `rejected` | Terminal | An output existed and was not accepted: quality checks rejected it with no repair left (the job's repair was used and the next attempt failed, or an attempt failed with a non-repairable code), or a reviewer rejected it (there is no repair after review), or an `evening` look that decorated its own base ended without a relight to deliver (its daylight look exists, and the job's status carries it as `variant`). A decorate attempt that failed with no repair left is rejected only when its objected spots cannot be put back (the last resort). It carries a `rejectionReason` and surfaces as `RENDER_REJECTED`. | — |
 | `failed` | Terminal | The job could not produce an output for any reason other than quality checks: a provider, infrastructure, permission or source failure that transport retries did not resolve. It carries a `failureKind`. | — |
 | `canceled` | Terminal | The owner canceled the job. | — |
 | `superseded` | Terminal | A newer project version or render request replaced the job. | — |
@@ -296,7 +306,7 @@ The UI never shows percentages.
 | `source_unavailable` | The source image could not be loaded or fetched. |
 | `source_rejected` | The source was found unsuitable before any paid edit. An optional `failureDetail` names why. |
 | `unknown_outcome` | The recorded provider operation's result could not be determined. |
-| `internal_error` | A defect or unexpected condition inside Holiday's own code. |
+| `internal_error` | A defect or unexpected condition inside Hailiday's own code. |
 
 | `failureDetail` (on `source_rejected`) | Meaning |
 | --- | --- |
@@ -340,7 +350,7 @@ Failure codes are shared by the QA judge and the human review rubric. Which code
 | `text_added` | Text, signage or numbers were added or altered. |
 | `unsafe_or_offensive` | The content is unsafe, offensive or outside the pack's limits. |
 | `camera_changed` | The viewpoint, crop or perspective differs from the source. |
-| `attribution_altered` | Street View-origin outputs only: burned-in or required attribution was cropped, covered or altered. |
+| `attribution_altered` | Street View-origin outputs only: burned-in or required attribution was cropped, covered or altered. In a relit look the ground behind the logo and copyright following the new light is expected, and the loss of a faint semi-transparent provider watermark elsewhere in the picture (a relight repaints it) is not reported; neither is this failure. |
 
 | Major code | Meaning |
 | --- | --- |
@@ -370,7 +380,7 @@ Major codes count against acceptability but not against structural fidelity.
 | Gate A quality rule | A numbered pass rule in the quality spec. PLAN and the backlog gates cite these IDs (`QA-1` … `QA-n`) instead of restating the rules. | [quality](specs/quality-and-benchmark.md#statistics-and-decision-rules) |
 | Wilson interval, Cohen's kappa | The interval method behind gate rules, and the reviewer-agreement statistic that must reach its target before scores count. | [quality](specs/quality-and-benchmark.md#statistics-and-decision-rules) |
 | QA judge calibration | Measuring the QA judge against human labels before it may gate delivery. | [quality](specs/quality-and-benchmark.md#qa-judge-calibration) |
-| Live Street View validation | Measuring real Street View rendering once `street_view_ai` is `live_private` under a grant. | [quality](specs/quality-and-benchmark.md#live-street-view-validation) |
+| Live Street View validation | Measuring real Street View rendering once `street_view_ai` is `live_private` under a grant, a written evaluation allowance or the owner decision of 2026-11-10. | [quality](specs/quality-and-benchmark.md#live-street-view-validation) |
 | Private pilot, capped public rollout | The adult-participant pilot in Phase 5, and the limited public launch that Gate D opens. | [quality](specs/quality-and-benchmark.md#pilot-evaluation), [backlog](backlog.md#phase-5-pilot-and-rollout) |
 
 ### API, errors and events
@@ -396,15 +406,15 @@ Major codes count against acceptability but not against structural fidelity.
 | Licensing track | The user's parallel work with Google on Street View licensing ([D-03](decisions.md#d-03)). Its outcomes are recorded as described in [licensing outcomes](specs/address-and-street-view.md#licensing-outcomes-and-activation). | — | [address](specs/address-and-street-view.md#licensing-outcomes-and-activation) |
 | Licensing outcome | The recorded answer to a licensing request. Each outcome maps to a source mode and to capability states. | full grant, partial grant, denied, unknown | [address](specs/address-and-street-view.md#licensing-outcomes-and-activation) |
 | Grant | Written permission from a rights holder (Google, a merchant or a photo owner), recorded as evidence on an asset policy. | `evidenceId` | [data-and-api](specs/data-and-api.md#entities) |
-| Interim address experience | Until `street_view_ai` is `live_public`, the address path shows the Street View image only to confirm the place, then asks for the user's own photo of the front ([D-16](decisions.md#d-16)). This is Journey A′. | `display_only` | [address](specs/address-and-street-view.md#licensing-outcomes-and-activation) |
-| Contributor imagery | Street View imagery not attributed to Google. It is display-only unless a license says otherwise. | `isGoogleImagery: false` | [address](specs/address-and-street-view.md#street-view-source-modes) |
+| Interim address experience | When `STREET_VIEW_USE_POLICY=display_only`, or, for contributor imagery, when `STREET_VIEW_CONTRIBUTOR_IMAGERY=display_only`, the address path shows the Street View image only to confirm the place, then asks for the user's own photo of the front ([D-16](decisions.md#d-16)). This is Journey A′. | `display_only` | [address](specs/address-and-street-view.md#licensing-outcomes-and-activation) |
+| Contributor imagery | Street View imagery not attributed to Google. By default it gets what the Street View use policy gives Google imagery, after the confirmation screen; under `STREET_VIEW_CONTRIBUTOR_IMAGERY=display_only` it is display-only unless a license says otherwise. | `isGoogleImagery: false` | [address](specs/address-and-street-view.md#street-view-source-modes) |
 
 ### AssetPermission fields
 
 | Field | Meaning |
 | --- | --- |
 | `display` | Show the image to the user. |
-| `store` | Keep the pixels in Holiday storage. |
+| `store` | Keep the pixels in Hailiday storage. |
 | `aiProcess` | Send the image to any model, for analysis, editing or QA. |
 | `edit` | Create a derivative. |
 | `distributeDerivative` | Download, share or display the derivative publicly. |
@@ -419,12 +429,12 @@ Major codes count against acceptability but not against structural fidelity.
 
 | `StreetViewSourceMode` | Permissions | Meaning |
 | --- | --- | --- |
-| `persist` | display, aiProcess, edit, store | Street View pixels may be stored and decorated. |
-| `transient` | display, aiProcess, edit (no store) | Pixels exist only in worker memory for the job, and a later variant refetches them. |
-| `display_only` | display | The before image is shown from a server-signed Static URL. Decorating requires the user's own photo. |
+| `persist` | display, aiProcess, edit, store | Street View pixels may be stored and decorated (the default `full` use policy). |
+| `transient` | display, aiProcess, edit (no store) | Pixels exist only in worker memory for the job, and a later variant refetches them (the `decorate` use policy). |
+| `display_only` | display | The before image is shown from a server-signed Static URL. Decorating requires the user's own photo. Every Street View source under `STREET_VIEW_USE_POLICY=display_only`, and contributor imagery under `STREET_VIEW_CONTRIBUTOR_IMAGERY=display_only`. |
 | `unavailable` | none usable | No usable imagery, or display is not permitted. |
 
-By default, even when imagery is licensed, only Google-attributed imagery may be sent to models.
+Imagery may be sent to models only where its evaluated permission allows it. Contributor imagery is evaluated like Google-attributed imagery unless `STREET_VIEW_CONTRIBUTOR_IMAGERY=display_only`.
 
 ### Sharing, safety and privacy terms
 
@@ -441,6 +451,8 @@ By default, even when imagery is licensed, only Google-attributed imagery may be
 | Report | A user report about a result or share page, such as harmful content, privacy, "this is my home" or a pictured child. | `POST /v1/reports`; reason `this_is_my_home` among others | [experience](specs/experience.md#reporting-and-feedback) |
 | Feedback | A thumbs rating with reasons on a result. | `POST /v1/feedback` | [experience](specs/experience.md#reporting-and-feedback) |
 | Retention schedule | How long each data class is kept, and the mechanism that deletes it ([D-20](decisions.md#d-20)). | retention class per entity | [privacy](specs/privacy-safety-legal.md#retention-schedule) |
+| Time-based deletion | Removal of projects, sources and renderings by age or inactivity. Paused by default (owner decision 2026-11-10): while the setting is off nothing expires by age, and every rendering is kept until the person deletes it. | `retention.time_based_deletion` | [privacy](specs/privacy-safety-legal.md#retention-schedule) |
+| Gallery | The owner-wide list of every rendering, grouped by place for address projects and by project for uploads, at `/gallery` ([D-52](decisions.md#d-52)). | `GET /v1/gallery`, `GalleryItem` | [experience](specs/experience.md#gallery), [data and API](specs/data-and-api.md#gallery) |
 | Tombstone | A deletion marker that stops late jobs, restores or callbacks from bringing deleted data back. | — | [privacy](specs/privacy-safety-legal.md#deletion-and-verification) |
 | Preservation hold | A record that exempts named objects from retention sweeps and deletion during a child-safety or legal hold. | `preservation_holds` | [privacy](specs/privacy-safety-legal.md#deletion-and-verification) |
 | Audience | Adults 18 and older. The product is not directed to children ([D-17](decisions.md#d-17)). | — | [privacy](specs/privacy-safety-legal.md#audience-and-age) |
@@ -449,7 +461,7 @@ By default, even when imagery is licensed, only Google-attributed imagery may be
 
 | Term | Definition | Values / code form | Owner |
 | --- | --- | --- | --- |
-| Shop the look | The disclosed product panel below a result. It shows `similar` or `described` items in the US Release and never appears on a screen showing Google imagery unless a grant covers it (the `commerceAdjacent` use). | — | [commerce](specs/commerce.md#shop-the-look) |
+| Shop the look | The disclosed product panel below a result. It shows `similar` or `described` items in the US Release and never appears on a screen showing Google imagery unless the evaluated permission allows the `commerceAdjacent` use (the default `full` use policy does). | — | [commerce](specs/commerce.md#shop-the-look) |
 | Panel state | What Shop the look shows for a variant. `hidden` applies whenever `commerceAdjacent` is not allowed. | `active`, `no_offers`, `off_season`, `hidden` | [commerce](specs/commerce.md#shop-the-look) |
 | Product relationship | How a product relates to a specific render. It is never upgraded without the required evidence, and on failure it is downgraded or hidden. | see [Product relationships](#product-relationships) | [commerce](specs/commerce.md#product-relationships), [D-24](decisions.md#d-24) |
 | Product | A real item, described by its public attributes and independent of any merchant listing. | `products` | [commerce](specs/commerce.md#offers-and-lifecycle) |
@@ -459,7 +471,7 @@ By default, even when imagery is licensed, only Google-attributed imagery may be
 | Link mode | Whether a product link is the plain merchant URL or the program's tracking link. | `linkMode`: `plain`, `tracking` | [commerce](specs/commerce.md#click-tracking-and-attribution) |
 | Catalog retirement | The date an occurrence stops making offers eligible, after which panels for that holiday resolve to `off_season`. | `catalogRetireAt` | [commerce](specs/commerce.md#seasonal-commerce-calendar) |
 | Cross-holiday row | An optional, separately labeled row of the next holiday's offers on a result for the current holiday. Off by default; turning it on needs a decision-log entry under [D-24](decisions.md#d-24). | `crossHolidayRow` | [commerce](specs/commerce.md#seasonal-commerce-calendar) |
-| Merchant program | One affiliate program Holiday applies to or joins, directly or through a network. | `merchant_programs` | [commerce](specs/commerce.md#merchant-onboarding) |
+| Merchant program | One affiliate program Hailiday applies to or joins, directly or through a network. | `merchant_programs` | [commerce](specs/commerce.md#merchant-onboarding) |
 | Merchant program status | Where a program stands. | see [Merchant program statuses](#merchant-program-statuses) | [commerce](specs/commerce.md#merchant-onboarding) |
 | Commerce activation | Turning on `commerce:<merchantProgramId>` for one program. This is independent of public rollout, so Gate D can pass with commerce off ([D-25](decisions.md#d-25)). | activation states | [commerce](specs/commerce.md#commerce-activation) |
 | Adherence check | The post-render check, required for `described`, that a placed item matches its spec in category, color family and count. | adherence status: `pass`, `fail`, `uncertain`, `not_checked` | [commerce](specs/commerce.md#product-relationships) |
@@ -488,7 +500,7 @@ By default, even when imagery is licensed, only Google-attributed imagery may be
 | `provisional` | Accepted on conditions the program has not yet confirmed. |
 | `approved` | Fully approved; offers may be activated. |
 | `declined` | The program refused the application. |
-| `withdrawn` | The application or account was closed without a refusal, by Holiday or by the program's rules. |
+| `withdrawn` | The application or account was closed without a refusal, by Hailiday or by the program's rules. |
 | `suspended` | The program has paused the account. |
 
 ## Allowance, limits and spend
@@ -509,11 +521,31 @@ These five mechanisms are separate. Each has its own purpose, error code and own
 | Pre-render spend controls | The limits that cap Google API spend before any render happens: autocomplete behavior, suggestion and session-token limits, discovery and Static-fetch caps. | — | [address](specs/address-and-street-view.md#pre-render-spend-controls) |
 | Usage ledger | The record of every chargeable call: stage, provider, model, units, unit price, and whether it is reserved or settled. Amounts are in USD micros because provider SKUs are sub-cent. | `usage_ledger`; `unitPriceMicros`, `amountMicros` | [render](specs/render-pipeline.md#cost-recording) |
 | Minor units | How customer-facing prices are stored: an integer count of the currency's smallest unit plus the currency code. | — | [data-and-api](specs/data-and-api.md#conventions) |
-| Reservation | The worst-case cost of a job, including its repair, held in the ledger in the same transaction that creates and enqueues the job. | — | [render](specs/render-pipeline.md#cost-recording), [architecture](architecture.md#jobs-and-queue) |
+| Reservation | The worst-case cost of a job, including its repair (and, for a relit look, its relight), held in the ledger in the same transaction that creates and enqueues the job. | — | [render](specs/render-pipeline.md#cost-recording), [architecture](architecture.md#jobs-and-queue) |
 | Settlement | Replacing a reservation with the actual cost once calls finish, including reconciliation of unknown outcomes. | — | [render](specs/render-pipeline.md#cost-recording) |
 | Cost per accepted variant | Total variable cost (all attempts, analysis, QA and delivery) divided by accepted variants. It is the main unit-cost metric. | — | [economics](specs/economics.md#unit-economics-model) |
 | Global pause, kill switch | Operator controls that stop rendering service-wide, disable one provider, or change a capability's activation state. | `/internal/v1` | [architecture](architecture.md#observability-and-operations) |
 | Runtime settings | The operator-editable, audited values that change without a deploy: global pause, per-provider disable, spend ceilings, admission-control limits, allowance values and review mode. | `runtime_settings` | [data-and-api](specs/data-and-api.md#entities) |
+
+## Picture surfaces and design terms
+
+| Term | Definition | Values / code form | Owner |
+| --- | --- | --- | --- |
+| Paper | The white surface: ink type, hairlines, Outfit and JetBrains Mono, solid ink pill buttons, the holiday dot as the only interface color. Everything that is not a picture is paper. | `--paper`, `--ink` | [experience](specs/experience.md#design-system) |
+| Picture surface | A photograph or a picture stage that reaches the viewport's left and right edges, with white type on ink and minimal controls. A picture has no border, rounded frame, card shadow or phone gutter. | — | [experience](specs/experience.md#design-system) |
+| Hero frame | A full-viewport photograph with content resting on it: at least the first viewport tall and never under 560 px, the photograph covering it around its focal point and drifting once. Used by the landing, the upload entry, the not-found page and the No Street View screen. | `.hero-frame`, `HeroFrame` | [experience](specs/experience.md#hero-frame) |
+| Dock | The white panel (radius `--dock-radius`, shadow `--dock-shadow`) that rests on a hero frame and holds its controls: paper again inside. | `.hero-dock`, `HeroDock` | [experience](specs/experience.md#hero-frame) |
+| Picture stage (stage) | The ink ground a picture is shown on: the full viewport width, the picture contained and centered at the largest size the screen allows, never above its natural size and never cropped. Not to be confused with a render job's stage label. | `.stage`, `Stage`; fill `viewport` or `picture`; `--stage` | [experience](specs/experience.md#picture-stage) |
+| Stage peek | What stays visible under a stage in the first viewport, so the caption, the title and the actions are on the first screen. | `--stage-peek` | [experience](specs/experience.md#picture-stage) |
+| Matte | The 20 px of ink a stage keeps under its picture from 600 px wide, so a pale picture never melts into the paper below it. | `--stage-matte` | [experience](specs/experience.md#picture-stage) |
+| Ambient layer | The rendering, or the person's uploaded photo, repeated behind a stage's picture from 900 px wide: blurred, darkened and decorative. Never present for a raw Street View frame. | `.stage__ambient` | [experience](specs/experience.md#ambient-layer) |
+| Header tone | The header's surface: `paper` (on the white page), `photo` (laid over a hero frame, transparent, white type) or `stage` (its own ink band above a stage). It sets the browser's theme color. | `paper`, `photo`, `stage`; `site-header--photo`, `site-header--stage` | [experience](specs/experience.md#header-tones-and-theme-color) |
+| Theme color | The browser chrome color for the page: `#0d0d0f` on photo and stage pages, `#ffffff` on paper pages. | `theme-color` | [experience](specs/experience.md#header-tones-and-theme-color) |
+| Reveal | The one-time divider sweep that uncovers a look that arrives while the person is watching. | `--dur-reveal` | [experience](specs/experience.md#reveal) |
+| Light string | The string of holiday lights that hangs along a stage's top edge while a look is being made: a wire in even swags with bulbs in the look's holiday colors that twinkle in a wave and answer the pointer. Decorative (`aria-hidden`). The second place the interface carries color after the holiday dot. | `.light-string`, `LightString.tsx`, `ui/stringGeometry.ts`, `--bulb-1` to `--bulb-3` | [experience](specs/experience.md#light-string-and-status-card) |
+| Status card | What names the step a look is in while it is made: the stage label with a pulse, the trail, the time hint (or the queue position) and Cancel. Three placements: on the stage (from 600 px wide and 560 px tall, hung from the light string), on paper (a first look on smaller screens) and as a band over the title (another look on smaller screens). | `.look-card`; `look-card--stage`, `--paper`, `--band`; `LookCard` | [experience](specs/experience.md#light-string-and-status-card) |
+| Stage trail | The short words of the stages a render job has reported, each once, with the current one marked: Photo, Sharpen, Plan, Decorate, Check, Evening light, Bright light, Review. It shows only stages the job reported. | `StageTrail`, `stageTrail.ts`, `trail.*` | [experience](specs/experience.md#waiting-and-progress) |
+| Look lock | While a look is being made, the controls that would start another look or change the place are dimmed, focusable and inert, and say so. Held by the page's code as well as its buttons. | `makingLook`, `controls.locked` | [experience](specs/experience.md#while-a-look-is-being-made) |
 
 ## Retired terms
 
@@ -535,7 +567,7 @@ These terms are ambiguous or superseded. Do not use them in documents, code, sch
 | "preset", "intensity", "intensity preset", "stylePreset", `styleId` | style (`style`) | The only name for `subtle`, `classic`, `abundant`. |
 | "presetVersion", `preset_versions`, `holiday_definitions` | `holidayPackVersion`; holiday pack versions and occurrences | Entity names are set in [data-and-api](specs/data-and-api.md#entities). |
 | "us-thanksgiving" | `thanksgiving_us` | — |
-| "day/evening control"; `lightingMode` value "day" or "dusk" | lighting mode: `source` ("As photographed"), `evening` ("Evening") | — |
+| "day/evening control"; `lightingMode` value "day" or "dusk" | lighting mode: `source` ("As photographed"), `evening` ("Evening"), `bright` ("Bright") | — |
 | "setting" (meaning the kind of space), `sceneMode`, "interior mode", "room/exterior mode" | scene type (`sceneType`) | — |
 | `multi_unit_exterior` | none (not a scene type) | Multi-unit facades route to `skip_to_upload`. |
 | "Shop this style", "Products used as references" panel | Shop the look | There is one panel. Later relationships appear inside it. |

@@ -1,4 +1,4 @@
-import type { HolidayId } from '@holiday/core';
+import type { HolidayId } from '@hailiday/core';
 import { holidayName, t } from '../../copy';
 import type { ProjectPhase } from '../../state/projectStore';
 
@@ -19,7 +19,9 @@ export function projectPageTitle(phase: ProjectPhase, variantHoliday: HolidayId 
         ? t('result.heading', { holiday: holidayName(variantHoliday) })
         : t('result.headingNeutral');
     case 'render_error':
-      return t('result.errorHeading');
+      return variantHoliday
+        ? t('result.heading', { holiday: holidayName(variantHoliday) })
+        : t('pageTitle.project');
     case 'not_found':
       return t('notFound.heading');
     case 'loading':

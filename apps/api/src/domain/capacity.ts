@@ -1,11 +1,15 @@
-import { sql } from '@holiday/server/db';
-import { HOUR_MS, addMs } from '@holiday/server/clock';
-import type { RenderJob } from '@holiday/server/db';
-import { atCapacity } from '@holiday/server/errors';
+import { sql } from '@hailiday/server/db';
+import { HOUR_MS, addMs } from '@hailiday/server/clock';
+import type { RenderJob } from '@hailiday/server/db';
+import { atCapacity } from '@hailiday/server/errors';
 import type { ApiDeps } from '../deps.js';
 
-/** Fallback job duration for wait estimates before any job has finished (seconds). */
-const DEFAULT_P50_SECONDS = 30;
+/**
+ * Fallback job duration for wait estimates when no job has succeeded in the last hour (seconds):
+ * the measured duration of the default look, which makes two edits (a decorated base and its
+ * relight; 72 to 105 s live).
+ */
+export const DEFAULT_P50_SECONDS = 80;
 
 /** Render jobs waiting in `queued`. */
 export async function queuedRenderCount(deps: Pick<ApiDeps, 'db'>): Promise<number> {
@@ -17,7 +21,13 @@ export async function queuedRenderCount(deps: Pick<ApiDeps, 'db'>): Promise<numb
   return Number(row.count);
 }
 
-/** Median duration of recently succeeded jobs, in seconds (last hour). */
+/**
+ * Median service time of the jobs that succeeded in the last hour, in seconds: from start to the
+ * moment the result passed its checks (`qa_passed_at`; else `render_completed_at`, else
+ * `succeeded_at`), so a reviewer's wait under pre-delivery review is not counted as work. The
+ * daylight companion rows an evening look publishes (`input_snapshot.relightBaseOf` set) are
+ * not jobs the workers ran and are left out.
+ */
 export async function observedP50Seconds(deps: Pick<ApiDeps, 'db' | 'clock'>): Promise<number> {
   const since = addMs(deps.clock.now(), -HOUR_MS);
   const row = await deps.db
@@ -25,13 +35,14 @@ export async function observedP50Seconds(deps: Pick<ApiDeps, 'db' | 'clock'>): P
     .select(
       sql<
         number | null
-      >`percentile_cont(0.5) within group (order by extract(epoch from (succeeded_at - started_at)))`.as(
+      >`percentile_cont(0.5) within group (order by extract(epoch from (coalesce(qa_passed_at, render_completed_at, succeeded_at) - started_at)))`.as(
         'p50',
       ),
     )
     .where('state', '=', 'succeeded')
     .where('succeededAt', '>', since)
     .where('startedAt', 'is not', null)
+    .where(sql<boolean>`input_snapshot -> 'relightBaseOf' is null`)
     .executeTakeFirst();
   const p50 = row?.p50 === null || row?.p50 === undefined ? null : Number(row.p50);
   return p50 && Number.isFinite(p50) && p50 > 0 ? p50 : DEFAULT_P50_SECONDS;

@@ -4,7 +4,12 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { LOCAL_DEVELOPMENT_LIMITS, settingEnvName } from '../settings/index.js';
 import { findWorkspaceRoot } from './dotenv.js';
-import { CONFIG_ENV_NAMES, isConfigEnvName } from './index.js';
+import {
+  CONFIG_ENV_NAMES,
+  DEFAULT_STREET_VIEW_CONTRIBUTOR_IMAGERY,
+  isConfigEnvName,
+  parseConfig,
+} from './index.js';
 
 const root = findWorkspaceRoot(path.dirname(fileURLToPath(import.meta.url)));
 if (!root) throw new Error('workspace root not found');
@@ -69,6 +74,38 @@ describe('.env.example', () => {
     expect(unread).toEqual([]);
   });
 
+  it('says what turning time-based deletion on deletes at once', () => {
+    const lines = read('.env.example').split('\n');
+    const at = lines.findIndex((line) => line.startsWith('# RETENTION_TIME_BASED_DELETION='));
+    expect(at).toBeGreaterThan(0);
+    let start = at;
+    // The comment lines right above the variable, up to the previous variable.
+    const isComment = (line = '') => line.startsWith('# ') && !/^# [A-Z0-9_]+=/.test(line);
+    while (start > 0 && isComment(lines[start - 1])) start -= 1;
+    const comment = lines
+      .slice(start, at)
+      .map((line) => line.slice(2))
+      .join(' ');
+    expect(comment).toContain('deletes at once every unsaved project idle over 24 hours');
+    expect(comment).toContain('or older than 7 days');
+    expect(comment).toContain('ends kept sessions older than 7 days');
+  });
+
+  it('documents the render job limits at their defaults', () => {
+    const lines = read('.env.example').split('\n');
+    const defaults = parseConfig({});
+    for (const name of [
+      'RENDER_HEARTBEAT_S',
+      'RENDER_MAX_JOB_DURATION_S',
+      'RENDER_REPAIR_BUDGET_S',
+    ]) {
+      const value = lines.find((line) => line.startsWith(`${name}=`))?.slice(name.length + 1);
+      expect(value, name).toBeDefined();
+      expect(parseConfig({ [name]: value }).queue, name).toEqual(defaults.queue);
+    }
+    expect(defaults.queue.renderMaxJobDurationSeconds).toBe(240);
+  });
+
   it('lists the published Compose ports and the e2e runner variables', () => {
     for (const name of [
       'APP_PORT',
@@ -76,8 +113,8 @@ describe('.env.example', () => {
       'MAILPIT_PORT',
       'STORAGE_PORT',
       'STORAGE_CONSOLE_PORT',
-      'HOLIDAY_E2E_BASE_URL',
-      'HOLIDAY_E2E_MAILPIT_URL',
+      'HAILIDAY_E2E_BASE_URL',
+      'HAILIDAY_E2E_MAILPIT_URL',
     ]) {
       expect(listed).toContain(name);
     }
@@ -106,6 +143,29 @@ describe('local development limits', () => {
   it('are each pinned by the browser-test stack, so its runs never depend on the defaults', () => {
     const pinned = e2eEnvNames();
     expect(names.filter((name) => !pinned.includes(name))).toEqual([]);
+  });
+
+  it('pin the Street View use policy, contributor imagery and time-based deletion for the browser-test stack', () => {
+    const pinned = e2eEnvNames();
+    expect(pinned).toEqual(
+      expect.arrayContaining([
+        'STREET_VIEW_USE_POLICY',
+        'STREET_VIEW_CONTRIBUTOR_IMAGERY',
+        'RETENTION_TIME_BASED_DELETION',
+      ]),
+    );
+  });
+
+  it('pin the contributor imagery setting of the browser-test stack to its default', () => {
+    const compose = read('docker-compose.e2e.yml');
+    const pinned = /^\s+STREET_VIEW_CONTRIBUTOR_IMAGERY:\s*(\S+)\s*$/m.exec(compose)?.[1];
+    expect(pinned).toBe(DEFAULT_STREET_VIEW_CONTRIBUTOR_IMAGERY);
+    expect(read('.env.example')).toMatch(
+      new RegExp(
+        `^STREET_VIEW_CONTRIBUTOR_IMAGERY=${DEFAULT_STREET_VIEW_CONTRIBUTOR_IMAGERY}$`,
+        'm',
+      ),
+    );
   });
 });
 

@@ -69,7 +69,7 @@ export function DeleteSheet({ projectId, onClose }: { projectId: string; onClose
             >
               {state === 'deleting' ? t('delete.deleting') : t('delete.yes')}
             </button>
-            <button type="button" className="button" onClick={onClose}>
+            <button type="button" className="button button--quiet" onClick={onClose}>
               {t('common.cancel')}
             </button>
           </div>

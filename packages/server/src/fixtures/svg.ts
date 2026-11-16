@@ -1,5 +1,5 @@
 import sharp from 'sharp';
-import type { NormalizedBox } from '@holiday/core';
+import type { NormalizedBox } from '@hailiday/core';
 
 /** FNV-1a hash of a string, used to seed deterministic randomness. */
 export function hashSeed(value: string): number {

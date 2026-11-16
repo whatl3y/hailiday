@@ -79,10 +79,20 @@ describe('UploadEntryPage', () => {
     api.createUploadProject.mockRejectedValueOnce(sessionError(new TypeError('Failed to fetch')));
     await start();
     expect(screen.getByRole('alert').textContent).toBe(
-      "We couldn't get Holiday ready for you. Check your connection and try again.",
+      "We couldn't get Hailiday ready for you. Check your connection and try again.",
     );
     expect(
       screen.getByRole('button', { name: 'Try again' }).getAttribute('aria-disabled'),
     ).toBeNull();
+  });
+
+  it("is already the upload screen while the project starts: the dock on the season's photograph", async () => {
+    api.createUploadProject.mockReturnValueOnce(new Promise(() => undefined));
+    await start();
+    const header = document.querySelector('.site-header');
+    expect(header?.classList.contains('site-header--photo')).toBe(true);
+    const dock = document.querySelector('.hero-frame.upload-hero .hero-dock.upload--dock');
+    expect(dock?.querySelector('h1')?.textContent).toBe('Upload a photo of your place');
+    expect(dock?.querySelector('[aria-live="polite"] .indeterminate')).not.toBeNull();
   });
 });

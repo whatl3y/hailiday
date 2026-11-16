@@ -1,4 +1,4 @@
-import type { HolidayId, LightingMode, SceneType, Style } from '@holiday/core';
+import type { HolidayId, LightingMode, SceneType, Style } from '@hailiday/core';
 import type { Content } from '../content/load.js';
 import { decorateImage } from './compositor.js';
 import {

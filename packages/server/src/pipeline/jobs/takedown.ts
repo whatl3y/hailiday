@@ -1,7 +1,8 @@
-import type { DeletionRequester, DeletionStatus } from '@holiday/core';
+import type { DeletionRequester, DeletionStatus } from '@hailiday/core';
 import { newId, sha256Hex } from '../../ids/index.js';
 import { keys } from '../../storage/keys.js';
 import type { PipelineDeps } from '../context.js';
+import { dropSourceEnhancements } from '../enhance/store.js';
 import {
   deleteSharePublicObjects,
   objectKeyTombstones,
@@ -160,16 +161,108 @@ export async function completeAssetPurge(
   return 'completed';
 }
 
+export interface PlacePurgeResult extends PurgeResult {
+  /** Street View sources of the place that were `ready` and are now `declined`. */
+  sourcesDeclined: number;
+  /** Stored Street View frames of the place that were deleted. */
+  framesDeleted: number;
+}
+
+/**
+ * Takes the Street View sources of blocked places out of use: each `ready` source becomes
+ * `declined` (nothing can be rendered from it again) and every stored frame is deleted with its
+ * enhancements and its object key cleared, except for a source under a preservation hold, which keeps its copy.
+ * `placeId` limits it to one place; otherwise every place on the opt-out list now is covered, at
+ * most `limit` sources per call.
+ */
+async function retirePlaceSources(
+  deps: PipelineDeps,
+  input: { placeId?: string; now: Date; limit?: number },
+): Promise<{ sourcesDeclined: number; framesDeleted: number }> {
+  const held = await loadHeldSet(deps);
+  const heldIds = [...held.sources.keys()];
+  let query = deps.db
+    .selectFrom('sourceAssets')
+    .innerJoin('projects', 'projects.id', 'sourceAssets.projectId')
+    .innerJoin('properties', 'properties.id', 'projects.propertyId')
+    .select([
+      'sourceAssets.id',
+      'sourceAssets.ownerId',
+      'sourceAssets.state',
+      'sourceAssets.objectKey',
+      'sourceAssets.preservationHoldId',
+    ])
+    .where('sourceAssets.kind', '=', 'street_view')
+    .where('sourceAssets.deletedAt', 'is', null)
+    .where((eb) =>
+      eb.or([
+        eb('sourceAssets.state', '=', 'ready'),
+        eb.and([
+          eb('sourceAssets.objectKey', 'is not', null),
+          eb('sourceAssets.preservationHoldId', 'is', null),
+          ...(heldIds.length > 0 ? [eb('sourceAssets.id', 'not in', heldIds)] : []),
+        ]),
+      ]),
+    );
+  query = input.placeId
+    ? query.where('properties.placeId', '=', input.placeId)
+    : query.where((eb) =>
+        eb.exists(
+          eb
+            .selectFrom('blockedAddresses')
+            .select('blockedAddresses.id')
+            .whereRef('blockedAddresses.placeId', '=', 'properties.placeId')
+            .where('blockedAddresses.removedAt', 'is', null)
+            .where((inner) =>
+              inner.or([
+                inner('blockedAddresses.expiresAt', 'is', null),
+                inner('blockedAddresses.expiresAt', '>', input.now),
+              ]),
+            ),
+        ),
+      );
+  const rows = await query
+    .orderBy('sourceAssets.id')
+    .$if(input.limit !== undefined, (q) => q.limit(input.limit as number))
+    .execute();
+  let sourcesDeclined = 0;
+  let framesDeleted = 0;
+  for (const row of rows) {
+    if (row.objectKey && !held.sources.has(row.id) && !row.preservationHoldId) {
+      await deps.storage.delete('private', row.objectKey);
+      await deps.db
+        .updateTable('sourceAssets')
+        .set({ objectKey: null })
+        .where('id', '=', row.id)
+        .execute();
+      await dropSourceEnhancements(deps, row, { held });
+      framesDeleted += 1;
+    }
+    if (row.state === 'ready') {
+      const declined = await deps.db
+        .updateTable('sourceAssets')
+        .set({ state: 'declined' })
+        .where('id', '=', row.id)
+        .where('state', '=', 'ready')
+        .executeTakeFirst();
+      if (Number(declined.numUpdatedRows) > 0) sourcesDeclined += 1;
+    }
+  }
+  return { sourcesDeclined, framesDeleted };
+}
+
 /**
  * Homeowner opt-out and whole-house blur: every Street View-derived variant of a place, in every
- * owner's projects, goes through `purgeRenderAssets`. Uploads are never matched (a photo has no
- * address). The place ID is used only for the lookup; nothing with an address is written.
+ * owner's projects, goes through `purgeRenderAssets`, and the place's Street View sources are
+ * taken out of use (`declined`, stored frames deleted unless a preservation hold covers them).
+ * Uploads are never matched (a photo has no address). The place ID is used only for the lookup;
+ * nothing with an address is written.
  */
 export async function purgePlace(
   deps: PipelineDeps,
   placeId: string,
   options: { requestedBy: DeletionRequester },
-): Promise<PurgeResult> {
+): Promise<PlacePurgeResult> {
   const rows = await deps.db
     .selectFrom('renderAssets')
     .innerJoin('projects', 'projects.id', 'renderAssets.projectId')
@@ -180,10 +273,11 @@ export async function purgePlace(
     .where('sourceAssets.kind', '=', 'street_view')
     .where('renderAssets.deletedAt', 'is', null)
     .execute();
-  return purgeRenderAssets(deps, {
+  const purged = await purgeRenderAssets(deps, {
     renderAssetIds: rows.map((row) => row.id),
     requestedBy: options.requestedBy,
   });
+  return { ...purged, ...(await retirePlaceSources(deps, { placeId, now: deps.clock.now() })) };
 }
 
 /**
@@ -208,15 +302,19 @@ export async function purgeSourceDerivatives(
 }
 
 /**
- * Enforces the opt-out list on variants that already exist: every Street View-derived variant of
- * a place on `blocked_addresses` (homeowner opt-out, whole-house blur detected at render time,
- * operator block) that is not yet deleted goes through `purgeRenderAssets`. The retention sweep
- * runs it, so a block written by any path removes existing variants within the hour.
+ * Enforces the opt-out list on what already exists: every Street View-derived variant of a place
+ * on `blocked_addresses` now (homeowner opt-out, whole-house blur detected at render time,
+ * operator block; not removed, not expired) that is not yet deleted goes through
+ * `purgeRenderAssets`, and the Street View sources of those places are taken out of use
+ * (`declined`, stored frames deleted unless a preservation hold covers them). The retention sweep
+ * runs it, so a block written by any path removes existing variants and frames within the hour.
  */
 export async function purgeBlockedPlaces(
   deps: PipelineDeps,
   options: { limit?: number } = {},
-): Promise<PurgeResult> {
+): Promise<PlacePurgeResult> {
+  const now = deps.clock.now();
+  const limit = options.limit ?? 200;
   const rows = await deps.db
     .selectFrom('renderAssets')
     .innerJoin('projects', 'projects.id', 'renderAssets.projectId')
@@ -225,12 +323,19 @@ export async function purgeBlockedPlaces(
     .innerJoin('blockedAddresses', 'blockedAddresses.placeId', 'properties.placeId')
     .select('renderAssets.id')
     .where('blockedAddresses.removedAt', 'is', null)
+    .where((eb) =>
+      eb.or([
+        eb('blockedAddresses.expiresAt', 'is', null),
+        eb('blockedAddresses.expiresAt', '>', now),
+      ]),
+    )
     .where('sourceAssets.kind', '=', 'street_view')
     .where('renderAssets.deletedAt', 'is', null)
-    .limit(options.limit ?? 200)
+    .limit(limit)
     .execute();
-  return purgeRenderAssets(deps, {
+  const purged = await purgeRenderAssets(deps, {
     renderAssetIds: rows.map((row) => row.id),
     requestedBy: 'system',
   });
+  return { ...purged, ...(await retirePlaceSources(deps, { now, limit })) };
 }

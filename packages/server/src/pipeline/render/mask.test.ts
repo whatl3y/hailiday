@@ -1,10 +1,17 @@
 import { readFileSync } from 'node:fs';
 import { beforeAll, describe, expect, it } from 'vitest';
-import type { LocalizedAdditionRecord, NormalizedBox, SceneAnalysis } from '@holiday/core';
+import type { LocalizedAdditionRecord, NormalizedBox, SceneAnalysis } from '@hailiday/core';
 import { loadContent, type Content } from '../../content/load.js';
 import { buildPlan } from '../plan/builder.js';
+import type { Raster } from '../imaging/raster.js';
 import { PIPELINE_DEFAULTS } from '../versions.js';
-import { localizedKeepMask, renderCompositeMask } from './mask.js';
+import {
+  decideProtectedBoxes,
+  localizedKeepMask,
+  placementDecorationBoxes,
+  protectedCompositing,
+  renderCompositeMask,
+} from './mask.js';
 
 let content: Content;
 beforeAll(async () => {
@@ -295,5 +302,570 @@ describe('localized keep-mask', () => {
     });
     expect(tight.dropped).toEqual([big, medium]);
     expect(tight.kept).toEqual([planned]);
+  });
+});
+
+describe('text marks and restore boxes', () => {
+  // The live dim hallway (1536x1024 working grid): the analysis's house number is a sliver of the
+  // door-number plaque on the door frame, inside the garland band on that frame; the judge's
+  // evidence box around the plaque is about twice as wide.
+  const W = 1536;
+  const H = 1024;
+  const houseNumber: NormalizedBox = [0.329, 0.3, 0.338, 0.355];
+  const judgeBox: NormalizedBox = [0.322, 0.29, 0.342, 0.36];
+  const frameGarland: NormalizedBox = [0.325, 0.13, 0.355, 0.835];
+  const analysis = (): SceneAnalysis => ({
+    ...bungalow(),
+    workingImage: { width: W, height: H, checksum: 'x' },
+    anchors: [],
+    accessRegions: [],
+    peopleBoxes: [],
+    protectedBlurRegions: [],
+    existingDecorations: { ...bungalow().existingDecorations, boxes: [] },
+    preserveRegions: [{ kind: 'house_number', box: houseNumber }],
+  });
+  const band = {
+    anchorId: 'frame',
+    placementRule: 'along' as const,
+    region: frameGarland,
+    maskShapes: [{ kind: 'box' as const, box: frameGarland }],
+  };
+  const pixels = (box: NormalizedBox) => {
+    const out: number[] = [];
+    for (let y = Math.round(box[1] * H); y < Math.round(box[3] * H); y += 1) {
+      for (let x = Math.round(box[0] * W); x < Math.round(box[2] * W); x += 1) out.push(y * W + x);
+    }
+    return out;
+  };
+  const kept = (plane: Uint8Array, box: NormalizedBox) =>
+    pixels(box).filter((i) => (plane[i] as number) > 0).length;
+  const planMask = (restoreBoxes?: NormalizedBox[]) =>
+    renderCompositeMask({
+      analysis: analysis(),
+      placements: [band],
+      width: W,
+      height: H,
+      padRegions: [],
+      attributionRegions: [],
+      dilationFraction: PIPELINE_DEFAULTS.dilationFraction,
+      featherFraction: PIPELINE_DEFAULTS.featherFraction,
+      ...(restoreBoxes ? { restoreBoxes } : {}),
+    });
+
+  it('grows a narrow text box that touches a band placement so the whole plaque is restored', () => {
+    const mask = planMask();
+    // The judge's plaque box lies inside the band, yet none of it is editable.
+    expect(kept(mask.hard, judgeBox)).toBe(0);
+    expect(kept(mask.alpha, judgeBox)).toBe(0);
+    // The margin is the larger of 1% of the long edge and half the box's short side.
+    const margin = Math.max(0.01 * W, 0.5 * (houseNumber[2] - houseNumber[0]) * W);
+    expect(margin).toBeCloseTo(15.36);
+    const row = Math.round(0.33 * H) * W;
+    expect(mask.hard[row + Math.round(houseNumber[0] * W - margin) - 2]).toBe(255);
+    expect(mask.hard[row + Math.round(houseNumber[0] * W - margin) + 1]).toBe(0);
+    // The band stays editable away from the plaque.
+    expect(kept(mask.hard, [0.33, 0.5, 0.35, 0.6])).toBe(pixels([0.33, 0.5, 0.35, 0.6]).length);
+  });
+
+  it('grows a larger mark by half its short side', () => {
+    const sign: NormalizedBox = [0.4, 0.4, 0.5, 0.48];
+    const mask = renderCompositeMask({
+      analysis: { ...analysis(), preserveRegions: [{ kind: 'sign', box: sign }] },
+      placements: [
+        { anchorId: 'x', placementRule: 'centered_on', region: [0.35, 0.35, 0.55, 0.55] },
+      ],
+      width: W,
+      height: H,
+      padRegions: [],
+      attributionRegions: [],
+      dilationFraction: PIPELINE_DEFAULTS.dilationFraction,
+      featherFraction: 0,
+    });
+    // Short side 0.08 * 1024 = 82 px: the margin is 41 px, more than 1% of the long edge.
+    const row = Math.round(0.44 * H) * W;
+    expect(mask.hard[row + Math.round(0.4 * W) - 39]).toBe(0);
+    expect(mask.hard[row + Math.round(0.4 * W) - 44]).toBe(255);
+  });
+
+  it('excludes a restore box inside a band placement from the composite mask', () => {
+    const restore: NormalizedBox = [0.33, 0.6, 0.345, 0.62];
+    expect(kept(planMask().hard, restore)).toBe(pixels(restore).length);
+    const repaired = planMask([restore]);
+    expect(kept(repaired.hard, restore)).toBe(0);
+    expect(kept(repaired.alpha, restore)).toBe(0);
+    // Grown by 1% of the long edge on every side (15 px), clamped to the frame.
+    const row = Math.round(0.61 * H) * W;
+    expect(repaired.hard[row + Math.round(0.33 * W) - 13]).toBe(0);
+    expect(kept(repaired.hard, [0.33, 0.7, 0.345, 0.72])).toBeGreaterThan(0);
+    const edge = planMask([[0.995, 0.6, 1, 0.62]]);
+    expect(edge.hard.length).toBe(W * H);
+  });
+
+  it('excludes a restore box inside a localized box from the keep-mask', () => {
+    const restore: NormalizedBox = [0.6, 0.6, 0.62, 0.63];
+    const items: LocalizedAdditionRecord[] = [
+      { label: 'wreath', box: [0.55, 0.55, 0.7, 0.7], placementId: null },
+    ];
+    const without = localizedKeepMask({
+      planMask: planMask(),
+      items,
+      analysis: analysis(),
+      attributionRegions: [],
+      padRegions: [],
+    });
+    expect(kept(without.mask.hard, restore)).toBe(pixels(restore).length);
+    const keep = localizedKeepMask({
+      planMask: planMask([restore]),
+      items,
+      analysis: analysis(),
+      attributionRegions: [],
+      padRegions: [],
+      restoreBoxes: [restore],
+    });
+    expect(kept(keep.mask.hard, restore)).toBe(0);
+    expect(kept(keep.mask.alpha, restore)).toBe(0);
+    expect(kept(keep.mask.hard, [0.56, 0.66, 0.58, 0.68])).toBeGreaterThan(0);
+    // The grown text mark is excluded from localized items too.
+    const overPlaque = localizedKeepMask({
+      planMask: planMask(),
+      items: [{ label: 'garland', box: [0.3, 0.25, 0.36, 0.4], placementId: null }],
+      analysis: analysis(),
+      attributionRegions: [],
+      padRegions: [],
+    });
+    expect(kept(overPlaque.mask.hard, judgeBox)).toBe(0);
+  });
+});
+
+describe('the surroundings of text marks and restore boxes decide their compositing', () => {
+  // A 400 x 300 grid: 1% of the long edge is 4 px; the ring measure blurs by 1 px.
+  const W = 400;
+  const H = 300;
+  // Three marks 8 x 18 px; each grows by max(4, 4) px to 16 x 26 px (a 272-pixel ring).
+  const covered: NormalizedBox = [0.2, 0.4, 0.22, 0.46];
+  const touched: NormalizedBox = [0.5, 0.4, 0.52, 0.46];
+  const untouched: NormalizedBox = [0.8, 0.4, 0.82, 0.46];
+  const grownOf = (box: NormalizedBox, px = 4): NormalizedBox => [
+    box[0] - px / W,
+    box[1] - px / H,
+    box[2] + px / W,
+    box[3] + px / H,
+  ];
+  const analysis = (): SceneAnalysis => ({
+    ...bungalow(),
+    workingImage: { width: W, height: H, checksum: 'x' },
+    anchors: [],
+    accessRegions: [],
+    peopleBoxes: [],
+    protectedBlurRegions: [],
+    existingDecorations: { ...bungalow().existingDecorations, boxes: [] },
+    preserveRegions: [
+      { kind: 'house_number', box: covered },
+      { kind: 'house_number', box: touched },
+      { kind: 'sign', box: untouched },
+    ],
+  });
+  const PLATE: [number, number, number] = [70, 70, 75];
+  const GREEN: [number, number, number] = [30, 90, 40];
+  const GLOW: [number, number, number] = [250, 240, 205];
+  const paint = (raster: Raster, box: NormalizedBox, rgb: [number, number, number]) => {
+    for (let y = Math.round(box[1] * H); y < Math.round(box[3] * H); y += 1) {
+      for (let x = Math.round(box[0] * W); x < Math.round(box[2] * W); x += 1) {
+        const p = (y * W + x) * 3;
+        raster.data[p] = rgb[0];
+        raster.data[p + 1] = rgb[1];
+        raster.data[p + 2] = rgb[2];
+      }
+    }
+    return raster;
+  };
+  /** A textured pale wall with a dark plate in every mark. */
+  const wall = (): Raster => {
+    const data = Buffer.alloc(W * H * 3);
+    for (let y = 0; y < H; y += 1) {
+      for (let x = 0; x < W; x += 1) {
+        const p = (y * W + x) * 3;
+        const v = 190 + ((x * 5 + y * 3) % 11);
+        data[p] = v;
+        data[p + 1] = v - 6;
+        data[p + 2] = v - 18;
+      }
+    }
+    const raster = { data, width: W, height: H };
+    for (const box of [covered, touched, untouched]) paint(raster, box, PLATE);
+    return raster;
+  };
+  const copy = (raster: Raster): Raster => ({ ...raster, data: Buffer.from(raster.data) });
+  /** One byte per pixel, 1 inside any of `boxes`: the edited area the tone curves skip. */
+  const areaOf = (...boxes: NormalizedBox[]) => {
+    const area = new Uint8Array(W * H);
+    for (const box of boxes) {
+      for (let y = Math.round(box[1] * H); y < Math.round(box[3] * H); y += 1) {
+        area.fill(1, y * W + Math.round(box[0] * W), y * W + Math.round(box[2] * W));
+      }
+    }
+    return area;
+  };
+  // A garland band hung straight across the first mark.
+  const garland: NormalizedBox = [0.17, 0.1, 0.25, 0.9];
+  /** The garland, and the whole ring of the second mark lit by a glow (its plate kept). */
+  const glowing = (): Raster => {
+    const out = paint(copy(wall()), garland, GREEN);
+    paint(out, grownOf(touched), GLOW);
+    return paint(out, touched, PLATE);
+  };
+  const decide = (
+    aligned: Raster,
+    decorationBoxes: NormalizedBox[],
+    extra: { restoreBoxes?: NormalizedBox[] } = {},
+  ) =>
+    decideProtectedBoxes({
+      working: wall(),
+      aligned,
+      analysis: analysis(),
+      padRegions: [],
+      attributionRegions: [],
+      edited: areaOf(garland, ...decorationBoxes),
+      decorationBoxes,
+      ...extra,
+    });
+
+  it('opens a covered mark only under a decoration; a changed ring alone keeps the analysis box', () => {
+    // A decoration is localized over the untouched sign too, with its surroundings clean.
+    const overSign: NormalizedBox = [0.79, 0.38, 0.83, 0.48];
+    const decisions = decide(glowing(), [garland, overSign]);
+    expect(decisions.textMarks.map((mark) => [mark.kind, mark.mode, mark.decorated])).toEqual([
+      ['house_number', 'open', true],
+      ['house_number', 'exact', false],
+      ['sign', 'grown', true],
+    ]);
+    // The garland covers the first ring; the glow lights most of the second (its outer edge
+    // blurs into the unlit wall); the third is clean.
+    expect(decisions.textMarks.map((mark) => mark.changedShare)).toEqual([1, 0.7059, 0]);
+    expect(decisions.textMarks[0]?.ringPixels).toBe(16 * 26 - 8 * 18);
+    expect(decisions.tone).toEqual({ sampled: 'outside_edits', samples: expect.any(Number) });
+    expect(decisions.tone.samples).toBeGreaterThan(
+      PIPELINE_DEFAULTS.protectedSurround.minToneSamples,
+    );
+    // Without a decoration box on it, the covered mark keeps its analysis box too.
+    const bare = decide(glowing(), []);
+    expect(bare.textMarks.map((mark) => mark.mode)).toEqual(['exact', 'exact', 'grown']);
+    // Unedited output: every mark is grown.
+    const same = decide(wall(), [garland]);
+    expect(same.textMarks.every((mark) => mark.mode === 'grown')).toBe(true);
+  });
+
+  it('keeps the original in the analysis box of a mark whose ring changed with no decoration on it', () => {
+    const a = analysis();
+    const planMask = renderCompositeMask({
+      analysis: a,
+      placements: [],
+      width: W,
+      height: H,
+      padRegions: [],
+      attributionRegions: [],
+      dilationFraction: PIPELINE_DEFAULTS.dilationFraction,
+      featherFraction: PIPELINE_DEFAULTS.featherFraction,
+    });
+    // A localized item that spans the glowing mark's surroundings but not its grown box.
+    const beside: NormalizedBox = [grownOf(touched)[2], 0.3, 0.6, 0.6];
+    const compositing = protectedCompositing({
+      working: wall(),
+      aligned: glowing(),
+      analysis: a,
+      padRegions: [],
+      attributionRegions: [],
+      planMask,
+      items: [{ label: 'garland', box: beside, placementId: null }],
+      placements: [],
+      buildMask: ({ textMarks }) =>
+        renderCompositeMask({
+          analysis: a,
+          placements: [],
+          width: W,
+          height: H,
+          padRegions: [],
+          attributionRegions: [],
+          dilationFraction: PIPELINE_DEFAULTS.dilationFraction,
+          featherFraction: PIPELINE_DEFAULTS.featherFraction,
+          textMarks,
+        }),
+      cap: 1,
+    });
+    expect(compositing.decisions.textMarks[1]).toMatchObject({
+      box: touched,
+      mode: 'exact',
+      decorated: false,
+    });
+    expect(compositing.openHouseNumbers).toEqual([]);
+    // The keep-mask (localized boxes dilated by 3% of the long edge reach the mark) leaves the
+    // analysis box to the original.
+    const keep = compositing.keep;
+    if (!keep) throw new Error('keep-mask');
+    for (let y = Math.round(touched[1] * H); y < Math.round(touched[3] * H); y += 1) {
+      for (let x = Math.round(touched[0] * W); x < Math.round(touched[2] * W); x += 1) {
+        expect(keep.mask.alpha[y * W + x]).toBe(0);
+      }
+    }
+    // The ring right of it keeps the editor's pixels.
+    expect(keep.mask.hard[Math.round(0.43 * H) * W + Math.round(touched[2] * W) + 2]).toBe(255);
+  });
+
+  it('reads a plate redrawn beyond its analysis box as exact unless a decoration lies on it', () => {
+    // The plate redrawn 3 px wider and taller on every side, in another colour.
+    const redrawn = paint(copy(wall()), grownOf(touched, 3), [120, 40, 40]);
+    const grown = grownOf(touched);
+    // A localized item that touches the grown box's right edge without overlapping it.
+    const beside: NormalizedBox = [grown[2], 0.3, 0.6, 0.6];
+    const decisions = decide(redrawn, [beside]);
+    expect(decisions.textMarks[1]).toMatchObject({ mode: 'exact', decorated: false });
+    expect(decisions.textMarks[1]?.changedShare).toBeGreaterThanOrEqual(
+      PIPELINE_DEFAULTS.protectedSurround.coveredShare,
+    );
+    // A decoration that reaches into the mark is still beside it while it holds less than
+    // half of the mark's own box.
+    const into: NormalizedBox = [touched[2] - 0.009, 0.3, 0.6, 0.6];
+    expect(decide(redrawn, [into]).textMarks[1]).toMatchObject({ mode: 'exact', decorated: false });
+    // Half of the mark under a decoration is a decoration on it.
+    const over: NormalizedBox = [(touched[0] + touched[2]) / 2, 0.3, 0.6, 0.6];
+    expect(decide(redrawn, [over]).textMarks[1]).toMatchObject({
+      mode: 'open',
+      decorated: true,
+    });
+  });
+
+  it('skips a restore box amid a painted area and applies one on a plain wall', () => {
+    const amid: NormalizedBox = [0.2, 0.6, 0.22, 0.63];
+    const plain: NormalizedBox = [0.6, 0.6, 0.62, 0.63];
+    const decisions = decide(glowing(), [garland], { restoreBoxes: [amid, plain] });
+    expect(decisions.restoreBoxes.map((box) => [box.box, box.applied])).toEqual([
+      [amid, false],
+      [plain, true],
+    ]);
+    expect(decisions.restoreBoxes[0]?.changedShare).toBe(1);
+    expect(decisions.restoreBoxes[1]?.changedShare).toBe(0);
+    // The ring is 4 px around the box grown by 4 px: (16 + 8) x (9 + 8 + 8) less 16 x 17.
+    expect(decisions.restoreBoxes[1]?.ringPixels).toBe(24 * 25 - 16 * 17);
+  });
+
+  // The garland over the first mark; one column of the second mark's ring redrawn (with the
+  // blur, 2 of its 16 columns read as changed: under 25%); the third mark untouched.
+  const edited = (): Raster => {
+    const out = paint(copy(wall()), garland, GREEN);
+    return paint(out, [0.5 - 4 / W, 0.4 - 4 / H, 0.5 - 3 / W, 0.46 + 4 / H], GREEN);
+  };
+  const placements = [
+    {
+      anchorId: 'band',
+      placementRule: 'along' as const,
+      region: garland,
+      maskShapes: [{ kind: 'box' as const, box: garland }],
+    },
+  ];
+  const build = (
+    a: SceneAnalysis,
+    textMarks?: Parameters<typeof renderCompositeMask>[0]['textMarks'],
+  ) =>
+    renderCompositeMask({
+      analysis: a,
+      placements,
+      width: W,
+      height: H,
+      padRegions: [],
+      attributionRegions: [],
+      dilationFraction: PIPELINE_DEFAULTS.dilationFraction,
+      featherFraction: PIPELINE_DEFAULTS.featherFraction,
+      ...(textMarks ? { textMarks } : {}),
+    });
+
+  it('keeps the editor over an open mark, pastes back a grown mark whole and an exact mark by its box', () => {
+    const a = analysis();
+    const planMask = build(a);
+    // Localized boxes over every mark and well beyond its grown box.
+    const around = (box: NormalizedBox): NormalizedBox => [
+      box[0] - 0.05,
+      box[1] - 0.08,
+      box[2] + 0.05,
+      box[3] + 0.08,
+    ];
+    const compositing = protectedCompositing({
+      working: wall(),
+      aligned: edited(),
+      analysis: a,
+      padRegions: [],
+      attributionRegions: [],
+      planMask,
+      items: [covered, touched, untouched].map((box) => ({
+        label: 'garland',
+        box: around(box),
+        placementId: null,
+      })),
+      placements,
+      buildMask: ({ textMarks }) => build(a, textMarks),
+      cap: 1,
+    });
+    expect(compositing.decisions.textMarks.map((mark) => mark.mode)).toEqual([
+      'open',
+      'exact',
+      'grown',
+    ]);
+    expect(compositing.decisions.textMarks[1]?.changedShare).toBeLessThan(
+      PIPELINE_DEFAULTS.protectedSurround.coveredShare,
+    );
+    expect(compositing.mask).not.toBe(planMask);
+    expect(compositing.openHouseNumbers).toEqual([covered]);
+    // The rebuilt plan mask keeps the band over the open mark; the plan mask sent to the editor
+    // excludes it.
+    const center = Math.round(0.43 * H) * W + Math.round(0.21 * W);
+    expect(compositing.mask.alpha[center]).toBe(255);
+    expect(planMask.alpha[center]).toBe(0);
+    const keep = compositing.keep;
+    if (!keep) throw new Error('keep-mask');
+    const alphaIn = (box: NormalizedBox) => {
+      const values = new Set<number>();
+      for (let y = Math.round(box[1] * H); y < Math.round(box[3] * H); y += 1) {
+        for (let x = Math.round(box[0] * W); x < Math.round(box[2] * W); x += 1) {
+          values.add(keep.mask.alpha[y * W + x] as number);
+        }
+      }
+      return [...values];
+    };
+    // Open: the editor's pixels stay across the mark and its surroundings.
+    expect(alphaIn(grownOf(covered))).toEqual([255]);
+    // With house numbers kept, the covered number is never open: its analysis box is the
+    // original's, the decoration stays around it, and no number is left to the judge alone.
+    const kept = protectedCompositing({
+      working: wall(),
+      aligned: edited(),
+      analysis: a,
+      padRegions: [],
+      attributionRegions: [],
+      planMask,
+      items: [covered, touched, untouched].map((box) => ({
+        label: 'garland',
+        box: around(box),
+        placementId: null,
+      })),
+      placements,
+      buildMask: ({ textMarks }) => build(a, textMarks),
+      cap: 1,
+      keepHouseNumbers: true,
+    });
+    expect(kept.decisions.textMarks.map((mark) => [mark.kind, mark.mode, mark.decorated])).toEqual([
+      ['house_number', 'exact', true],
+      ['house_number', 'exact', true],
+      ['sign', 'grown', true],
+    ]);
+    expect(kept.openHouseNumbers).toEqual([]);
+    const keptMask = kept.keep?.mask;
+    if (!keptMask) throw new Error('keep-mask');
+    for (let y = Math.round(covered[1] * H); y < Math.round(covered[3] * H); y += 1) {
+      for (let x = Math.round(covered[0] * W); x < Math.round(covered[2] * W); x += 1) {
+        expect(keptMask.alpha[y * W + x]).toBe(0);
+      }
+    }
+    expect(keptMask.hard[Math.round(0.43 * H) * W + Math.round(covered[2] * W) + 2]).toBe(255);
+    // Grown: the whole grown box is the original's.
+    expect(alphaIn(grownOf(untouched))).toEqual([0]);
+    // Exact: the analysis box is the original's; the ring around it keeps the editor's pixels.
+    expect(alphaIn(touched)).toEqual([0]);
+    expect(alphaIn([touched[0] - 4 / W, touched[1], touched[0] - 1 / W, touched[3]])).toEqual([
+      255,
+    ]);
+    // Without decisions every mark is grown, as in the mask sent to the editor.
+    const plain = localizedKeepMask({
+      planMask,
+      items: [{ label: 'garland', box: around(covered), placementId: null }],
+      analysis: a,
+      attributionRegions: [],
+      padRegions: [],
+      cap: 1,
+    });
+    const r = grownOf(covered);
+    expect(
+      plain.mask.alpha[Math.round((r[1] + 0.01) * H) * W + Math.round((r[0] + 0.005) * W)],
+    ).toBe(0);
+  });
+
+  it('counts the plan shapes as the decorations when localization falls back', () => {
+    const a = analysis();
+    const planMask = build(a);
+    const compositing = protectedCompositing({
+      working: wall(),
+      aligned: edited(),
+      analysis: a,
+      padRegions: [],
+      attributionRegions: [],
+      planMask,
+      items: null,
+      placements,
+      buildMask: ({ textMarks }) => build(a, textMarks),
+    });
+    expect(compositing.keep).toBeNull();
+    expect(compositing.decisions.textMarks.map((mark) => [mark.mode, mark.decorated])).toEqual([
+      ['open', true],
+      ['exact', false],
+      ['grown', false],
+    ]);
+    // The rebuilt plan mask is the whole mask: the band stays over the open mark.
+    expect(compositing.mask.alpha[Math.round(0.43 * H) * W + Math.round(0.21 * W)]).toBe(255);
+    // Without shapes the region counts; a polygon counts by its bounding box.
+    expect(
+      placementDecorationBoxes([
+        { region: [0.1, 0.1, 0.2, 0.2] },
+        {
+          region: [0.3, 0.3, 0.9, 0.9],
+          maskShapes: [
+            { kind: 'box', box: [0.3, 0.3, 0.4, 0.4] },
+            {
+              kind: 'polygon',
+              points: [
+                [0.5, 0.6],
+                [0.8, 0.55],
+                [0.7, 0.9],
+              ],
+            },
+          ],
+        },
+      ]),
+    ).toEqual([
+      [0.1, 0.1, 0.2, 0.2],
+      [0.3, 0.3, 0.4, 0.4],
+      [0.5, 0.55, 0.8, 0.9],
+    ]);
+  });
+
+  it('keeps the plan mask when every mark is grown and every restore box applies', () => {
+    const planMask = renderCompositeMask({
+      analysis: analysis(),
+      placements: [],
+      width: W,
+      height: H,
+      padRegions: [],
+      attributionRegions: [],
+      dilationFraction: PIPELINE_DEFAULTS.dilationFraction,
+      featherFraction: PIPELINE_DEFAULTS.featherFraction,
+    });
+    let built = 0;
+    const plainBox: NormalizedBox = [0.6, 0.6, 0.62, 0.63];
+    const result = protectedCompositing({
+      working: wall(),
+      aligned: wall(),
+      analysis: analysis(),
+      restoreBoxes: [plainBox],
+      padRegions: [],
+      attributionRegions: [],
+      planMask,
+      items: null,
+      placements: [],
+      buildMask: () => {
+        built += 1;
+        return planMask;
+      },
+    });
+    expect(built).toBe(0);
+    expect(result.mask).toBe(planMask);
+    expect(result.restoreBoxes).toEqual([plainBox]);
+    expect(result.openHouseNumbers).toEqual([]);
   });
 });

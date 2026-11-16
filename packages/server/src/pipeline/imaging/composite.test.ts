@@ -1,10 +1,12 @@
 import { readFileSync } from 'node:fs';
 import { beforeAll, describe, expect, it } from 'vitest';
-import type { NormalizedBox } from '@holiday/core';
+import type { NormalizedBox } from '@hailiday/core';
+import { SYNTHETIC_ATTRIBUTION, attributionScene, relitBy } from './attribution.testing.js';
 import { medianDeltaE, runDeterministicChecks } from './checks.js';
 import { alignAndComposite, edgeSeamDeltaE, pasteBack, photometricAlign } from './composite.js';
 import { buildCompositeMask, featherBand, type CompositeMask } from './mask.js';
 import { toRect, type Raster } from './raster.js';
+import type { AlignmentRecord } from './registration.js';
 import { prepareWorkingImage } from './working.js';
 
 const PHOTO = new URL('../../../content/photos/samples/sample-front-porch.jpg', import.meta.url);
@@ -160,7 +162,7 @@ describe('photometric alignment before paste-back', () => {
 });
 
 describe('attribution rectangles', () => {
-  it('restores every listed rectangle verbatim and checks each', async () => {
+  it('restores every listed rectangle verbatim in source mode and checks each', async () => {
     const regions: NormalizedBox[] = [
       [0, 0.94, 0.12, 1],
       [0.8, 0.95, 1, 1],
@@ -171,13 +173,12 @@ describe('attribution rectangles', () => {
       const fy = y / working.height;
       return fy >= 0.93 && (fx <= 0.13 || fx >= 0.79);
     });
-    const composite = await compose(delivered, {
-      lightingMode: 'evening',
-      mask: null,
-      exclude: null,
-      attributionRegion: regions,
-    });
+    const composite = await compose(delivered, { attributionRegion: regions });
     expect(composite.attributionRestored).toBe(true);
+    expect(composite.attribution).toEqual([
+      { mode: 'verbatim', share: null, gain: null },
+      { mode: 'verbatim', share: null, gain: null },
+    ]);
     for (const box of regions) {
       const rect = toRect(box, working.width, working.height);
       for (let y = rect.y0; y < rect.y1; y += 3) {
@@ -191,13 +192,13 @@ describe('attribution rectangles', () => {
       working,
       raw: delivered,
       requested: { width: working.width, height: working.height },
-      lightingMode: 'evening' as const,
+      lightingMode: 'source' as const,
       placementRegions: [REGION],
       peopleBoxes: [],
       blurRegions: [],
       houseNumberRegions: [],
       glowRegions: [],
-      mask: null,
+      mask,
       attributionRegion: regions,
     };
     const restored = runDeterministicChecks({ ...base, candidate: composite.candidate });
@@ -207,5 +208,51 @@ describe('attribution rectangles', () => {
     const altered = runDeterministicChecks({ ...base, candidate: delivered });
     expect(altered.codes).toContain('attribution_altered');
     expect((altered.checks.attribution as { regions: number[] }).regions).toHaveLength(2);
+  });
+});
+
+describe('attribution rectangles of a relight', () => {
+  it('keeps the strokes over the relit ground and records each rectangle', async () => {
+    const scene = attributionScene(1024);
+    const delivered = relitBy(scene.ground, [0.08, 0.09, 0.19]);
+    const record: AlignmentRecord = {
+      dx: 0,
+      dy: 0,
+      scale: 1,
+      rotationDeg: 0,
+      score: 1,
+      inliers: 500,
+      aspect: 1,
+      accepted: true,
+      applied: false,
+      uncoveredFraction: 0,
+    };
+    const composite = await alignAndComposite({
+      working: scene.base,
+      delivered,
+      lightingMode: 'evening',
+      mask: null,
+      exclude: null,
+      attributionRegion: SYNTHETIC_ATTRIBUTION,
+      seamDeltaE: 6,
+      fallbackPx: 3,
+      registered: { aligned: delivered, record },
+    });
+    expect(composite.attribution.map((entry) => entry.mode)).toEqual(['adapted', 'adapted']);
+    for (const entry of composite.attribution) {
+      expect(entry.share).toBeGreaterThan(0.04);
+      expect(entry.gain?.[2]).toBeCloseTo(0.19, 2);
+    }
+    let core = 0;
+    for (let i = 0; i < scene.strokeCore.length; i += 1) {
+      if (!scene.strokeCore[i]) continue;
+      core += 1;
+      expect(composite.candidate.data[i * 3]).toBe(scene.base.data[i * 3]);
+    }
+    expect(core).toBeGreaterThan(500);
+    // The ground behind the logo is relit, not the daylight base.
+    const logo = scene.rects[0]!;
+    const p = ((logo.y0 + 2) * 1024 + logo.x1 - 3) * 3;
+    expect(composite.candidate.data[p]).toBeLessThan((scene.base.data[p] as number) / 2);
   });
 });

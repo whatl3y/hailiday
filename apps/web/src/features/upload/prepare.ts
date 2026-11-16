@@ -1,4 +1,4 @@
-import { UPLOAD_ACCEPTED_CONTENT_TYPES } from '@holiday/core';
+import { UPLOAD_ACCEPTED_CONTENT_TYPES } from '@hailiday/core';
 import { CLIENT_DEFAULTS } from '../../config/values';
 
 /**

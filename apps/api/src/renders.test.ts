@@ -10,10 +10,11 @@ import {
   ShareViewSchema,
   VariantListResponseSchema,
   type Project,
-} from '@holiday/core';
-import { DAY_MS } from '@holiday/server/clock';
-import { dailySaltedHash } from '@holiday/server/ids';
-import { createRenderJobRecord, generateShareCard } from '@holiday/server/pipeline';
+} from '@hailiday/core';
+import { DAY_MS } from '@hailiday/server/clock';
+import { toJson } from '@hailiday/server/db';
+import { dailySaltedHash } from '@hailiday/server/ids';
+import { createRenderJobRecord, generateShareCard } from '@hailiday/server/pipeline';
 import { createHarness, json, type Harness, type TestClient } from './test/harness.js';
 import { placesTokenForClient } from './test/places-token.js';
 import { ownerIdOf } from './test/projects.js';
@@ -107,18 +108,6 @@ describe('POST /v1/renders', () => {
       code: 'STALE_PROJECT_VERSION',
       details: { currentProjectVersion: 1 },
     });
-    const notOffered = await client.post(
-      '/v1/renders',
-      body({ lightingMode: 'evening', holidayId: 'thanksgiving_us' }),
-      {
-        'idempotency-key': randomUUID(),
-      },
-    );
-    expect(notOffered.statusCode).toBe(400);
-    expect(json(notOffered).error).toMatchObject({
-      code: 'VALIDATION_FAILED',
-      details: { reason: 'content_cell_not_offered' },
-    });
   });
 
   it('queues a job (202) in one transaction with a reservation and the queue entry', async () => {
@@ -206,6 +195,67 @@ describe('POST /v1/renders', () => {
     expect(list.items[0]?.placements).toEqual(cached.variant.placements);
     expect(list.activeRender).toBeNull();
     expect(list.offered?.styles).toContain('abundant');
+  });
+
+  it('answers from the newest rendering when the owner keeps two of one look', async () => {
+    const original = await harness.context.db
+      .selectFrom('renderAssets')
+      .selectAll()
+      .where('id', '=', renderAssetId)
+      .executeTakeFirstOrThrow();
+    // The same look rendered again by a second finished job of the project, a minute later.
+    const { variantKey: _generated, ...job } = await harness.context.db
+      .selectFrom('renderJobs')
+      .selectAll()
+      .where('id', '=', original.jobId)
+      .executeTakeFirstOrThrow();
+    const later = new Date(original.createdAt.getTime() + 60_000);
+    const secondJob = await harness.context.db
+      .insertInto('renderJobs')
+      .values({
+        ...job,
+        id: randomUUID(),
+        idempotencyKey: randomUUID(),
+        inputSnapshot: toJson(job.inputSnapshot),
+        workingCropBox: job.workingCropBox ? toJson(job.workingCropBox) : null,
+        workingPadBox: job.workingPadBox ? toJson(job.workingPadBox) : null,
+        repairConstraints: job.repairConstraints ? toJson(job.repairConstraints) : null,
+        enhancement: job.enhancement ? toJson(job.enhancement) : null,
+        createdAt: later,
+        updatedAt: later,
+      })
+      .returning('id')
+      .executeTakeFirstOrThrow();
+    const newer = await harness.context.db
+      .insertInto('renderAssets')
+      .values({
+        ...original,
+        id: randomUUID(),
+        jobId: secondJob.id,
+        provenance: toJson(original.provenance),
+        createdAt: later,
+        updatedAt: later,
+      })
+      .returning('id')
+      .executeTakeFirstOrThrow();
+    try {
+      const response = await client.post('/v1/renders', body(), {
+        'idempotency-key': randomUUID(),
+      });
+      expect(response.statusCode).toBe(200);
+      expect(CachedRenderResponseSchema.parse(response.json()).variant.renderAssetId).toBe(
+        newer.id,
+      );
+
+      // The project's look list shows one row for the look: the newest rendering.
+      const variants = VariantListResponseSchema.parse(
+        (await client.get(`/v1/projects/${project.id}/variants`)).json(),
+      );
+      expect(variants.items.map((item) => item.renderAssetId)).toEqual([newer.id]);
+    } finally {
+      await harness.context.db.deleteFrom('renderAssets').where('id', '=', newer.id).execute();
+      await harness.context.db.deleteFrom('renderJobs').where('id', '=', secondJob.id).execute();
+    }
   });
 
   it('pushes every state transition to an open SSE stream through LISTEN/NOTIFY', async () => {

@@ -1,4 +1,4 @@
-import type { AttributionLogo } from '@holiday/core';
+import type { AttributionLogo } from '@hailiday/core';
 import { t } from '../copy';
 import { attributionParts } from './attributionText';
 import { formatCaptureDate } from './captureDate';

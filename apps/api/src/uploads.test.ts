@@ -1,10 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { CreateUploadResponseSchema, UploadStatusSchema, type Project } from '@holiday/core';
-import { renderFixturePanorama } from '@holiday/server/fixtures';
-import { fixturePlace, screenUpload, validateUpload } from '@holiday/server/pipeline';
-import { UPLOAD_BYTES_PER_OWNER_24H } from '@holiday/server/limits';
-import { keys } from '@holiday/server/storage';
+import { CreateUploadResponseSchema, UploadStatusSchema, type Project } from '@hailiday/core';
+import { renderFixturePanorama } from '@hailiday/server/fixtures';
+import { fixturePlace, screenUpload, validateUpload } from '@hailiday/server/pipeline';
+import { UPLOAD_BYTES_PER_OWNER_24H } from '@hailiday/server/limits';
+import { keys } from '@hailiday/server/storage';
 import { createHarness, json, type Harness, type TestClient } from './test/harness.js';
 import { operatorClient } from './test/operator.js';
 

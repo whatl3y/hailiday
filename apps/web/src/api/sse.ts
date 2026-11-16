@@ -1,11 +1,7 @@
-import {
-  RENDER_SSE_EVENT,
-  RenderEventSchema,
-  isTerminalRenderJobState,
-  type RenderStatus,
-} from '@holiday/core';
+import { RENDER_SSE_EVENT, isTerminalRenderJobState, type RenderStatus } from '@hailiday/core';
 import { CLIENT_DEFAULTS } from '../config/values';
 import { isApiError } from './errors';
+import { RenderStatusReader } from './renderStatus';
 
 export interface RenderSubscriptionHandlers {
   onStatus(status: RenderStatus): void;
@@ -141,7 +137,7 @@ export function subscribeToRender(
     source.addEventListener(RENDER_SSE_EVENT, (event) => {
       failures = 0;
       try {
-        const parsed = RenderEventSchema.safeParse(
+        const parsed = RenderStatusReader.safeParse(
           JSON.parse((event as MessageEvent<string>).data),
         );
         if (parsed.success) deliver(parsed.data);

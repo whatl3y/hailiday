@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { APP_ENVS, NormalizedBoxSchema } from '@holiday/core';
-import type { AppEnv, NormalizedBox } from '@holiday/core';
+import { APP_ENVS, NormalizedBoxSchema } from '@hailiday/core';
+import type { AppEnv, NormalizedBox } from '@hailiday/core';
 import { REFUSED_ENV_NAMES } from './dotenv.js';
 
 /** Session secret used only when `APP_ENV` is `development` or `test`. */
@@ -16,7 +16,45 @@ export const SAFETY_PROVIDERS = ['fixture'] as const;
 export const EMAIL_PROVIDERS = ['smtp', 'fixture'] as const;
 export const TURNSTILE_MODES = ['fixture', 'live'] as const;
 
-/** OpenAI image edit `quality` levels Holiday configures (`OPENAI_IMAGE_QUALITY`). */
+/**
+ * What new Street View policies allow for Google-attributed imagery (`STREET_VIEW_USE_POLICY`):
+ * `full` treats a frame like an uploaded photo (display, storage, AI processing, editing,
+ * distribution of derivatives and commerce adjacency); `decorate` allows AI processing and editing
+ * only (the source stays in memory and results stay private previews); `display_only` records the
+ * standard-terms template (display only for live imagery). Imagery not attributed to Google
+ * follows it too unless `STREET_VIEW_CONTRIBUTOR_IMAGERY` is `display_only`.
+ */
+export const STREET_VIEW_USE_POLICIES = ['full', 'decorate', 'display_only'] as const;
+export type StreetViewUsePolicy = (typeof STREET_VIEW_USE_POLICIES)[number];
+export const DEFAULT_STREET_VIEW_USE_POLICY = 'full' satisfies StreetViewUsePolicy;
+
+/**
+ * How Street View imagery that is not attributed to Google (a contributor's, or of unknown
+ * credit) is treated (`STREET_VIEW_CONTRIBUTOR_IMAGERY`): `decorate` gives it every use the Street
+ * View use policy gives Google-attributed imagery; `display_only` makes it display-only whatever
+ * the use policy (no AI processing, editing, storage or distribution).
+ */
+export const STREET_VIEW_CONTRIBUTOR_IMAGERY_MODES = ['decorate', 'display_only'] as const;
+export type StreetViewContributorImagery = (typeof STREET_VIEW_CONTRIBUTOR_IMAGERY_MODES)[number];
+export const DEFAULT_STREET_VIEW_CONTRIBUTOR_IMAGERY =
+  'decorate' satisfies StreetViewContributorImagery;
+
+/**
+ * Embedded attribution rectangles of live Street View Static frames at the size the app requests,
+ * normalized to the frame: the Google logo at the lower left and the copyright box at the lower
+ * right of a 640x640 frame. The right box starts at x 0.80, left of the longest credit measured
+ * (it starts at about 0.827).
+ */
+export const DEFAULT_STREET_VIEW_ATTRIBUTION_REGIONS: Readonly<
+  Record<string, readonly NormalizedBox[]>
+> = Object.freeze({
+  '640x640': Object.freeze([
+    [0, 0.955, 0.11, 1],
+    [0.8, 0.965, 1, 1],
+  ] as NormalizedBox[]),
+});
+
+/** OpenAI image edit `quality` levels Hailiday configures (`OPENAI_IMAGE_QUALITY`). */
 export const OPENAI_IMAGE_QUALITIES = ['low', 'medium', 'high', 'auto'] as const;
 /** Gemini image output size tiers (`GEMINI_IMAGE_SIZE`). */
 export const GEMINI_IMAGE_SIZES = ['1K', '2K'] as const;
@@ -95,15 +133,15 @@ const REQUIRED_OUTSIDE_DEV = [
 
 /** Local development defaults, applied only when `APP_ENV` is `development` or `test`. */
 const DEV_DEFAULTS: Readonly<Record<string, string>> = {
-  DATABASE_URL: 'postgres://postgres:postgres@localhost:5434/holiday',
-  DATABASE_URL_TEST: 'postgres://postgres:postgres@localhost:5434/holiday_test',
+  DATABASE_URL: 'postgres://postgres:postgres@localhost:5434/hailiday',
+  DATABASE_URL_TEST: 'postgres://postgres:postgres@localhost:5434/hailiday_test',
   SESSION_SECRET: DEV_SESSION_SECRET,
   PUBLIC_BASE_URL: 'http://localhost:8080',
   S3_ENDPOINT: 'http://localhost:9000',
-  S3_ACCESS_KEY_ID: 'holiday',
-  S3_SECRET_ACCESS_KEY: 'holiday-dev-secret',
-  S3_PRIVATE_BUCKET: 'holiday-private',
-  S3_PUBLIC_BUCKET: 'holiday-public',
+  S3_ACCESS_KEY_ID: 'hailiday',
+  S3_SECRET_ACCESS_KEY: 'hailiday-dev-secret',
+  S3_PRIVATE_BUCKET: 'hailiday-private',
+  S3_PUBLIC_BUCKET: 'hailiday-public',
   SMTP_URL: 'smtp://localhost:1025',
 };
 
@@ -112,6 +150,13 @@ const booleanString = z
   .transform((value) => value === 'true' || value === '1' || value === 'yes');
 
 const positiveInt = z.coerce.number().int().positive();
+
+/**
+ * The shortest job time limit the render pipeline's stages fit in (a relit look may make three edit
+ * attempts, each with its checks). A lower `RENDER_MAX_JOB_DURATION_S` is raised to it.
+ */
+export const MIN_RENDER_MAX_JOB_DURATION_S = 240;
+
 const nonNegativeInt = z.coerce.number().int().nonnegative();
 const httpUrl = z.url({ protocol: /^https?$/ });
 const optionalSecret = z.string().default('');
@@ -145,7 +190,7 @@ const EnvSchema = z.object({
   UPLOAD_MAX_BYTES: positiveInt.default(26_214_400),
 
   SMTP_URL: z.string().regex(/^smtps?:\/\//, 'Expected an smtp:// or smtps:// URL'),
-  EMAIL_FROM: z.string().min(3).default('Holiday <hello@holiday.local>'),
+  EMAIL_FROM: z.string().min(3).default('Hailiday <hello@hailiday.local>'),
 
   ADDRESS_PROVIDER: z.enum([AUTO_PROVIDER, ...ADDRESS_PROVIDERS]).optional(),
   STREET_VIEW_PROVIDER: z.enum([AUTO_PROVIDER, ...STREET_VIEW_PROVIDERS]).optional(),
@@ -178,6 +223,13 @@ const EnvSchema = z.object({
     .enum(IMAGE_EDIT_PROVIDER_MASKS)
     .default(DEFAULT_IMAGE_EDIT_SETTINGS.providerMask),
   STREET_VIEW_ATTRIBUTION_REGIONS: z.string().optional(),
+  STREET_VIEW_USE_POLICY: z.enum(STREET_VIEW_USE_POLICIES).default(DEFAULT_STREET_VIEW_USE_POLICY),
+  STREET_VIEW_CONTRIBUTOR_IMAGERY: z
+    .enum(STREET_VIEW_CONTRIBUTOR_IMAGERY_MODES)
+    .default(DEFAULT_STREET_VIEW_CONTRIBUTOR_IMAGERY),
+  STREET_VIEW_FRAME_MAX_AGE_DAYS: positiveInt.default(30),
+  STREET_VIEW_ENHANCE: z.enum(['on', 'off']).default('on'),
+  STREET_VIEW_FRAMING: z.enum(['on', 'off']).default('on'),
   ANTHROPIC_API_KEY: optionalSecret,
   ANTHROPIC_VISION_MODEL: z.string().min(1).default('claude-opus-5-5'),
   TURNSTILE_SITE_KEY: optionalSecret,
@@ -190,7 +242,9 @@ const EnvSchema = z.object({
 
   SETTINGS_CACHE_S: nonNegativeInt.default(30),
   RENDER_HEARTBEAT_S: z.coerce.number().int().min(10).default(15),
-  RENDER_MAX_JOB_DURATION_S: positiveInt.default(180),
+  RENDER_MAX_JOB_DURATION_S: positiveInt
+    .default(MIN_RENDER_MAX_JOB_DURATION_S)
+    .transform((seconds) => Math.max(seconds, MIN_RENDER_MAX_JOB_DURATION_S)),
   RENDER_REPAIR_BUDGET_S: positiveInt.default(48),
   RENDER_TRANSPORT_RETRY_LIMIT: nonNegativeInt.default(2),
   RENDER_RETRY_DELAY_S: positiveInt.default(2),
@@ -261,6 +315,31 @@ export interface AppConfig {
      * size (`"<width>x<height>"`), each normalized to that frame. A size with no entry has none.
      */
     attributionRegions: Readonly<Record<string, readonly NormalizedBox[]>>;
+    /** What new Street View policies allow for Google-attributed imagery. */
+    usePolicy: StreetViewUsePolicy;
+    /**
+     * Whether imagery not attributed to Google follows the use policy (`decorate`) or is
+     * display-only (`display_only`), read by every permission evaluation.
+     */
+    contributorImagery: StreetViewContributorImagery;
+    /**
+     * Age in days after which a stored Street View frame is fetched again before it is decorated,
+     * so a blur or change Google applied since reaches the stored copy.
+     */
+    frameMaxAgeDays: number;
+    /**
+     * Whether a stored Street View frame is first redrawn sharper and cleaner by the image editor
+     * before it is decorated (`STREET_VIEW_ENHANCE`). Only a stored frame (`persist` mode) is
+     * enhanced; whatever goes wrong, the job goes on with the frame.
+     */
+    enhance: boolean;
+    /**
+     * Whether a Street View source's frame is zoomed in on its home at the source's next look
+     * while no framing is recorded on it (`STREET_VIEW_FRAMING`): the vision model boxes the home and the frame is fetched again from
+     * the same panorama at the view that fills the picture with it. Whatever goes wrong, the job
+     * goes on with the frame it fetched.
+     */
+    framing: boolean;
   };
   openai: { apiKey: string; imageModel: string };
   gemini: { apiKey: string; imageModel: string };
@@ -429,7 +508,9 @@ function testEnvironmentIssues(env: Env): string[] {
 
 /**
  * Staging and production never run the fixture bot check (it accepts a public constant token) or
- * the fixture email sender (it stores sign-in links in the database instead of delivering them).
+ * the fixture email sender (it stores sign-in links in the database instead of delivering them),
+ * and are served over HTTPS: their session cookie is `__Host-`-prefixed and `Secure`, which
+ * browsers keep only from a secure origin.
  */
 function deployedEnvironmentIssues(env: Env, isLocal: boolean): string[] {
   if (isLocal) return [];
@@ -439,6 +520,11 @@ function deployedEnvironmentIssues(env: Env, isLocal: boolean): string[] {
   }
   if (env.EMAIL_PROVIDER !== 'smtp') {
     issues.push(`EMAIL_PROVIDER must be smtp when APP_ENV=${env.APP_ENV}`);
+  }
+  if (new URL(env.PUBLIC_BASE_URL).protocol !== 'https:') {
+    issues.push(
+      `PUBLIC_BASE_URL must use https when APP_ENV=${env.APP_ENV} (the session cookie is __Host-prefixed and Secure)`,
+    );
   }
   return issues;
 }
@@ -482,6 +568,7 @@ export const SETTING_ENV_PREFIXES: readonly string[] = [
   'IDEMPOTENCY_',
   'SSE_',
   'POLL_',
+  'RETENTION_',
 ];
 
 /** Per-provider concurrency limits: `<PROVIDER>_MAX_CONCURRENCY`. */
@@ -525,14 +612,14 @@ const AttributionRegionsSchema = z.record(
 );
 
 /**
- * Parses `STREET_VIEW_ATTRIBUTION_REGIONS` (default: no rectangles). The rectangles are measured
- * on real frames and configured; nothing guesses them.
+ * Parses `STREET_VIEW_ATTRIBUTION_REGIONS` (default: the rectangles measured on live 640x640
+ * frames, `DEFAULT_STREET_VIEW_ATTRIBUTION_REGIONS`; `{}` configures none).
  */
 function parseAttributionRegions(
   value: string | undefined,
   issues: string[],
-): Record<string, NormalizedBox[]> {
-  if (value === undefined || value.trim() === '') return {};
+): Readonly<Record<string, readonly NormalizedBox[]>> {
+  if (value === undefined || value.trim() === '') return DEFAULT_STREET_VIEW_ATTRIBUTION_REGIONS;
   let json: unknown;
   try {
     json = JSON.parse(value);
@@ -665,7 +752,14 @@ export function parseConfig(source: EnvSource = process.env): AppConfig {
       streetViewBrowserKey: env.GOOGLE_STREET_VIEW_BROWSER_KEY,
       streetViewSigningSecret: env.GOOGLE_STREET_VIEW_SIGNING_SECRET,
     },
-    streetView: { attributionRegions },
+    streetView: {
+      attributionRegions,
+      usePolicy: env.STREET_VIEW_USE_POLICY,
+      contributorImagery: env.STREET_VIEW_CONTRIBUTOR_IMAGERY,
+      frameMaxAgeDays: env.STREET_VIEW_FRAME_MAX_AGE_DAYS,
+      enhance: env.STREET_VIEW_ENHANCE === 'on',
+      framing: env.STREET_VIEW_FRAMING === 'on',
+    },
     openai: { apiKey: env.OPENAI_API_KEY, imageModel: env.OPENAI_IMAGE_MODEL },
     gemini: { apiKey: env.GEMINI_API_KEY, imageModel: env.GEMINI_IMAGE_MODEL },
     imageEdit: {
@@ -759,6 +853,12 @@ export function testConfig(overrides: EnvSource = {}): AppConfig {
     APP_ENV: 'test',
     LOG_LEVEL: 'silent',
     EMAIL_PROVIDER: 'fixture',
+    // Tests that exercise the Street View enhancement turn it on; every other test keeps the
+    // editor and judge call counts and the reservation totals of a job without it.
+    STREET_VIEW_ENHANCE: 'off',
+    // Tests that exercise the Street View framing turn it on; every other test keeps the frame of
+    // the candidate's view and the vision and fetch counts of a job without it.
+    STREET_VIEW_FRAMING: 'off',
     ...overrides,
   };
   const testUrl =

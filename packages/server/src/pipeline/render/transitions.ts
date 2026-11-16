@@ -3,7 +3,8 @@ import {
   canTransitionRenderJob,
   isTerminalRenderJobState,
   type RenderJobState,
-} from '@holiday/core';
+  type RenderSubStage,
+} from '@hailiday/core';
 import type { Clock } from '../../clock/index.js';
 import { withTransaction, type DbOrTx, type Tx } from '../../db/client.js';
 import type { RenderJob, RowUpdate } from '../../db/schema.js';
@@ -29,8 +30,8 @@ export type JobPatch = Omit<
 /**
  * Compare-and-set state change on a render job (render spec, rules for every transition):
  * `UPDATE … WHERE state = <from>`, `state_seq` incremented, terminal states stamp `terminal_at`,
- * and `NOTIFY render_job_changed` with the new sequence in the same transaction. A lost race
- * throws `LostRaceError`. `within` runs extra writes in the same transaction after the update.
+ * the sub-stage cleared unless the patch sets one, and `NOTIFY render_job_changed` with the new
+ * sequence in the same transaction. A lost race throws `LostRaceError`. `within` runs extra writes in the same transaction after the update.
  */
 export async function transitionJob(
   db: DbOrTx,
@@ -54,6 +55,7 @@ export async function transitionJob(
     const updated = await trx
       .updateTable('renderJobs')
       .set({
+        subStage: null,
         ...(input.patch ?? {}),
         state: input.to,
         stateSeq: sql<number>`state_seq + 1`,
@@ -68,6 +70,31 @@ export async function transitionJob(
     if (!updated) throw new LostRaceError(input.jobId, from[0] as RenderJobState);
     await notifyRenderJobChanged(trx, { jobId: updated.id, seq: updated.stateSeq });
     if (input.within) await input.within(trx, updated);
+    return updated;
+  });
+}
+
+/**
+ * Sets what the worker is doing inside the job's state (`enhancing`, `relight`, or null), when the
+ * job is still in `state` and the sub-stage changes: `state_seq` is incremented and
+ * `NOTIFY render_job_changed` sent with it in the same transaction, like a transition. Returns
+ * the updated job, or null when nothing changed (another state, or the same sub-stage).
+ */
+export async function setJobSubStage(
+  db: DbOrTx,
+  input: { jobId: string; state: RenderJobState; subStage: RenderSubStage | null },
+): Promise<RenderJob | null> {
+  return withTransaction(db, async (trx) => {
+    const updated = await trx
+      .updateTable('renderJobs')
+      .set({ subStage: input.subStage, stateSeq: sql<number>`state_seq + 1` })
+      .where('id', '=', input.jobId)
+      .where('state', '=', input.state)
+      .where(sql<boolean>`sub_stage is distinct from ${input.subStage}::text`)
+      .returningAll()
+      .executeTakeFirst();
+    if (!updated) return null;
+    await notifyRenderJobChanged(trx, { jobId: updated.id, seq: updated.stateSeq });
     return updated;
   });
 }

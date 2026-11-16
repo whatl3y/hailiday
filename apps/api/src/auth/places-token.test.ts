@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
-import { SessionTokenSchema } from '@holiday/core';
+import { SessionTokenSchema } from '@hailiday/core';
 import { mintPlacesSessionToken, verifyPlacesSessionToken } from './places-token.js';
 
 const SECRET = 'test-secret-for-places-tokens';

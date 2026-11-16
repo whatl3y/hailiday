@@ -1,6 +1,6 @@
 # Uploads: source specification
 
-This specification defines how a visitor's own photograph becomes an editable source asset: the upload flow and its states, accepted formats, limits, browser-side preparation and camera capture, server-side validation, content admission, the handling of people in photos, scene type and photo guidance, and upload security. Uploads are a first-class path of the US Release (Fixed, [D-04](../decisions.md#d-04)): house exteriors, apartment entries, balconies and interiors, with no address required. The same flow serves the address path whenever Street View cannot supply an editable image (the interim experience, Proposed [D-16](../decisions.md#d-16), and every `skip_to_upload` outcome). Engineers and coding agents implement from this document; request and response payloads live in the [data and API spec](data-and-api.md#http-api), screens and copy in the [experience spec](experience.md#photo-upload-and-capture), and everything after an asset is `ready` in the [render pipeline spec](render-pipeline.md#stage-contracts).
+This specification defines how a visitor's own photograph becomes an editable source asset: the upload flow and its states, accepted formats, limits, browser-side preparation and camera capture, server-side validation, content admission, the handling of people in photos, scene type and photo guidance, and upload security. Uploads are a first-class path of the US Release (Fixed, [D-04](../decisions.md#d-04)): house exteriors, apartment entries, balconies and interiors, with no address required. The same flow serves the address path whenever Street View cannot supply an editable image (the interim experience of [D-16](../decisions.md#d-16), Accepted as amended on 2026-11-12: the `display_only` use policy, and contributor imagery under `STREET_VIEW_CONTRIBUTOR_IMAGERY=display_only`; and every `skip_to_upload` outcome). Engineers and coding agents implement from this document; request and response payloads live in the [data and API spec](data-and-api.md#http-api), screens and copy in the [experience spec](experience.md#photo-upload-and-capture), and everything after an asset is `ready` in the [render pipeline spec](render-pipeline.md#stage-contracts).
 
 **Owns:** Upload flow; formats and HEIC; limits; client preparation; camera capture; server validation; content admission stage; people-in-photo handling; scene type and photo guidance; upload security.
 **Baseline:** planning baseline 2026-11-09; external facts retrieved 2026-11-08.
@@ -236,6 +236,15 @@ The entity table is in the [data and API spec](data-and-api.md#entities); these 
 | `screening` | `upload_screen` | Vendor decisions and scores; never images |
 | `declinedCode`, `declinedReasonClass`, `declinedReason`, `holdForReview`, `providerRefusedAt` | Either job, reviewer, render job | Decline and hold bookkeeping; the `declined_*` columns are exposed in the `GET /v1/uploads/:id` payload as `declineCode`, `declineReasonClass` and `declineReason` |
 
+### An upload that carries a map provider's marks
+
+Some uploads are a whole Street View Static frame: a screenshot or a saved picture of the street view of a home, with Google's logo at the lower left and its copyright label at the lower right burned into the pixels. Such an upload gets the embedded attribution rectangles of a Street View source of its size (`STREET_VIEW_ATTRIBUTION_REGIONS`, today 640×640) and its looks keep both marks, as a look of a Street View source does. Without them an evening look of such a picture could never pass: the relight drops the marks and the judge rightly reports it.
+
+- **When a picture qualifies.** Three things hold: rectangles are configured for its native size; its working image is the whole frame (no padding, and no aspect crop that cuts into a rectangle); and the attribution stroke rule finds both marks in the picture itself, with a share inside the reliable bounds ([stroke restoration](render-pipeline.md#compositing-algorithm-source-mode)). Any other upload has no rectangles. The rule is strict on purpose: on 4,228 unmarked 640×640 frames cut from the repository's photographs no frame qualified and no single rectangle was accepted. A false positive would be harmless: the corners stay as photographed, the plan avoids them and the judge is told about a map provider's marks there.
+- **When it is decided.** Once, in `preparing`, from the working image's pixels (`embeddedAttributionRegions`, `attributionRegionsOf` in the render job), so a job delivered again decides the same way. A fixture source with no viewpoint is decided the same way.
+- **What follows.** The plan stays clear of the rectangles, the decorated composite restores them verbatim, a relit look keeps the strokes of the marks over the relit ground, the deterministic attribution checks run and the judge gets the same attribution lines as for a Street View source ([render-pipeline.md#compositing-algorithm-source-mode](render-pipeline.md#compositing-algorithm-source-mode)).
+- **What does not change.** The source stays an upload: no Street View credit line, Street View policy, sharpening, framing or zoom. The person's attestation and the review of uploads are unchanged.
+
 ### Validation and security fixtures
 
 Each fixture is a file in the fixture library ([fixture modes](../architecture.md#external-integrations-and-fixture-modes)) with an asserted outcome; the set runs in the integration tests of the [CI strategy](../architecture.md#continuous-integration-and-testing).
@@ -262,7 +271,7 @@ Each fixture is a file in the fixture library ([fixture modes](../architecture.m
 
 ## Content admission
 
-Status: Proposed ([D-19](../decisions.md#d-19)); vendor selection Open ([D-44](../decisions.md#d-44)). Admission runs in the `upload_screen` job (screening pool) on the normalized original, after `upload_validate` has promoted it and before any upload can be attached to a project, so no upload reaches a paid image-edit call unscreened. What Holiday decorates and declines at policy level is in the [privacy spec](privacy-safety-legal.md#content-policy-and-admission); this section is the pipeline that enforces it.
+Status: Proposed ([D-19](../decisions.md#d-19)); vendor selection Open ([D-44](../decisions.md#d-44)). Admission runs in the `upload_screen` job (screening pool) on the normalized original, after `upload_validate` has promoted it and before any upload can be attached to a project, so no upload reaches a paid image-edit call unscreened. What Hailiday decorates and declines at policy level is in the [privacy spec](privacy-safety-legal.md#content-policy-and-admission); this section is the pipeline that enforces it.
 
 ### Checks in order
 
@@ -350,7 +359,7 @@ Interaction (layout and copy in the [experience spec](experience.md#photo-upload
 
 Server-side crop:
 
-- Straighten: `rotation` is an angle in degrees, clockwise positive, from −15 to 15 (absent means 0). The server turns the normalized original about its center by that angle (sharp `rotate`) and reads the box on the straightened view: the centered part of the turned image of size `width / s` × `height / s`, where `s = cos θ + max(width / height, height / width) · sin θ` is the smallest zoom at which the turned photo fills its own frame. The straightened view therefore has the photo's aspect ratio and lies entirely inside the photo, so a straightened crop never shows an empty corner; the server keeps the crop 2 px clear of the turned photo's edge so no resampled edge pixel reaches it. The client previews exactly this view (the photo turned by θ and zoomed by `s` inside its frame), and the math is shared from `@holiday/core` (`straightenScale`, `straightenBoxBounds`).
+- Straighten: `rotation` is an angle in degrees, clockwise positive, from −15 to 15 (absent means 0). The server turns the normalized original about its center by that angle (sharp `rotate`) and reads the box on the straightened view: the centered part of the turned image of size `width / s` × `height / s`, where `s = cos θ + max(width / height, height / width) · sin θ` is the smallest zoom at which the turned photo fills its own frame. The straightened view therefore has the photo's aspect ratio and lies entirely inside the photo, so a straightened crop never shows an empty corner; the server keeps the crop 2 px clear of the turned photo's edge so no resampled edge pixel reaches it. The client previews exactly this view (the photo turned by θ and zoomed by `s` inside its frame), and the math is shared from `@hailiday/core` (`straightenScale`, `straightenBoxBounds`).
 - The server extracts the box from the normalized original (sharp `extract`; after the straighten turn when `rotation` is set), re-runs people detection on the result (the parent's people boxes carried through the same turn and zoom, then into the box) and re-checks the 640 px minimum on the extracted pixels, so a strong straighten of a small photo can answer `image_too_small` where the level crop would not. Remaining people return `PEOPLE_DETECTED` with the remaining boxes; a too-small crop returns `VALIDATION_FAILED` (`image_too_small`).
 - A clean crop creates a child source asset in `ready` with `derivedFromSourceAssetId`, `cropBox` (the box as sent, normalized on the straightened view when straightened), `peopleResolution: cropped`, a new checksum and dimensions, and the parent's attestation, `screening` summary and scene type. The parent's object is deleted and the parent is marked `deleted`, so the cropped-out region can never reach a provider. Boxes use the normalized `[x0, y0, x1, y1]` convention of the [render pipeline](render-pipeline.md#coordinate-and-schema-conventions).
 
@@ -401,7 +410,7 @@ Wording lives in the [copy deck](experience.md#copy-deck); the guidance must con
 
 - Show the whole wall, facade, table or balcony; step back rather than zoom.
 - Hold the phone level; landscape or portrait both work.
-- Daylight or bright, even indoor light. Dusk is not a capture instruction: `evening` is a lighting mode chosen after the first result ([lighting modes](render-pipeline.md#lighting-modes)).
+- Daylight or bright, even indoor light. Dusk is not a capture instruction: exterior and balcony photos start in the `evening` look, and a photo that is already at dusk or night is decorated as photographed and delivered as that evening look; interiors are relit to a bright look ([lighting modes](render-pipeline.md#lighting-modes)).
 - Minimal clutter; no people; no documents, screens or mail in view.
 - Photograph your own space.
 
@@ -419,7 +428,7 @@ Hints are suggestions with a "use anyway" path. They never block an upload. They
 
 ### Existing decorations and season cues
 
-`existingDecorations` and `seasonCues` are recorded on the asset and passed to planning. The pack rules decide what to do with them: existing decorations are preserved and complemented, never removed, with a notice when they conflict with the chosen holiday; snow is never added unless visible in the source ([climate, culture and existing decorations](holidays-and-content.md#climate-culture-and-existing-decorations)).
+`existingDecorations` and `seasonCues` are recorded on the asset and passed to planning. The pack rules decide what to do with them: existing decorations are preserved and complemented (never removed, moved or covered indoors, in apartment entries and on balconies; for the exterior of a house a decoration of the chosen holiday may take the place of a removable seasonal item at its spot, and house numbers and signs are never covered), with a notice when they conflict with the chosen holiday; snow is never added unless visible in the source ([climate, culture and existing decorations](holidays-and-content.md#climate-culture-and-existing-decorations)).
 
 ## Upload security
 

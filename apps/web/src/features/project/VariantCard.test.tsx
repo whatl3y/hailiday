@@ -1,8 +1,12 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { mockReducedMotion, project, variant } from '../../test/fixtures';
+import { useAppStore } from '../../state/appStore';
+import globalCss from '../../styles/global.css?raw';
+import tokensCss from '../../styles/tokens.css?raw';
+import { mockReducedMotion, plainSpaces, project, variant } from '../../test/fixtures';
+import resultCss from './result.css?raw';
 import { nextSliderValue } from './slider';
-import { REVEAL_FALLBACK_MS, VariantCard } from './VariantCard';
+import { REVEAL_FALLBACK_MS, SWEEP_MS, VariantCard } from './VariantCard';
 
 vi.mock('../../analytics', () => ({ analytics: { track: vi.fn(() => true) } }));
 
@@ -88,19 +92,37 @@ describe('VariantCard', () => {
     expect(screen.getByRole('slider').getAttribute('aria-valuenow')).toBe('0');
   });
 
-  it('opens a first result on the photo, then crossfades to the AI preview', () => {
+  it('opens a first result on the photo, then sweeps the divider once to the AI preview', () => {
     vi.useFakeTimers();
     const { container } = render(<VariantCard variant={variant()} project={project()} reveal />);
     expect(afterLayer(container).hasAttribute('data-revealed')).toBe(false);
     expect(screen.getByRole('button', { name: 'Before' }).getAttribute('aria-pressed')).toBe(
       'true',
     );
+    expect(container.querySelector('.compare__sweep')).toBeNull();
     expect(screen.queryByText('AI preview', { selector: '.badge' })).toBeNull();
     act(() => {
       vi.advanceTimersByTime(REVEAL_FALLBACK_MS);
     });
+    // The divider sweeps across the picture; the badge and the handle wait for it.
     expect(afterLayer(container).hasAttribute('data-revealed')).toBe(true);
+    expect(container.querySelector('.compare')?.getAttribute('data-sweep')).toBe('reveal');
+    expect(container.querySelector('.compare__sweep')?.getAttribute('aria-hidden')).toBe('true');
+    expect(screen.queryByText('AI preview', { selector: '.badge' })).toBeNull();
+    expect(screen.queryByRole('slider')).toBeNull();
+    act(() => {
+      vi.advanceTimersByTime(SWEEP_MS);
+    });
+    expect(container.querySelector('.compare')?.hasAttribute('data-sweep')).toBe(false);
+    expect(container.querySelector('.compare__sweep')).toBeNull();
     expect(screen.getByText('AI preview', { selector: '.badge' })).toBeTruthy();
+    expect(screen.getByRole('slider').getAttribute('aria-valuenow')).toBe('0');
+  });
+
+  it('does not sweep on a revisit', () => {
+    const { container } = render(<VariantCard variant={variant()} project={project()} />);
+    expect(container.querySelector('.compare__sweep')).toBeNull();
+    expect(container.querySelector('.compare')?.hasAttribute('data-sweep')).toBe(false);
   });
 
   it('makes the reveal an instant swap under reduced motion', () => {
@@ -115,18 +137,58 @@ describe('VariantCard', () => {
     expect(screen.getByText('AI preview', { selector: '.badge' })).toBeTruthy();
   });
 
-  it('crossfades to a new look, and swaps instantly under reduced motion', () => {
+  it('crossfades to a look chosen from those already made, and swaps instantly under reduced motion', () => {
     const first = variant();
     const second = variant({ holidayId: 'halloween' });
     const { container, rerender } = render(<VariantCard variant={first} project={project()} />);
     rerender(<VariantCard variant={second} project={project()} />);
-    expect(container.querySelector('.compare__outgoing')?.getAttribute('src')).toBe(first.imageUrl);
+    const outgoing = container.querySelector('.compare__outgoing');
+    expect(outgoing?.getAttribute('src')).toBe(first.imageUrl);
+    expect(outgoing?.hasAttribute('data-wipe')).toBe(false);
+    expect(container.querySelector('.compare__sweep')).toBeNull();
     cleanup();
 
     mockReducedMotion(true);
     const reduced = render(<VariantCard variant={first} project={project()} />);
     reduced.rerender(<VariantCard variant={second} project={project()} />);
     expect(reduced.container.querySelector('.compare__outgoing')).toBeNull();
+  });
+
+  it('sweeps the divider over a look that arrives while the person watches', () => {
+    vi.useFakeTimers();
+    const first = variant();
+    const second = variant({ holidayId: 'halloween' });
+    const { container, rerender } = render(
+      <VariantCard variant={first} project={project()} pending />,
+    );
+    expect(container.querySelector('.stage__sheen')).not.toBeNull();
+    expect(container.querySelector('.stage .light-string')).not.toBeNull();
+    expect(container.querySelector('.stage__progress')).toBeNull();
+    rerender(<VariantCard variant={second} project={project()} pending={false} />);
+    // The string leaves at once when the look arrives; the sweep follows.
+    expect(container.querySelector('.light-string')).toBeNull();
+    expect(container.querySelector('.compare')?.getAttribute('data-sweep')).toBe('change');
+    const outgoing = container.querySelector('.compare__outgoing');
+    expect(outgoing?.getAttribute('src')).toBe(first.imageUrl);
+    expect(outgoing?.hasAttribute('data-wipe')).toBe(true);
+    expect(container.querySelector('.stage__sheen')).toBeNull();
+    act(() => {
+      vi.advanceTimersByTime(SWEEP_MS);
+    });
+    expect(container.querySelector('.compare__outgoing')).toBeNull();
+    expect(container.querySelector('.compare')?.hasAttribute('data-sweep')).toBe(false);
+  });
+
+  it('swaps a look that arrives while watching instantly under reduced motion', () => {
+    mockReducedMotion(true);
+    const first = variant();
+    const second = variant({ holidayId: 'halloween' });
+    const { container, rerender } = render(
+      <VariantCard variant={first} project={project()} pending />,
+    );
+    rerender(<VariantCard variant={second} project={project()} pending={false} />);
+    expect(container.querySelector('.compare__outgoing')).toBeNull();
+    expect(container.querySelector('.compare__sweep')).toBeNull();
   });
 
   describe('AI preview badge corner', () => {
@@ -141,10 +203,10 @@ describe('VariantCard', () => {
       const { container } = render(<VariantCard variant={variant()} project={project()} />);
       const element = corner(container);
       expect(element.classList.contains('image-card__corner--lower-right')).toBe(true);
-      expect(element.classList.contains('image-card__corner--lower-left')).toBe(false);
+      expect(element.classList.contains('image-card__corner--upper-left')).toBe(false);
     });
 
-    it('moves to the lower-left corner of a Street View preview, off its burned-in credit', () => {
+    it('moves to the upper-left corner of a Street View preview, off its logo and copyright', () => {
       const { container } = render(
         <VariantCard
           variant={variant({
@@ -154,8 +216,9 @@ describe('VariantCard', () => {
         />,
       );
       const element = corner(container);
-      expect(element.classList.contains('image-card__corner--lower-left')).toBe(true);
+      expect(element.classList.contains('image-card__corner--upper-left')).toBe(true);
       expect(element.classList.contains('image-card__corner--lower-right')).toBe(false);
+      expect(element.dataset.corner).toBe('upper-left');
     });
 
     it('treats a preview made from a fixture Street View frame as Street View origin', () => {
@@ -166,27 +229,177 @@ describe('VariantCard', () => {
           project={project({ activeSource: { ...base.activeSource!, kind: 'fixture' } })}
         />,
       );
-      expect(corner(container).dataset.corner).toBe('lower-left');
+      expect(corner(container).dataset.corner).toBe('upper-left');
     });
 
-    it('stays pinned in its corner on the generated layer while the slider splits the image', () => {
-      const { container } = render(
-        <VariantCard
-          variant={variant({
-            attribution: { required: true, text: '© 2025 Google', logo: 'google_maps' },
-          })}
-          project={project()}
-        />,
-      );
-      const slider = screen.getByRole('slider', { name: 'Compare before and after' });
-      for (const key of ['PageUp', 'PageUp', 'PageUp', 'PageUp']) {
-        fireEvent.keyDown(slider, { key });
-        const element = corner(container);
-        expect(afterLayer(container).contains(element)).toBe(true);
-        expect(element.dataset.corner).toBe('lower-left');
-        expect(element.getAttribute('style')).toBeNull();
-      }
+    describe('while the slider splits the image', () => {
+      // The base and result stylesheets in the document, so the computed style follows the
+      // real cascade and the divider position the card sets.
+      const style = document.createElement('style');
+      beforeEach(() => {
+        style.textContent = [
+          tokensCss,
+          globalCss.replace(/^@import [^;]+;$/gm, ''),
+          resultCss,
+        ].join('\n');
+        document.head.append(style);
+      });
+      afterEach(() => style.remove());
+
+      it('keeps a Street View badge on the generated pixels by riding with the divider', () => {
+        const { container } = render(
+          <VariantCard
+            variant={variant({
+              attribution: { required: true, text: '© 2025 Google', logo: 'google_maps' },
+            })}
+            project={project()}
+          />,
+        );
+        const slider = screen.getByRole('slider', { name: 'Compare before and after' });
+        expect(getComputedStyle(corner(container)).left).toBe('calc(0% + 12px)');
+        for (const [key, before] of [
+          ['PageUp', 20],
+          ['PageUp', 40],
+          ['PageUp', 60],
+          ['PageUp', 80],
+        ] as const) {
+          fireEvent.keyDown(slider, { key });
+          const element = corner(container);
+          // Still clipped with the generated layer, and always just right of the divider.
+          expect(afterLayer(container).contains(element)).toBe(true);
+          expect(element.dataset.corner).toBe('upper-left');
+          expect(element.getAttribute('style')).toBeNull();
+          expect(getComputedStyle(element).left).toBe(`calc(${before}% + 12px)`);
+          expect(getComputedStyle(element).top).toBe('12px');
+        }
+      });
+
+      it('leaves an upload badge pinned in its lower-right corner', () => {
+        const { container } = render(<VariantCard variant={variant()} project={project()} />);
+        const slider = screen.getByRole('slider', { name: 'Compare before and after' });
+        for (const key of ['PageUp', 'PageUp']) {
+          fireEvent.keyDown(slider, { key });
+          const computed = getComputedStyle(corner(container));
+          expect(computed.left).toBe('auto');
+          expect(computed.right).toBe('12px');
+          expect(computed.bottom).toBe('12px');
+        }
+      });
     });
+  });
+
+  describe('fixture badges', () => {
+    const streetView = () =>
+      variant({ attribution: { required: true, text: '© 2025 Google', logo: 'google_maps' } });
+    const fixtureProject = () => {
+      const base = project();
+      return project({ activeSource: { ...base.activeSource!, kind: 'fixture' } });
+    };
+
+    beforeEach(() => {
+      useAppStore.setState({ fixtureCapabilities: ['image_editing', 'street_view_display'] });
+    });
+    afterEach(() => {
+      useAppStore.setState({ fixtureCapabilities: [] });
+    });
+
+    /** The fixture badges by side of the upper badge row: [left, right]. */
+    function sides(container: HTMLElement): [number, number] {
+      const row = container.querySelectorAll('.image-card__badges > span');
+      expect(row).toHaveLength(2);
+      return [
+        row[0]!.querySelectorAll('.badge--fixture').length,
+        row[1]!.querySelectorAll('.badge--fixture').length,
+      ];
+    }
+
+    it('keep a Street View frame fixture badge at the upper right, clear of the AI preview badge', () => {
+      const { container } = render(
+        <VariantCard variant={streetView()} project={fixtureProject()} />,
+      );
+      expect(sides(container)).toEqual([0, 1]);
+      const slider = screen.getByRole('slider', { name: 'Compare before and after' });
+      // Split: both layers are fixture evidence, one badge at the upper right covers them.
+      fireEvent.keyDown(slider, { key: 'PageUp' });
+      expect(sides(container)).toEqual([0, 1]);
+      // The before photo alone.
+      fireEvent.keyDown(slider, { key: 'End' });
+      expect(sides(container)).toEqual([0, 1]);
+      expect(container.querySelector('.image-card__corner')).toBeNull();
+    });
+
+    it('keep the generated layer fixture badge at the upper right of an upload preview', () => {
+      const { container } = render(<VariantCard variant={variant()} project={project()} />);
+      expect(sides(container)).toEqual([0, 1]);
+      const slider = screen.getByRole('slider', { name: 'Compare before and after' });
+      fireEvent.keyDown(slider, { key: 'PageUp' });
+      expect(sides(container)).toEqual([0, 1]);
+      fireEvent.keyDown(slider, { key: 'End' });
+      expect(sides(container)).toEqual([0, 0]);
+    });
+  });
+
+  it('labels the look with its lighting where the scene offers evening', () => {
+    render(
+      <VariantCard
+        variant={variant({ style: 'abundant', lightingMode: 'evening' })}
+        project={project()}
+      />,
+    );
+    expect(screen.getByText('Christmas · Abundant · Evening')).toBeTruthy();
+  });
+
+  it('leaves the lighting out of the label where the scene offers one lighting mode', () => {
+    const interior = project({
+      sceneType: 'interior',
+      offered: {
+        styles: ['subtle', 'classic', 'abundant'],
+        defaultStyle: 'abundant',
+        lightingModes: ['source'],
+        defaultLightingMode: 'source',
+      },
+    });
+    const { container } = render(
+      <VariantCard variant={variant({ style: 'abundant' })} project={interior} />,
+    );
+    expect(plainSpaces(container.querySelector('.variant__label')?.textContent)).toBe(
+      'Christmas · Abundant',
+    );
+  });
+
+  it('puts the switch in the stage corner and the title with the actions on the line under it', () => {
+    const { container } = render(
+      <VariantCard
+        variant={variant()}
+        project={project()}
+        heading={<h1>Title</h1>}
+        actions={<div className="actions">Save</div>}
+      />,
+    );
+    expect(container.querySelector('.stage__overlay > .variant__toggle')).not.toBeNull();
+    const head = container.querySelector('.picture-head')!;
+    expect(head.querySelector('.picture-head__title')?.firstElementChild?.textContent).toBe(
+      'Title',
+    );
+    expect(head.lastElementChild?.textContent).toBe('Save');
+  });
+
+  it('never puts anything over the lower corners of a Street View frame', () => {
+    const { container } = render(
+      <VariantCard
+        variant={variant({
+          attribution: { required: true, text: '© 2025 Google', logo: 'google_maps' },
+        })}
+        project={project()}
+      />,
+    );
+    // The switch rests in the upper corner and the badge at the upper left.
+    expect(container.querySelector('.stage__overlay')).not.toBeNull();
+    expect(container.querySelector('.image-card__corner--upper-left')).not.toBeNull();
+    expect(container.querySelector('.image-card__corner--lower-right')).toBeNull();
+    // The attribution prints once, on the paper under the picture.
+    expect(container.querySelectorAll('.attribution')).toHaveLength(1);
+    expect(container.querySelector('.stage .attribution')).toBeNull();
   });
 
   it('keeps "Your photo" or the attribution in the strip in every comparison state', () => {

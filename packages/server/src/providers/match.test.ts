@@ -11,9 +11,16 @@ import {
   captureAgeYears,
   captureGranularityOf,
   copyrightClassOf,
+  DISCOVERY_ALGORITHM_VERSION,
   decideMatch,
   type MatchInputs,
 } from './match.js';
+
+describe('discovery algorithm version', () => {
+  it('is 2, the version whose Step 1 probes fallback points around an erroring target', () => {
+    expect(DISCOVERY_ALGORITHM_VERSION).toBe('2');
+  });
+});
 
 describe('geometry', () => {
   it('computes initial great-circle bearings', () => {
@@ -46,7 +53,11 @@ describe('geometry', () => {
   });
 
   it('clamps fov to 60–90 and pitch to 0–10', () => {
-    expect(viewFovDeg(null, 12)).toBe(90);
+    // Without a building outline the facade is taken as 12 m wide.
+    expect(viewFovDeg(null, 12)).toBeCloseTo(67.4, 1);
+    expect(viewFovDeg(null, 25)).toBe(60);
+    expect(viewFovDeg(null, 6)).toBe(90);
+    expect(viewFovDeg(0, 12)).toBe(viewFovDeg(null, 12));
     expect(viewFovDeg(13.5, 12)).toBeCloseTo(72.2, 1);
     expect(viewFovDeg(4, 60)).toBe(60);
     expect(viewFovDeg(40, 5)).toBe(90);
@@ -102,6 +113,15 @@ describe('match class decisions', () => {
     const decision = decideMatch({ ...green, ...change });
     expect(decision.matchClass).toBe('confirm');
     expect(decision.amber).toContain(signal);
+  });
+
+  it('never auto-starts contributor imagery, whatever mode it may be decorated in', () => {
+    for (const sourceMode of ['persist', 'transient'] as const) {
+      const decision = decideMatch({ ...green, sourceMode, copyrightClass: 'contributor' });
+      expect(decision.matchClass).toBe('confirm');
+      expect(decision.amber).toEqual(['copyright']);
+      expect(decideMatch({ ...green, sourceMode }).matchClass).toBe('auto_start');
+    }
   });
 
   it('skips to upload with the first red reason by precedence', () => {

@@ -11,8 +11,8 @@ import {
 
 function setMeta(mode: string | null, siteKey: string | null) {
   document.head.innerHTML = [
-    mode === null ? '' : `<meta name="holiday:turnstile-mode" content="${mode}" />`,
-    siteKey === null ? '' : `<meta name="holiday:turnstile-site-key" content="${siteKey}" />`,
+    mode === null ? '' : `<meta name="hailiday:turnstile-mode" content="${mode}" />`,
+    siteKey === null ? '' : `<meta name="hailiday:turnstile-site-key" content="${siteKey}" />`,
   ].join('');
 }
 

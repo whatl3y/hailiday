@@ -1,5 +1,5 @@
 import { useId, useRef, type CSSProperties, type KeyboardEvent, type PointerEvent } from 'react';
-import { STRAIGHTEN_MAX_DEGREES } from '@holiday/core';
+import { STRAIGHTEN_MAX_DEGREES } from '@hailiday/core';
 import { t } from '../../copy';
 import { clampStraighten, nextStraighten, straightenText } from './crop';
 

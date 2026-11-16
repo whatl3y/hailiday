@@ -1,9 +1,14 @@
 import sharp from 'sharp';
-import type { CompiledRequest, NormalizedBox } from '@holiday/core';
+import type { CompiledRequest, NormalizedBox } from '@hailiday/core';
 import { FIXTURE_COMPOSITOR_VERSION, decorateImage } from '../../fixtures/compositor.js';
-import { isRelightRequest } from '../../pipeline/compile/compiler.js';
+import {
+  isEnhanceRequest,
+  isRelightRequest,
+  relightTargetOf,
+} from '../../pipeline/compile/compiler.js';
+import { enhanceDeterministic } from '../../pipeline/imaging/enhancement.js';
 import { decodeRaster, encodeJpeg, toRect } from '../../pipeline/imaging/raster.js';
-import { relightSourceToEvening } from '../../pipeline/imaging/relight.js';
+import { relightSourceToEvening, relightToBright } from '../../pipeline/imaging/relight.js';
 import type {
   EditInput,
   EditOptions,
@@ -64,9 +69,11 @@ function litDecorationMask(
 }
 
 /**
- * The fixture answer to a relight request: the deterministic evening relight of the input image
- * (the decorated daylight variant), at the requested size. Bulbs bloom inside the lit
- * placements' regions when the undecorated original is supplied; the attribution is restored.
+ * The fixture answer to a relight request, at the requested size: for the `bright` target the
+ * deterministic bright grade of the input image (the decorated photo); otherwise the deterministic
+ * evening relight of it, where bulbs bloom inside the lit placements' regions when the undecorated
+ * original is supplied. The attribution keeps the input's logo and copyright strokes over a relit
+ * ground (`restoreAttributionRelit`).
  */
 async function relightImage(
   request: CompiledRequest,
@@ -74,12 +81,19 @@ async function relightImage(
   size: { width: number; height: number },
 ): Promise<Buffer> {
   const composite = await decodeRaster(input.image);
+  const context = input.fixture;
+  if (relightTargetOf(request) === 'bright') {
+    const bright = relightToBright({
+      image: composite,
+      attribution: context?.attributionRegion ? [context.attributionRegion] : [],
+    });
+    return resizedJpeg(await encodeJpeg(bright, { quality: 92 }), bright, size);
+  }
   const original = input.fixture?.original ? await decodeRaster(input.fixture.original) : null;
   const working =
     original && original.width === composite.width && original.height === composite.height
       ? original
       : composite;
-  const context = input.fixture;
   const relit = relightSourceToEvening({
     composite,
     working,
@@ -89,10 +103,18 @@ async function relightImage(
     lightSources: context?.lightSources ?? [],
     decorationMask: litDecorationMask(context, composite.width, composite.height),
     seed: `${request.settingsHash}:${request.images[0]?.checksum ?? ''}`,
-    restore: context?.attributionRegion ? [context.attributionRegion] : [],
+    attribution: context?.attributionRegion ? [context.attributionRegion] : [],
   });
-  const jpeg = await encodeJpeg(relit.raster, { quality: 92 });
-  if (relit.raster.width === size.width && relit.raster.height === size.height) return jpeg;
+  return resizedJpeg(await encodeJpeg(relit.raster, { quality: 92 }), relit.raster, size);
+}
+
+/** A JPEG of a raster at the requested size (resized only when it differs). */
+async function resizedJpeg(
+  jpeg: Buffer,
+  raster: { width: number; height: number },
+  size: { width: number; height: number },
+): Promise<Buffer> {
+  if (raster.width === size.width && raster.height === size.height) return jpeg;
   return sharp(jpeg)
     .resize(size.width, size.height, { fit: 'fill' })
     .jpeg({ quality: 92 })
@@ -117,8 +139,10 @@ function wait(ms: number, signal: AbortSignal): Promise<boolean> {
 /**
  * Fixture image editor: the deterministic decoration compositor draws the planned placements
  * (and the evening relight) on the input image; a relight request is answered with the
- * deterministic evening relight of the input image. Failure injection follows the render
- * scenario: `provider_error`, `moderation` (vendor refusal) and `slow` (about 20 s).
+ * deterministic relight of the input image for its target (evening or bright); an enhance request
+ * is answered with the deterministic sharpening of the input image (`enhanceDeterministic`), which
+ * no render scenario applies to. Failure injection follows the render scenario for every other
+ * request: `provider_error`, `moderation` (vendor refusal) and `slow` (about 20 s).
  */
 export function createFixtureImageEditor(options: { slowDelayMs?: number } = {}): ImageEditor {
   const operations = new Map<string, EditOutcome>();
@@ -153,6 +177,24 @@ export function createFixtureImageEditor(options: { slowDelayMs?: number } = {})
       await editOptions.onOperation?.(operationId);
       const previous = operations.get(operationId);
       if (previous) return previous;
+      if (isEnhanceRequest(request)) {
+        const size = requestedSize(request) ?? { width: 1024, height: 1024 };
+        const enhanced = enhanceDeterministic(await decodeRaster(input.image));
+        const outcome: EditOutcome = {
+          status: 'completed',
+          operationId,
+          image: await resizedJpeg(await encodeJpeg(enhanced, { quality: 92 }), enhanced, size),
+          width: size.width,
+          height: size.height,
+          format: 'jpeg',
+          usage: { images: 1, raw: { fixture: true } },
+          modelSnapshot: FIXTURE_COMPOSITOR_VERSION,
+          provenance: { watermark: 'unknown' },
+          providerMode: 'fixture',
+        };
+        remember(operationId, outcome);
+        return outcome;
+      }
       const scenario = input.fixture?.scenario ?? 'pass';
       if (scenario === 'provider_error') {
         return {

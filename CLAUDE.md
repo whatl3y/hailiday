@@ -1,4 +1,4 @@
-# Holiday: notes for coding agents
+# Hailiday: notes for coding agents
 
 - The planning documents live in `docs/`. Start with `docs/README.md`, then `docs/PLAN.md`, `docs/decisions.md`, `docs/architecture.md`, the specs in `docs/specs/` and `docs/backlog.md`. When code and a spec disagree, the spec's owner file (see the document map in `docs/README.md`) wins unless the change is deliberate and the spec is updated in the same change.
 - Never open, print or copy `.env` files or any other secret-bearing file, in this repository or any other.

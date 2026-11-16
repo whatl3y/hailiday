@@ -5,7 +5,7 @@ import {
   PauseStateSchema,
   VerifyMagicLinkResponseSchema,
   type Project,
-} from '@holiday/core';
+} from '@hailiday/core';
 import {
   createHarness,
   json,
@@ -155,7 +155,7 @@ describe('magic-link sign-in', () => {
     const confirmation = harness.email.lastTo(email);
     expect(confirmation).toMatchObject({
       tag: 'account_deleted',
-      subject: 'Your Holiday account is being deleted',
+      subject: 'Your Hailiday account is being deleted',
     });
     expect(confirmation?.text).not.toContain('token=');
   });

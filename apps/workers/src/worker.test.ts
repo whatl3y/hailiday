@@ -1,26 +1,24 @@
 import { Writable } from 'node:stream';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { testConfig } from '@holiday/server/config';
-import { createLogger } from '@holiday/server/logger';
-import { createStorage } from '@holiday/server/storage';
+import { testConfig } from '@hailiday/server/config';
+import { createLogger } from '@hailiday/server/logger';
+import { createStorage } from '@hailiday/server/storage';
 import {
   createRenderJobRecord,
   createStreetViewSource,
   seedPipelineTestContent,
-} from '@holiday/server/pipeline';
-import { QUEUE_NAMES } from '@holiday/server/queue';
-import { createSilentLogger } from '@holiday/server/logger';
+} from '@hailiday/server/pipeline';
+import { QUEUE_NAMES } from '@hailiday/server/queue';
+import { createSilentLogger } from '@hailiday/server/logger';
 import {
   DEFAULT_SHUTDOWN_TIMEOUT_MS,
   startWorker,
   stopWorkerContext,
   type WorkerHandle,
 } from './worker.js';
+import { TEST_BUCKETS } from './test-buckets.js';
 
-const config = testConfig({
-  S3_PRIVATE_BUCKET: 'test-workers-private',
-  S3_PUBLIC_BUCKET: 'test-workers-public',
-});
+const config = testConfig({ ...TEST_BUCKETS });
 
 let worker: WorkerHandle;
 const logLines: string[] = [];

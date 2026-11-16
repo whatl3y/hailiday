@@ -55,8 +55,8 @@ export default tseslint.config(
         {
           patterns: [
             {
-              group: ['@holiday/server', '@holiday/server/*', 'node:*'],
-              message: 'Browser-safe code may not import Node built-ins or @holiday/server.',
+              group: ['@hailiday/server', '@hailiday/server/*', 'node:*'],
+              message: 'Browser-safe code may not import Node built-ins or @hailiday/server.',
             },
           ],
         },

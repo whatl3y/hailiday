@@ -43,14 +43,15 @@ describe('usage ledger', () => {
         }),
       ),
     );
-    expect(rows).toHaveLength(8);
-    expect(await openReservationMicros(db, renderJob.id)).toBe(410_000);
+    expect(rows).toHaveLength(9);
+    expect(await openReservationMicros(db, renderJob.id)).toBe(552_000);
     // Open reservations come back in line order, so the judge rows precede the localization rows
     // that share their price.
     expect((await openReservations(db, renderJob.id)).map((row) => row.stage)).toEqual([
       'analyzing',
       'rendering',
       'rendering',
+      'checking',
       'checking',
       'checking',
       'checking',
@@ -75,17 +76,17 @@ describe('usage ledger', () => {
 
     const judge = rows.find((row) => row.stage === 'checking')!;
     await settle(db, { reservationId: judge.id, keepOpen: true, amountMicros: 5_000 });
-    expect((await reservationBalance(db, judge.id)).openMicros).toBe(15_000);
+    expect((await reservationBalance(db, judge.id)).openMicros).toBe(35_000);
 
     const inFlight = rows.filter((row) => row.sku === 'image_edit_attempt')[1]!;
     const released = await releaseJobReservations(db, renderJob.id, {
       exceptReservationIds: [inFlight.id],
     });
     expect(released.map((row) => row.amountMicros).sort((a, b) => a - b)).toEqual([
-      -40_000, -30_000, -20_000, -20_000, -20_000,
+      -45_000, -45_000, -42_000, -40_000, -40_000, -40_000,
     ]);
     expect((await openReservations(db, renderJob.id)).map((row) => row.id)).toEqual([inFlight.id]);
-    expect(await openReservationMicros(db, renderJob.id)).toBe(130_000 + 15_000);
+    expect(await openReservationMicros(db, renderJob.id)).toBe(130_000 + 35_000);
   });
 
   it('records charges with list prices and no reservation', async () => {

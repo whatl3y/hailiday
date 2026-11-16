@@ -1,7 +1,7 @@
 {
   "version": 1,
   "providerMode": "live",
-  "description": "Before/after example specifications per holiday and scene type (classic style, source lighting, plus three evening pairs). Every source is a licensed real photograph from content/photos (source.photoId); the after image is rendered from it by the configured live image editor with the active pack version (package script examples:render), never drawn by a fixture renderer. Rows stay inactive until a live render exists. Labeled \"AI preview\" and \"Example\" wherever shown. genericScenes are procedural test fixtures for fixture-kind sources only and are never shown.",
+  "description": "Before/after example specifications per holiday and scene type (classic style; exteriors and balconies as photographed plus two exterior evening pairs, entries and rooms in the bright look). Every source is a licensed real photograph from content/photos (source.photoId); the after image is rendered from it by the configured live image editor with the active pack version (package script examples:render), never drawn by a fixture renderer. Rows stay inactive until a live render exists. Labeled \"AI preview\" and \"Example\" wherever shown. genericScenes are procedural test fixtures for fixture-kind sources only and are never shown.",
   "genericScenes": {
     "generic.interior.dining_room.oak": {
       "sceneType": "interior",
@@ -115,7 +115,7 @@
         "photoId": "house-14-victorian-autumn",
         "buildingForm": "detached"
       },
-      "packVersion": "1.0.1",
+      "packVersion": "2.0.0",
       "width": 1536,
       "height": 1024,
       "captionKey": "example.halloween.house_exterior",
@@ -145,7 +145,7 @@
         "photoId": "house-14-victorian-autumn",
         "buildingForm": "detached"
       },
-      "packVersion": "1.0.1",
+      "packVersion": "2.0.0",
       "width": 1536,
       "height": 1024,
       "captionKey": "example.halloween.house_exterior",
@@ -165,16 +165,16 @@
       "providerMode": "fixture"
     },
     {
-      "exampleId": "example.halloween.apartment_entry.classic.source.v1",
+      "exampleId": "example.halloween.apartment_entry.classic.bright.v1",
       "holidayId": "halloween",
       "sceneType": "apartment_entry",
       "style": "classic",
-      "lightingMode": "source",
+      "lightingMode": "bright",
       "source": {
         "kind": "photo",
         "photoId": "sample-apartment-hallway"
       },
-      "packVersion": "1.0.1",
+      "packVersion": "2.0.0",
       "width": 1536,
       "height": 1024,
       "captionKey": "example.halloween.apartment_entry",
@@ -203,7 +203,7 @@
         "kind": "photo",
         "photoId": "sample-balcony"
       },
-      "packVersion": "1.0.1",
+      "packVersion": "2.0.0",
       "width": 1536,
       "height": 1024,
       "captionKey": "example.halloween.balcony",
@@ -223,17 +223,17 @@
       "providerMode": "fixture"
     },
     {
-      "exampleId": "example.halloween.interior.classic.source.v1",
+      "exampleId": "example.halloween.interior.classic.bright.v1",
       "holidayId": "halloween",
       "sceneType": "interior",
       "style": "classic",
-      "lightingMode": "source",
+      "lightingMode": "bright",
       "source": {
         "kind": "photo",
         "photoId": "sample-living-room-mantel",
         "roomType": "living_room"
       },
-      "packVersion": "1.0.1",
+      "packVersion": "2.0.0",
       "width": 1536,
       "height": 1024,
       "captionKey": "example.halloween.interior",
@@ -263,7 +263,7 @@
         "photoId": "house-02-georgian-autumn",
         "buildingForm": "detached"
       },
-      "packVersion": "1.0.1",
+      "packVersion": "2.0.0",
       "width": 1536,
       "height": 1024,
       "captionKey": "example.thanksgiving_us.house_exterior",
@@ -283,16 +283,16 @@
       "providerMode": "fixture"
     },
     {
-      "exampleId": "example.thanksgiving_us.apartment_entry.classic.source.v1",
+      "exampleId": "example.thanksgiving_us.apartment_entry.classic.bright.v1",
       "holidayId": "thanksgiving_us",
       "sceneType": "apartment_entry",
       "style": "classic",
-      "lightingMode": "source",
+      "lightingMode": "bright",
       "source": {
         "kind": "photo",
         "photoId": "sample-apartment-hallway"
       },
-      "packVersion": "1.0.1",
+      "packVersion": "2.0.0",
       "width": 1536,
       "height": 1024,
       "captionKey": "example.thanksgiving_us.apartment_entry",
@@ -321,7 +321,7 @@
         "kind": "photo",
         "photoId": "sample-balcony"
       },
-      "packVersion": "1.0.1",
+      "packVersion": "2.0.0",
       "width": 1536,
       "height": 1024,
       "captionKey": "example.thanksgiving_us.balcony",
@@ -341,47 +341,17 @@
       "providerMode": "fixture"
     },
     {
-      "exampleId": "example.thanksgiving_us.interior.classic.source.v1",
+      "exampleId": "example.thanksgiving_us.interior.classic.bright.v1",
       "holidayId": "thanksgiving_us",
       "sceneType": "interior",
       "style": "classic",
-      "lightingMode": "source",
+      "lightingMode": "bright",
       "source": {
         "kind": "photo",
         "photoId": "sample-dining-room",
         "roomType": "dining_room"
       },
-      "packVersion": "1.0.1",
-      "width": 1536,
-      "height": 1024,
-      "captionKey": "example.thanksgiving_us.interior",
-      "rights": {
-        "kind": "licensed_photo",
-        "photographer": "Clay Banks",
-        "sourceUrl": "https://unsplash.com/photos/dining-room-with-rustic-wooden-table-and-chairs-lGWmTzCyEB8",
-        "license": "Unsplash License",
-        "licenseUrl": "https://unsplash.com/license",
-        "permission": "Before image: a licensed real photograph (Unsplash License); after image: rendered from it by the production image editor with the active pack version.",
-        "evidenceRef": "https://unsplash.com/photos/dining-room-with-rustic-wooden-table-and-chairs-lGWmTzCyEB8"
-      },
-      "approval": {
-        "approvedAt": "2026-11-09T12:00:00.000Z",
-        "approvedBy": "pending-live-render"
-      },
-      "providerMode": "fixture"
-    },
-    {
-      "exampleId": "example.thanksgiving_us.interior.classic.evening.v1",
-      "holidayId": "thanksgiving_us",
-      "sceneType": "interior",
-      "style": "classic",
-      "lightingMode": "evening",
-      "source": {
-        "kind": "photo",
-        "photoId": "sample-dining-room",
-        "roomType": "dining_room"
-      },
-      "packVersion": "1.0.1",
+      "packVersion": "2.0.0",
       "width": 1536,
       "height": 1024,
       "captionKey": "example.thanksgiving_us.interior",
@@ -411,7 +381,7 @@
         "photoId": "house-04-bungalow-summer",
         "buildingForm": "detached"
       },
-      "packVersion": "1.0.1",
+      "packVersion": "2.0.0",
       "width": 1536,
       "height": 1024,
       "captionKey": "example.christmas.house_exterior",
@@ -441,7 +411,7 @@
         "photoId": "house-04-bungalow-summer",
         "buildingForm": "detached"
       },
-      "packVersion": "1.0.1",
+      "packVersion": "2.0.0",
       "width": 1536,
       "height": 1024,
       "captionKey": "example.christmas.house_exterior",
@@ -461,16 +431,16 @@
       "providerMode": "fixture"
     },
     {
-      "exampleId": "example.christmas.apartment_entry.classic.source.v1",
+      "exampleId": "example.christmas.apartment_entry.classic.bright.v1",
       "holidayId": "christmas",
       "sceneType": "apartment_entry",
       "style": "classic",
-      "lightingMode": "source",
+      "lightingMode": "bright",
       "source": {
         "kind": "photo",
         "photoId": "sample-apartment-hallway"
       },
-      "packVersion": "1.0.1",
+      "packVersion": "2.0.0",
       "width": 1536,
       "height": 1024,
       "captionKey": "example.christmas.apartment_entry",
@@ -499,7 +469,7 @@
         "kind": "photo",
         "photoId": "sample-balcony"
       },
-      "packVersion": "1.0.1",
+      "packVersion": "2.0.0",
       "width": 1536,
       "height": 1024,
       "captionKey": "example.christmas.balcony",
@@ -519,17 +489,17 @@
       "providerMode": "fixture"
     },
     {
-      "exampleId": "example.christmas.interior.classic.source.v1",
+      "exampleId": "example.christmas.interior.classic.bright.v1",
       "holidayId": "christmas",
       "sceneType": "interior",
       "style": "classic",
-      "lightingMode": "source",
+      "lightingMode": "bright",
       "source": {
         "kind": "photo",
         "photoId": "sample-living-room-mantel",
         "roomType": "living_room"
       },
-      "packVersion": "1.0.1",
+      "packVersion": "2.0.0",
       "width": 1536,
       "height": 1024,
       "captionKey": "example.christmas.interior",
@@ -559,7 +529,7 @@
         "photoId": "house-07-modern-summer",
         "buildingForm": "detached"
       },
-      "packVersion": "1.0.1",
+      "packVersion": "2.0.0",
       "width": 1536,
       "height": 1024,
       "captionKey": "example.new_years_eve.house_exterior",
@@ -588,7 +558,7 @@
         "kind": "photo",
         "photoId": "sample-balcony"
       },
-      "packVersion": "1.0.1",
+      "packVersion": "2.0.0",
       "width": 1536,
       "height": 1024,
       "captionKey": "example.new_years_eve.balcony",
@@ -608,17 +578,17 @@
       "providerMode": "fixture"
     },
     {
-      "exampleId": "example.new_years_eve.interior.classic.source.v1",
+      "exampleId": "example.new_years_eve.interior.classic.bright.v1",
       "holidayId": "new_years_eve",
       "sceneType": "interior",
       "style": "classic",
-      "lightingMode": "source",
+      "lightingMode": "bright",
       "source": {
         "kind": "photo",
         "photoId": "sample-dining-room",
         "roomType": "dining_room"
       },
-      "packVersion": "1.0.1",
+      "packVersion": "2.0.0",
       "width": 1536,
       "height": 1024,
       "captionKey": "example.new_years_eve.interior",

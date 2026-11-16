@@ -1,4 +1,4 @@
-import { firstSkipReason } from '@holiday/core';
+import { firstSkipReason } from '@hailiday/core';
 import { isContributorStandIn, isFixturePhotoCopyright } from '../fixtures/copyright.js';
 import type {
   CaptureGranularity,
@@ -9,7 +9,7 @@ import type {
   Precision,
   SkipReason,
   StreetViewSourceMode,
-} from '@holiday/core';
+} from '@hailiday/core';
 
 /** Match-confidence thresholds (configuration; versioned with every discovery). */
 export interface MatchThresholds {
@@ -30,8 +30,11 @@ export const DEFAULT_MATCH_THRESHOLDS: MatchThresholds = Object.freeze({
   discoveryBudgetMs: 6000,
 });
 
-/** Version of the viewpoint and match algorithm, recorded with every discovery. */
-export const DISCOVERY_ALGORITHM_VERSION = '1';
+/**
+ * Version of the viewpoint and match algorithm, recorded with every discovery. Version 2 lets the
+ * fallback points stand in for a target that answers `UNKNOWN_ERROR` in Step 1.
+ */
+export const DISCOVERY_ALGORITHM_VERSION = '2';
 
 export type SignalColor = 'green' | 'amber' | 'red';
 

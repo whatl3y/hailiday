@@ -2,10 +2,11 @@ import { createBrowserRouter, type RouteObject } from 'react-router';
 import { AccountPage } from '../features/account/AccountPage';
 import { PlacesPage } from '../features/account/PlacesPage';
 import { VerifyPage } from '../features/account/VerifyPage';
+import { GalleryPage } from '../features/gallery/GalleryPage';
 import { LandingPage } from '../features/landing/LandingPage';
 import { LegalPage, NotFoundPage } from '../features/legal/LegalPage';
 import { LEGAL_PAGES, type LegalPageId } from '../features/legal/pages';
-import { ProjectPage } from '../features/project/ProjectPage';
+import { ProjectRoute } from '../features/project/ProjectPage';
 import { OptOutPage } from '../features/report/OptOutPage';
 import { SharePage } from '../features/share/SharePage';
 import { UploadEntryPage } from '../features/upload/UploadEntryPage';
@@ -26,8 +27,9 @@ export const routes: RouteObject[] = [
     children: [
       { path: '/', element: <LandingPage /> },
       { path: '/upload', element: <UploadEntryPage /> },
-      { path: '/p/:projectId', element: <ProjectPage /> },
+      { path: '/p/:projectId', element: <ProjectRoute /> },
       { path: '/places', element: <PlacesPage /> },
+      { path: '/gallery', element: <GalleryPage /> },
       { path: '/account', element: <AccountPage /> },
       { path: '/auth/verify', element: <VerifyPage /> },
       { path: '/dont-decorate-my-home', element: <OptOutPage /> },

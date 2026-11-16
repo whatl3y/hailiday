@@ -1,6 +1,6 @@
 import type { FastifyError, FastifyReply, FastifyRequest } from 'fastify';
-import { buildErrorBody } from '@holiday/core';
-import { AppError, isAppError, toAppError, validationFailed } from '@holiday/server/errors';
+import { buildErrorBody } from '@hailiday/core';
+import { AppError, isAppError, toAppError, validationFailed } from '@hailiday/server/errors';
 import { hasZodFastifySchemaValidationErrors } from 'fastify-type-provider-zod';
 import type { App } from './types.js';
 import { isApiPath, pathOnly } from './types.js';

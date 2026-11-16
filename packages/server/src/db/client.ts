@@ -42,7 +42,7 @@ export function createPool(options: CreateDbOptions): pg.Pool {
   const pool = new pg.Pool({
     connectionString: options.connectionString,
     max: options.max ?? 10,
-    application_name: options.applicationName ?? 'holiday',
+    application_name: options.applicationName ?? 'hailiday',
     types: typeParsers as pg.CustomTypesConfig,
   });
   pool.on('error', (error) => {

@@ -1,5 +1,5 @@
-import { sha256Hex } from '@holiday/server/ids';
-import { createStreetViewSource, createUploadSource } from '@holiday/server/pipeline';
+import { sha256Hex } from '@hailiday/server/ids';
+import { createStreetViewSource, createUploadSource } from '@hailiday/server/pipeline';
 import type { Harness, TestClient } from './harness.js';
 
 /** The owner of a test client's session. */
@@ -24,9 +24,10 @@ export async function adoptStreetViewProject(
   harness: Pick<Harness, 'context' | 'pipeline'>,
   client: TestClient,
   placeId = 'ChIJfxLanternHillColonial01',
+  streetViewMode: 'transient' | 'persist' = 'transient',
 ): Promise<{ projectId: string; projectVersion: number; sourceAssetId: string }> {
   const ownerId = await ownerIdOf(harness, client);
-  const created = await createStreetViewSource(harness.pipeline, { placeId });
+  const created = await createStreetViewSource(harness.pipeline, { placeId, streetViewMode });
   const db = harness.context.db;
   await db.transaction().execute(async (trx) => {
     for (const table of ['properties', 'projects', 'sourceAssets'] as const) {

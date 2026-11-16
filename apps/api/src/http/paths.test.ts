@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { AppError } from '@holiday/server/errors';
-import { decodeCursor, encodeCursor } from './cursor.js';
+import { AppError } from '@hailiday/server/errors';
+import { decodeCursor, decodePreciseCursor, encodeCursor, encodePreciseCursor } from './cursor.js';
 import { isApiPath, normalizedPath } from './types.js';
 
 describe('isApiPath', () => {
@@ -30,23 +30,56 @@ describe('pagination cursors', () => {
     expect(decodeCursor(undefined)).toBeNull();
   });
 
+  const raw = (value: unknown) => Buffer.from(JSON.stringify(value)).toString('base64url');
+  const refused = (decode: (cursor: string) => unknown, cursor: string) => {
+    let error: unknown;
+    try {
+      decode(cursor);
+    } catch (caught) {
+      error = caught;
+    }
+    expect(error, cursor).toBeInstanceOf(AppError);
+    expect(error).toMatchObject({ code: 'VALIDATION_FAILED' });
+  };
+
   it('refuses crafted cursors with VALIDATION_FAILED instead of reaching the database', () => {
     const crafted = [
-      Buffer.from(JSON.stringify(['2026-01-01T00:00:00Z', 'x'])).toString('base64url'),
-      Buffer.from(JSON.stringify(['not a date', id])).toString('base64url'),
-      Buffer.from(JSON.stringify(['2026-01-01T00:00:00Z', id, 'extra'])).toString('base64url'),
-      Buffer.from(JSON.stringify({ at: '2026-01-01T00:00:00Z', id })).toString('base64url'),
+      raw(['2026-01-01T00:00:00.000Z', 'x']),
+      raw(['not a date', id]),
+      raw(['2026-01-01T00:00:00.000Z', id, 'extra']),
+      raw({ at: '2026-01-01T00:00:00.000Z', id }),
       'not-base64-json',
+      // Timestamps JavaScript parses but encodeCursor never writes, or PostgreSQL cannot store.
+      raw(['2026-01-01T00:00:00Z', id]),
+      raw(['2026-01-01', id]),
+      raw(['-000001-01-01T00:00:00.000Z', id]),
+      raw(['+275760-09-13T00:00:00.000Z', id]),
+      raw(['0000-01-01T00:00:00.000Z', id]),
+      raw(['2026-02-30T00:00:00.000Z', id]),
+      raw(['2026-01-01T00:00:00.000+00:00', id]),
+      raw(['2026-01-01T00:00:00.000000Z', id]),
     ];
-    for (const cursor of crafted) {
-      let error: unknown;
-      try {
-        decodeCursor(cursor);
-      } catch (caught) {
-        error = caught;
-      }
-      expect(error).toBeInstanceOf(AppError);
-      expect(error).toMatchObject({ code: 'VALIDATION_FAILED' });
+    for (const cursor of crafted) refused(decodeCursor, cursor);
+    const earliest = new Date('0001-01-01T00:00:00.000Z');
+    expect(decodeCursor(encodeCursor(earliest, id))).toEqual([earliest, id]);
+  });
+
+  it('carries microseconds in a precise cursor and refuses anything else', () => {
+    const at = '2026-11-10T12:00:00.123456Z';
+    expect(decodePreciseCursor(encodePreciseCursor(at, id))).toEqual([at, id]);
+    expect(decodePreciseCursor(raw([at, id.toUpperCase()]))).toEqual([at, id]);
+    expect(decodePreciseCursor(undefined)).toBeNull();
+    expect(() => encodePreciseCursor('2026-11-10T12:00:00.123Z', id)).toThrow(RangeError);
+    for (const cursor of [
+      encodeCursor(new Date('2026-11-10T12:00:00.123Z'), id),
+      raw(['-000001-01-01T00:00:00.000000Z', id]),
+      raw(['0000-01-01T00:00:00.000000Z', id]),
+      raw(['2026-02-30T00:00:00.000000Z', id]),
+      raw(['2026-11-10T12:00:00.1234567Z', id]),
+      raw([at, 'x']),
+      'not-base64-json',
+    ]) {
+      refused(decodePreciseCursor, cursor);
     }
   });
 });

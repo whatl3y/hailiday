@@ -1,11 +1,11 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import * as pipeline from '@holiday/server/pipeline';
+import * as pipeline from '@hailiday/server/pipeline';
 import { sessionHashOf } from './auth/session.js';
 import { createHarness, json, type Harness, type TestClient } from './test/harness.js';
 import { operatorClient } from './test/operator.js';
 import { adoptStreetViewProject, ownerIdOf } from './test/projects.js';
 
-vi.mock('@holiday/server/pipeline', async (importOriginal) => {
+vi.mock('@hailiday/server/pipeline', async (importOriginal) => {
   const original = await importOriginal<typeof pipeline>();
   return { ...original, deleteProject: vi.fn(original.deleteProject) };
 });

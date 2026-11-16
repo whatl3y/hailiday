@@ -23,8 +23,12 @@ export const CLIENT_DEFAULTS = {
   /** The render poll backs off to this interval after `pollBackoffAfterMs`. */
   pollRenderBackoffMs: 5000,
   pollBackoffAfterMs: 60_000,
-  /** Waiting longer than this shows the long-wait line. */
-  longWaitMs: 90_000,
+  /**
+   * Waiting longer than this shows the long-wait line: above the slowest ordinary first look
+   * (a two-edit look takes about 75 to 130 s, and an address's first evening look about 30 s
+   * more while its street photo is sharpened first).
+   */
+  longWaitMs: 190_000,
   /** Street View captures older than this many years show the "looks different" line. */
   oldCaptureYears: 5,
   minShortEdgePx: 640,
@@ -34,6 +38,12 @@ export const CLIENT_DEFAULTS = {
   analyticsFlushMs: 5000,
   analyticsMaxBatch: 20,
 } as const;
+
+/**
+ * Searches that match places in the fixture address dataset. When address lookup runs in
+ * fixture mode, the empty state offers them as one-tap searches, since no other address matches.
+ */
+export const FIXTURE_SAMPLE_ADDRESSES = ['14 Lantern Hill', '418 Larkspur'] as const;
 
 export function formatBytes(bytes: number): string {
   const mb = bytes / (1024 * 1024);

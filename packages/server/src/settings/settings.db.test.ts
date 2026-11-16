@@ -1,5 +1,6 @@
 import { afterAll, describe, expect, it } from 'vitest';
 import { testConfig } from '../config/index.js';
+import { toJson } from '../db/client.js';
 import { createTestDb } from '../db/testing.js';
 import { createCapabilities } from '../capabilities/index.js';
 import { createSettings, seedSettingDefaults } from './index.js';
@@ -36,6 +37,26 @@ describe('runtime settings', () => {
     const record = await overridden.getRecord('poll.render_ms');
     expect(record).toMatchObject({ value: 2500, version: 0, isDefault: true });
     expect(await overridden.reviewModeFor('interior')).toBe('sampled_audit');
+  });
+
+  it('reads the current vision ceiling over a seeded row holding an earlier default', async () => {
+    const key = 'spend.sku_daily_micros.vision_call';
+    await seedSettingDefaults(db, testConfig());
+    await db
+      .updateTable('runtimeSettings')
+      .set({ value: toJson(170_000_000) })
+      .where('key', '=', key)
+      .where('version', '=', 0)
+      .execute();
+    const settings = createSettings(db, { config: testConfig(), cacheTtlMs: 0 });
+    expect(await settings.skuDailyCeilingMicros('vision_call')).toBe(280_000_000);
+    await seedSettingDefaults(db, testConfig());
+    const row = await db
+      .selectFrom('runtimeSettings')
+      .select(['value', 'version'])
+      .where('key', '=', key)
+      .executeTakeFirstOrThrow();
+    expect(row).toEqual({ value: 280_000_000, version: 0 });
   });
 });
 

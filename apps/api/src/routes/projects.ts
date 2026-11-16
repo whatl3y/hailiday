@@ -1,4 +1,4 @@
-import { sql } from '@holiday/server/db';
+import { sql } from '@hailiday/server/db';
 import {
   CreateProjectRequestSchema,
   DEFAULT_SCENE_TYPE_AUTO_ACCEPT,
@@ -17,24 +17,32 @@ import {
   isCandidateSourceRequest,
   isNudgeWithinBounds,
   type NormalizedBox,
-} from '@holiday/core';
+} from '@hailiday/core';
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import { isUniqueViolation, toJson, type Project, type Property } from '@holiday/server/db';
-import { AppError, notFound, validationFailed } from '@holiday/server/errors';
-import { isUuidV7, newId, uuidV7Timestamp } from '@holiday/server/ids';
-import { consumeDisplayLoads } from '@holiday/server/limits';
+import {
+  isUniqueViolation,
+  toJson,
+  type DbOrTx,
+  type Project,
+  type Property,
+} from '@hailiday/server/db';
+import { AppError, notFound, validationFailed } from '@hailiday/server/errors';
+import { isUuidV7, newId, uuidV7Timestamp } from '@hailiday/server/ids';
+import { consumeDisplayLoads, displayLoadsRemaining } from '@hailiday/server/limits';
 import {
   createAssetPolicy,
   defaultPolicyTemplate,
+  isPlaceBlocked,
   recordPermissionEvaluation,
   streetViewSourceMode,
-} from '@holiday/server/policy';
+} from '@hailiday/server/policy';
 import {
   completeProjectDeletion,
   createCroppedChild,
   deleteProject,
   deleteSharePublicObjects,
-} from '@holiday/server/pipeline';
+  newestPerVariantKey,
+} from '@hailiday/server/pipeline';
 import {
   DEFAULT_MATCH_THRESHOLDS,
   DISCOVERY_ALGORITHM_VERSION,
@@ -42,7 +50,7 @@ import {
   copyrightClassOf,
   decideMatch,
   type DiscoveryResult,
-} from '@holiday/server/providers';
+} from '@hailiday/server/providers';
 import type { ApiDeps } from '../deps.js';
 import type { App } from '../http/types.js';
 import { decodeCursor } from '../http/cursor.js';
@@ -55,6 +63,7 @@ import {
   coordinateExpiry,
   discoveryDto,
   issuedDisplayUrl,
+  refreshDiscoveryMode,
   storedCandidateOf,
   type StoredCandidate,
   type StoredSignals,
@@ -69,6 +78,7 @@ import {
   offeredFor,
   projectDto,
   projectExpiry,
+  startingLookFor,
   supersedeActiveJob,
 } from '../domain/projects.js';
 import { renderStatus, variantDto } from '../domain/renders.js';
@@ -76,6 +86,8 @@ import {
   addressProviderFor,
   evaluateFor,
   streetViewCandidatePolicy,
+  streetViewCapabilityStates,
+  streetViewPolicyTemplate,
   streetViewProviderFor,
 } from '../domain/sources.js';
 import { assertSpendAllowed, chargeCall } from '../domain/spend.js';
@@ -152,18 +164,24 @@ async function variantsAtDeletion(deps: ApiDeps, projectId: string): Promise<num
   return Number(row.count);
 }
 
-/** Issues one display URL against the property's display budget and ledgers it. */
+/**
+ * Issues one display URL against the property's display budget and ledgers it, both through `db`
+ * (a transaction passes its own handle). `limit` is the display budget per address when the
+ * caller has read it already (a caller inside a transaction must not wait on the pool).
+ */
 async function issueDisplayLoad(
   deps: ApiDeps,
+  db: DbOrTx,
   auth: AuthState,
-  input: { property: Property; projectId: string; isFixture: boolean },
+  input: { property: Property; projectId: string; isFixture: boolean; limit?: number },
 ): Promise<number> {
-  const limit = await deps.settings.get('rate.static_display_loads_per_address');
-  const remaining = await consumeDisplayLoads(deps.db, {
+  const limit = input.limit ?? (await deps.settings.get('rate.static_display_loads_per_address'));
+  const remaining = await consumeDisplayLoads(db, {
     propertyId: input.property.id,
     limit,
+    now: deps.clock.now(),
   });
-  await chargeCall(deps, deps.db, {
+  await chargeCall(deps, db, {
     sku: 'street_view_static_display',
     provider: input.isFixture ? 'fixture-street-view' : 'google',
     isFixture: input.isFixture,
@@ -173,6 +191,55 @@ async function issueDisplayLoad(
     stage: 'display',
   });
   return remaining;
+}
+
+/**
+ * The view a viewpoint request asks for among a discovery's stored candidates, and whether it
+ * needs a display load: an existing candidate (the chosen one, or the nudged view of the same root
+ * at the same heading and field of view) whose display URL was issued is reused; otherwise the
+ * candidate is issued now (a new nudged view gets a new candidate ID). Throws `VALIDATION_FAILED`
+ * for an unknown candidate.
+ */
+function viewTargetOf(
+  candidates: StoredCandidate[],
+  body: { candidateId: string; nudge?: { headingDelta: number; fov: number } | undefined },
+  now: Date,
+): { target: StoredCandidate; issue: boolean } {
+  const base = candidates.find((candidate) => candidate.candidateId === body.candidateId);
+  if (!base) {
+    throw validationFailed({ fields: [{ path: 'body.candidateId', reason: 'unknown' }] });
+  }
+  const issuedAt = now.toISOString();
+  if (!body.nudge) {
+    return base.displayUrlIssuedAt
+      ? { target: base, issue: false }
+      : { target: { ...base, displayUrlIssuedAt: issuedAt }, issue: true };
+  }
+  const root = base.derivedFromCandidateId
+    ? (candidates.find((candidate) => candidate.candidateId === base.derivedFromCandidateId) ??
+      base)
+    : base;
+  const nudge = body.nudge;
+  const heading = (((root.heading + nudge.headingDelta) % 360) + 360) % 360;
+  const existing = candidates.find(
+    (candidate) =>
+      candidate.derivedFromCandidateId === root.candidateId &&
+      Math.abs(candidate.heading - heading) < 0.05 &&
+      candidate.fov === nudge.fov,
+  );
+  if (existing?.displayUrlIssuedAt) return { target: existing, issue: false };
+  return {
+    target: {
+      ...root,
+      candidateId: existing?.candidateId ?? newId(),
+      derivedFromCandidateId: root.candidateId,
+      isPrimary: false,
+      heading,
+      fov: nudge.fov,
+      displayUrlIssuedAt: issuedAt,
+    },
+    issue: true,
+  };
 }
 
 /** Projects, discovery, source binding, viewpoint adjustment and the variant list. */
@@ -186,6 +253,8 @@ export function registerProjectRoutes(app: App, deps: ApiDeps): void {
       const now = deps.clock.now();
       const holidayId = await holidayForNewProject(deps, request.body.holidayId ?? null);
       const shell = { createdAt: now, savedAt: auth.user ? now : null };
+      const sceneType = request.body.sceneType ?? null;
+      const look = await startingLookFor(deps, { sceneType }, null, holidayId);
       const project = await deps.db
         .insertInto('projects')
         .values({
@@ -193,7 +262,9 @@ export function registerProjectRoutes(app: App, deps: ApiDeps): void {
           ownerId: auth.ownerId,
           kind: 'upload',
           holidayId,
-          sceneType: request.body.sceneType ?? null,
+          sceneType,
+          style: look.style,
+          lightingMode: look.lightingMode,
           savedAt: shell.savedAt,
           lastActivityAt: now,
           expiresAt: projectExpiry(shell, now),
@@ -370,81 +441,73 @@ export function registerProjectRoutes(app: App, deps: ApiDeps): void {
       if (!discovery || candidates.length === 0 || discovery.matchClass === 'skip_to_upload') {
         throw new AppError('NO_STREET_VIEW', {});
       }
-      const base = candidates.find((candidate) => candidate.candidateId === body.candidateId);
-      if (!base) {
-        throw validationFailed({ fields: [{ path: 'body.candidateId', reason: 'unknown' }] });
-      }
+      // Validates the candidate; the authoritative decision is made again under the lock below.
+      const planned = viewTargetOf(candidates, body, deps.clock.now());
       const provider = await streetViewProviderFor(deps, auth.audience);
       if (!provider) throw new AppError('NO_STREET_VIEW', {});
       const property = await loadProperty(deps, project);
-      const isFixture = provider.mode === 'fixture';
-      const limit = await deps.settings.get('rate.static_display_loads_per_address');
-
-      let target: StoredCandidate;
-      let changed = false;
-      if (!body.nudge) {
-        target = base;
-        if (!base.displayUrlIssuedAt) {
-          await assertSpendAllowed(deps, ['street_view_static_display'], isFixture);
-          await issueDisplayLoad(deps, auth, { property, projectId: project.id, isFixture });
-          target = { ...base, displayUrlIssuedAt: deps.clock.now().toISOString() };
-          changed = true;
-        }
-      } else {
-        const root = base.derivedFromCandidateId
-          ? (candidates.find(
-              (candidate) => candidate.candidateId === base.derivedFromCandidateId,
-            ) ?? base)
-          : base;
+      // A place put on the opt-out list after its discovery gets no further views.
+      if (await isPlaceBlocked(deps.db, property.placeId, deps.clock.now())) {
+        throw new AppError('NO_STREET_VIEW', {});
+      }
+      if (body.nudge) {
         const nudge = body.nudge;
         const fovOk = nudge.fov >= NUDGE_FOV_RANGE.min && nudge.fov <= NUDGE_FOV_RANGE.max;
         if (!isNudgeWithinBounds(nudge) || !fovOk) {
           throw validationFailed({ fields: [{ path: 'body.nudge', reason: 'out_of_bounds' }] });
         }
-        const heading = (((root.heading + nudge.headingDelta) % 360) + 360) % 360;
-        const existing = candidates.find(
-          (candidate) =>
-            candidate.derivedFromCandidateId === root.candidateId &&
-            Math.abs(candidate.heading - heading) < 0.05 &&
-            candidate.fov === nudge.fov,
-        );
-        if (existing?.displayUrlIssuedAt) {
-          target = existing;
-        } else {
-          await assertSpendAllowed(deps, ['street_view_static_display'], isFixture);
-          await issueDisplayLoad(deps, auth, { property, projectId: project.id, isFixture });
-          target = {
-            ...root,
-            candidateId: existing?.candidateId ?? newId(),
-            derivedFromCandidateId: root.candidateId,
-            isPrimary: false,
-            heading,
-            fov: nudge.fov,
-            displayUrlIssuedAt: deps.clock.now().toISOString(),
-          };
-          changed = true;
-        }
       }
-      if (changed) {
-        const next = candidates.some((candidate) => candidate.candidateId === target.candidateId)
-          ? candidates.map((candidate) =>
-              candidate.candidateId === target.candidateId ? target : candidate,
+      const isFixture = provider.mode === 'fixture';
+      const limit = await deps.settings.get('rate.static_display_loads_per_address');
+
+      // The spend check reads through the pool, so it runs before the lock is taken. Candidates
+      // are only ever added or marked issued, so a view that needs a display load under the lock
+      // needed one in this unlocked read too.
+      const spendChecked = planned.issue;
+      if (spendChecked) {
+        await assertSpendAllowed(deps, ['street_view_static_display'], isFixture);
+      }
+      // The discovery row is locked while its candidates are read, a display load is issued and
+      // the candidates are written back, so parallel requests never lose an issued candidate.
+      const target = await deps.db.transaction().execute(async (trx) => {
+        const locked = await trx
+          .selectFrom('sourceDiscoveries')
+          .select(['id', 'candidates'])
+          .where('id', '=', discovery.id)
+          .forUpdate()
+          .executeTakeFirstOrThrow();
+        const current = asStoredCandidates(locked.candidates);
+        const view = viewTargetOf(current, body, deps.clock.now());
+        if (!view.issue) return view.target;
+        if (!spendChecked) {
+          await assertSpendAllowed(deps, ['street_view_static_display'], isFixture);
+        }
+        await issueDisplayLoad(deps, trx, auth, {
+          property,
+          projectId: project.id,
+          isFixture,
+          limit,
+        });
+        const next = current.some((candidate) => candidate.candidateId === view.target.candidateId)
+          ? current.map((candidate) =>
+              candidate.candidateId === view.target.candidateId ? view.target : candidate,
             )
-          : [...candidates, target];
-        await deps.db
+          : [...current, view.target];
+        await trx
           .updateTable('sourceDiscoveries')
           .set({ candidates: toJson(next) })
-          .where('id', '=', discovery.id)
+          .where('id', '=', locked.id)
           .execute();
-      }
+        return view.target;
+      });
       const fresh = await deps.db
         .selectFrom('properties')
-        .select('displayLoadsIssued')
+        .select(['displayLoadsIssued', 'displayLoadsWindowStartedAt'])
         .where('id', '=', property.id)
         .executeTakeFirstOrThrow();
       return {
         candidate: candidateDto(target, issuedDisplayUrl(provider, target)),
-        remainingDisplayLoads: Math.max(0, limit - fresh.displayLoadsIssued),
+        remainingDisplayLoads: displayLoadsRemaining(fresh, limit, deps.clock.now()),
       };
     },
   );
@@ -455,14 +518,17 @@ export function registerProjectRoutes(app: App, deps: ApiDeps): void {
     async (request, reply) => {
       const auth = await requireSession(deps, request, reply);
       const project = await loadOwnedProject(deps, auth, request.params.id);
-      const assets = await deps.db
-        .selectFrom('renderAssets')
-        .selectAll()
-        .where('projectId', '=', project.id)
-        .where('deletedAt', 'is', null)
-        .where('withdrawnAt', 'is', null)
-        .orderBy('createdAt', 'desc')
-        .execute();
+      // A look rendered more than once keeps every rendering; the list shows the newest of each.
+      const assets = newestPerVariantKey(
+        await deps.db
+          .selectFrom('renderAssets')
+          .selectAll()
+          .where('projectId', '=', project.id)
+          .where('deletedAt', 'is', null)
+          .where('withdrawnAt', 'is', null)
+          .orderBy('createdAt', 'desc')
+          .execute(),
+      );
       const items = [];
       for (const asset of assets) {
         items.push(
@@ -482,7 +548,8 @@ export function registerProjectRoutes(app: App, deps: ApiDeps): void {
 
 /**
  * `POST /v1/projects/:id/source-discovery`: one completed discovery per project version (a repeat
- * replays the stored result with no provider call), free metadata probes only, Tier A signals and
+ * replays the stored result with no provider call, its source mode re-derived from the current
+ * Street View template), free metadata probes only, Tier A signals and
  * the match decision; the primary candidate's display URL is issued against the display budget;
  * an `auto_start` in `persist` or `transient` mode binds the primary as the active source.
  */
@@ -515,10 +582,49 @@ async function runDiscovery(
       project.projectVersion === version ||
       (bound !== null && bound === project.activeSourceAssetId);
     if (newer || !current) return null;
+    if (
+      row.matchClass !== 'skip_to_upload' &&
+      (await isPlaceBlocked(deps.db, property.placeId, deps.clock.now()))
+    ) {
+      // A place blocked since this discovery was made is never offered from it: the stored row
+      // of the current version is dropped so this request records the blocked discovery instead.
+      if (row.projectVersion === project.projectVersion) {
+        await deps.db.deleteFrom('sourceDiscoveries').where('id', '=', row.id).execute();
+      }
+      return null;
+    }
+    // A discovery made before the active Street View source went stale (its panorama replaced or
+    // removed) offers the retired imagery: its candidates no longer bind and an auto-start would
+    // point at the stale source again. The stored row of the current version is dropped so this
+    // request runs discovery again. A discovery whose candidates hold the stale source's panorama
+    // is dropped whenever it was made; any other discovery made after the source went stale is
+    // replayed.
+    const active = await loadSource(deps, project.activeSourceAssetId);
+    const retiredPanoId = active?.viewpoint?.panoId ?? null;
+    if (
+      active?.kind === 'street_view' &&
+      active.state === 'stale' &&
+      (!active.staleAt ||
+        row.createdAt.getTime() <= active.staleAt.getTime() ||
+        (retiredPanoId !== null &&
+          asStoredCandidates(row.candidates).some(
+            (candidate) => candidate.panoId === retiredPanoId,
+          )))
+    ) {
+      if (row.projectVersion === project.projectVersion) {
+        await deps.db.deleteFrom('sourceDiscoveries').where('id', '=', row.id).execute();
+      }
+      return null;
+    }
     const fresh = await loadOwnedProject(deps, auth, project.id);
     const freshProperty = await loadProperty(deps, fresh);
     return {
-      discovery: await discoveryDto(deps, auth, row, freshProperty),
+      discovery: await discoveryDto(
+        deps,
+        auth,
+        await refreshDiscoveryMode(deps, auth, row),
+        freshProperty,
+      ),
       project: await projectDto(deps, auth, fresh),
     };
   };
@@ -533,20 +639,14 @@ async function runDiscovery(
   const isFixture = streetView ? streetView.mode === 'fixture' : true;
   await assertSpendAllowed(deps, ['street_view_static_display'], isFixture);
 
-  const blocked = await deps.db
-    .selectFrom('blockedAddresses')
-    .select('id')
-    .where('placeId', '=', property.placeId)
-    .where('removedAt', 'is', null)
-    .where((eb) => eb.or([eb('expiresAt', 'is', null), eb('expiresAt', '>', now)]))
-    .executeTakeFirst();
+  const blocked = await isPlaceBlocked(deps.db, property.placeId, now);
 
   let target =
     property.targetLat !== null && property.targetLng !== null
       ? { latitude: property.targetLat, longitude: property.targetLng }
       : null;
   const redProperty =
-    blocked !== undefined ||
+    blocked ||
     property.multiUnit ||
     property.precision === 'low' ||
     property.countryCode.trim() !== 'US';
@@ -616,12 +716,13 @@ async function runDiscovery(
     const policy = await createAssetPolicy(deps.db, {
       subjectKind: 'source_asset',
       subjectId: discoveryId,
-      template: defaultPolicyTemplate('street_view', { attributionText: 'Google Maps' }),
+      template: streetViewPolicyTemplate(deps),
     });
     const evaluated = await evaluateFor(deps, {
       policyId: policy.id,
       kind: 'street_view',
       isGoogleImagery: primary.isGoogleImagery,
+      copyright: primary.copyright,
       audience: auth.audience,
     });
     await recordPermissionEvaluation(
@@ -641,7 +742,7 @@ async function runDiscovery(
 
   const decision = decideMatch({
     countryCode: property.countryCode.trim(),
-    blockedAddress: blocked !== undefined,
+    blockedAddress: blocked,
     multiUnit: property.multiUnit,
     precision: property.precision,
     partialMatch: property.partialMatch,
@@ -665,7 +766,7 @@ async function runDiscovery(
   const primaryStored = stored.find((candidate) => candidate.isPrimary) ?? stored[0] ?? null;
   if (primaryStored && sourceMode !== 'unavailable') {
     try {
-      await issueDisplayLoad(deps, auth, { property, projectId: project.id, isFixture });
+      await issueDisplayLoad(deps, deps.db, auth, { property, projectId: project.id, isFixture });
       primaryStored.displayUrlIssuedAt = now.toISOString();
     } catch (error) {
       if (!(error instanceof AppError) || error.code !== 'RATE_LIMITED') throw error;
@@ -686,7 +787,7 @@ async function runDiscovery(
     partialMatch: property.partialMatch,
     multiUnit: property.multiUnit,
     geometryAvailable: property.geometryAvailable,
-    blockedAddress: blocked !== undefined,
+    blockedAddress: blocked,
     probeRadiusM: result.probeRadiusM,
     candidateCount: stored.length,
     primaryDistanceM: primary?.distanceM ?? null,
@@ -704,6 +805,9 @@ async function runDiscovery(
   const durationMs = Date.now() - started;
 
   let boundSourceId: string | null = null;
+  // Read before the transaction, so binding inside it never waits on the pool.
+  const capabilities =
+    bind && primaryStored ? await streetViewCapabilityStates(deps, auth.audience) : null;
   try {
     await deps.db.transaction().execute(async (trx) => {
       const inserted = await trx
@@ -727,13 +831,15 @@ async function runDiscovery(
         .returning('id')
         .executeTakeFirst();
       if (!inserted) throw new Error('discovery not written');
-      if (bind && primaryStored) {
+      if (bind && primaryStored && capabilities) {
         const bound = await bindCandidate(deps, trx, {
           project,
           expectedVersion: version,
           candidate: primaryStored,
           streetViewMode: sourceMode,
           attachedFacade: property.attachedFacade,
+          audience: auth.audience,
+          capabilities,
         });
         boundSourceId = bound.source.id;
         await trx
@@ -842,6 +948,10 @@ async function bindStreetView(
   const provider = await streetViewProviderFor(deps, auth.audience);
   if (!provider) throw new AppError('NO_STREET_VIEW', {});
   const property = await loadProperty(deps, project);
+  // A place on the opt-out list is never bound, also from a discovery made before the block.
+  if (await isPlaceBlocked(deps.db, property.placeId, deps.clock.now())) {
+    throw new AppError('NO_STREET_VIEW', {});
+  }
   const metadata = await provider.metadataByPano(candidate.panoId).catch(() => null);
   await chargeCall(deps, deps.db, {
     sku: 'street_view_metadata',
@@ -854,27 +964,46 @@ async function bindStreetView(
   });
   if (!metadata || metadata.status !== 'OK') throw new AppError('NO_STREET_VIEW', {});
 
+  // Read once, before the transaction, so binding inside it never waits on the pool.
+  const capabilities = await streetViewCapabilityStates(deps, auth.audience);
   const evaluated = await evaluateFor(deps, {
     policyId: null,
-    policy: streetViewCandidatePolicy(),
+    policy: streetViewCandidatePolicy(deps),
     kind: 'street_view',
     isGoogleImagery: candidate.isGoogleImagery,
+    copyright: candidate.copyright,
     audience: auth.audience,
+    streetViewCapabilities: capabilities,
   });
   const sourceMode = streetViewSourceMode(evaluated.permission);
   if (sourceMode === 'unavailable') throw new AppError('NO_STREET_VIEW', {});
 
   const active = await activeJobOf(deps, project.id);
-  const result = await deps.db.transaction().execute((trx) =>
-    bindCandidate(deps, trx, {
-      project,
-      expectedVersion: body.projectVersion,
-      candidate,
-      streetViewMode: sourceMode,
-      attachedFacade: property.attachedFacade,
-    }),
-  );
-  if (active && result.project.projectVersion !== project.projectVersion) {
+  const bindTo = (target: Project) =>
+    deps.db.transaction().execute((trx) =>
+      bindCandidate(deps, trx, {
+        project: target,
+        expectedVersion: body.projectVersion,
+        candidate,
+        streetViewMode: sourceMode,
+        attachedFacade: property.attachedFacade,
+        audience: auth.audience,
+        capabilities,
+      }),
+    );
+  let current = project;
+  let result: Awaited<ReturnType<typeof bindTo>>;
+  try {
+    result = await bindTo(current);
+  } catch (error) {
+    if (!isUniqueViolation(error)) throw error;
+    // A parallel request created this view's source first. Binding once more against the project
+    // as it stands now finds that source: the project when it is already the active one, else
+    // STALE_PROJECT_VERSION when the other request moved the version.
+    current = await loadOwnedProject(deps, auth, project.id);
+    result = await bindTo(current);
+  }
+  if (active && result.project.projectVersion !== current.projectVersion) {
     await supersedeActiveJob(deps, project.id);
   }
   const fixture = provider.mode === 'fixture';
@@ -892,7 +1021,7 @@ async function bindStreetView(
     },
     fixture,
   });
-  if (sourceMode === 'display_only') {
+  if (result.source.streetViewMode === 'display_only') {
     await emitEvent(deps, deps.db, {
       name: 'photo_prompt_shown',
       ownerId: auth.ownerId,
@@ -1023,6 +1152,11 @@ async function bindUpload(
 
   const now = deps.clock.now();
   const active = await activeJobOf(deps, project.id);
+  // A scene type that is set or changes starts again from that scene type's default look.
+  const look =
+    project.sceneType === sceneType
+      ? null
+      : await startingLookFor(deps, { sceneType }, source, project.holidayId);
   const updated =
     project.activeSourceAssetId === source.id &&
     project.sceneType === sceneType &&
@@ -1037,6 +1171,7 @@ async function bindUpload(
             sceneType,
             roomType,
             buildingForm,
+            ...(look ?? {}),
             lastActivityAt: now,
             expiresAt: projectExpiry(project, now),
           }))

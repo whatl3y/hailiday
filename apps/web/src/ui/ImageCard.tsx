@@ -15,7 +15,7 @@ export function AiPreviewBadge() {
   return <span className="badge badge--ai">{t('result.aiPreview')}</span>;
 }
 
-/** A lower corner of an image frame holding a mark, normally the "AI preview" badge. */
+/** A corner of an image frame holding a mark, normally the "AI preview" badge. */
 export function ImageCorner({
   corner,
   children = <AiPreviewBadge />,
@@ -36,9 +36,9 @@ export interface ImageCardProps {
   fixture?: boolean;
   /** Top-right badge (for example "Example"). */
   topEnd?: ReactNode;
-  /** Lower corner mark, used for the "AI preview" badge on generated pixels. */
+  /** Corner mark, used for the "AI preview" badge on generated pixels. */
   corner?: ReactNode;
-  /** Which lower corner holds `corner` (see `aiBadgeCorner`); lower-right by default. */
+  /** Which corner holds `corner` (see `aiBadgeCorner`); lower-right by default. */
   cornerPlacement?: AiBadgeCorner;
   /** The strip directly below the image, inside the card (attribution, labels). */
   strip?: ReactNode;
@@ -58,14 +58,20 @@ export function ImageCard({
   className,
 }: ImageCardProps) {
   const style = { '--frame-ratio': String(ratio) } as CSSProperties;
+  // The fixture badge leaves the upper-left corner to a corner mark placed there.
+  const fixtureAtEnd = Boolean(corner) && cornerPlacement === 'upper-left';
+  const fixtureBadge = fixture ? <FixtureBadge /> : null;
   return (
     <figure className={className ? `image-card ${className}` : 'image-card'} style={{ margin: 0 }}>
       <div className="image-card__frame" style={style}>
         {children}
         {(fixture || topEnd) && (
           <div className="image-card__badges">
-            <span>{fixture ? <FixtureBadge /> : null}</span>
-            <span>{topEnd}</span>
+            <span>{fixtureAtEnd ? null : fixtureBadge}</span>
+            <span className="image-card__badges-end">
+              {fixtureAtEnd ? fixtureBadge : null}
+              {topEnd}
+            </span>
           </div>
         )}
         {corner ? <ImageCorner corner={cornerPlacement}>{corner}</ImageCorner> : null}

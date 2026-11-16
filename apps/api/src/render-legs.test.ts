@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import type { AppConfig } from '@holiday/server/config';
+import type { AppConfig } from '@hailiday/server/config';
+import { recordAllowanceResidue } from '@hailiday/server/limits';
 import { createHarness, json, type Harness, type TestClient } from './test/harness.js';
 import { adoptUploadProject } from './test/projects.js';
 
@@ -114,12 +115,12 @@ describe('render reservations price each leg for the adapter the worker uses', (
     await client.post(`/v1/renders/${renderJobId}/cancel`, {});
   });
 
-  it('reserves one localization per decorating attempt: two by daylight, one for evening', async () => {
+  it('reserves two localizations for evening too, and a third edit, judge and escalation', async () => {
     Object.assign(states, {
       image_editing: 'live_public',
       vision_analysis: 'live_public',
     });
-    const counts: Record<string, number> = {};
+    const counts: Record<string, Record<string, number>> = {};
     for (const [index, lightingMode] of [
       [4, 'source'],
       [5, 'evening'],
@@ -129,14 +130,22 @@ describe('render reservations price each leg for the adapter the worker uses', (
       const response = await render(client, project, lightingMode);
       expect(response.statusCode).toBe(202);
       const lines = await reservationsOf(project.projectId);
-      expect(lines.filter((line) => line.sku === 'image_edit_attempt')).toHaveLength(2);
-      counts[lightingMode] = lines.filter(
-        (line) => line.sku === 'vision_call' && line.stage === 'localizing',
-      ).length;
+      counts[lightingMode] = {
+        edits: lines.filter((line) => line.sku === 'image_edit_attempt').length,
+        checks: lines.filter((line) => line.sku === 'vision_call' && line.stage === 'checking')
+          .length,
+        localizations: lines.filter(
+          (line) => line.sku === 'vision_call' && line.stage === 'localizing',
+        ).length,
+      };
       const renderJobId = json<{ renderJobId: string }>(response).renderJobId;
       await client.post(`/v1/renders/${renderJobId}/cancel`, {});
     }
-    expect(counts).toEqual({ source: 2, evening: 1 });
+    // Checks: one judge and one escalation per attempt.
+    expect(counts).toEqual({
+      source: { edits: 2, checks: 4, localizations: 2 },
+      evening: { edits: 3, checks: 6, localizations: 2 },
+    });
   });
 
   it('refuses before any reservation when vision is private and the caller is not an operator', async () => {
@@ -159,5 +168,85 @@ describe('render reservations price each leg for the adapter the worker uses', (
       .where('projectId', '=', project.projectId)
       .execute();
     expect(jobs).toEqual([]);
+  });
+});
+
+/**
+ * Requests a look for a new owner who has used `used` paid attempts in the window and returns the
+ * status and, when admitted, how many edits the job reserved.
+ */
+async function renderWithAttemptsUsed(
+  index: number,
+  lightingMode: 'source' | 'evening',
+  used: number,
+): Promise<{ status: number; edits: number | null }> {
+  const client = await newClient(index);
+  const project = await adoptUploadProject(harness, client);
+  const { ownerId } = await harness.context.db
+    .selectFrom('projects')
+    .select('ownerId')
+    .where('id', '=', project.projectId)
+    .executeTakeFirstOrThrow();
+  const now = harness.context.clock.now();
+  await recordAllowanceResidue(harness.context.db, {
+    ownerId,
+    now,
+    units: Array.from({ length: used }, () => ({
+      kind: 'attempt' as const,
+      countedAt: new Date(now.getTime() - 60_000),
+    })),
+  });
+  const response = await render(client, project, lightingMode);
+  if (response.statusCode !== 202) {
+    expect(json(response).error).toMatchObject({
+      code: 'RATE_LIMITED',
+      details: { scope: 'attempts' },
+    });
+    expect(await reservationsOf(project.projectId)).toEqual([]);
+    return { status: response.statusCode, edits: null };
+  }
+  const edits = (await reservationsOf(project.projectId)).filter(
+    (line) => line.sku === 'image_edit_attempt',
+  ).length;
+  const renderJobId = json<{ renderJobId: string }>(response).renderJobId;
+  await client.post(`/v1/renders/${renderJobId}/cancel`, {});
+  return { status: response.statusCode, edits };
+}
+
+describe('the paid-attempt cap projects two attempts for every look', () => {
+  it('admits a relit look with two attempts left and still reserves its three edits', async () => {
+    Object.assign(states, { image_editing: 'live_public', vision_analysis: 'live_public' });
+    const limit = await harness.context.settings.get('quota.attempts_per_owner_24h');
+    expect({
+      source: await renderWithAttemptsUsed(6, 'source', limit - 2),
+      evening: await renderWithAttemptsUsed(7, 'evening', limit - 2),
+    }).toEqual({ source: { status: 202, edits: 2 }, evening: { status: 202, edits: 3 } });
+  });
+
+  it('refuses any look with one attempt left', async () => {
+    Object.assign(states, { image_editing: 'live_public', vision_analysis: 'live_public' });
+    const limit = await harness.context.settings.get('quota.attempts_per_owner_24h');
+    expect({
+      source: (await renderWithAttemptsUsed(8, 'source', limit - 1)).status,
+      evening: (await renderWithAttemptsUsed(9, 'evening', limit - 1)).status,
+    }).toEqual({ source: 429, evening: 429 });
+  });
+
+  it('admits the third look under the production cap after two relit looks used three each', async () => {
+    Object.assign(states, { image_editing: 'live_public', vision_analysis: 'live_public' });
+    const settings = harness.context.settings;
+    const stored = settings.get.bind(settings);
+    // The specified production cap: 8 paid attempts per owner in 24 hours.
+    const cap = vi
+      .spyOn(settings, 'get')
+      .mockImplementation(((key: Parameters<typeof stored>[0]) =>
+        key === 'quota.attempts_per_owner_24h'
+          ? Promise.resolve(8)
+          : stored(key)) as typeof stored);
+    try {
+      expect(await renderWithAttemptsUsed(10, 'evening', 6)).toEqual({ status: 202, edits: 3 });
+    } finally {
+      cap.mockRestore();
+    }
   });
 });

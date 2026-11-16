@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import type { ActivationState, AppEnv } from '@holiday/core';
-import type { Capabilities } from '@holiday/server/capabilities';
-import type { CountryCapability } from '@holiday/server/db';
+import type { ActivationState, AppEnv } from '@hailiday/core';
+import type { Capabilities } from '@hailiday/server/capabilities';
+import type { CountryCapability } from '@hailiday/server/db';
 import type { ApiDeps } from '../deps.js';
 import { fixtureCapabilitiesFor } from './experience.js';
 

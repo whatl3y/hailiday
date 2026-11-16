@@ -1,13 +1,13 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import type { RateLimitScope } from '@holiday/core';
-import { rateLimited } from '@holiday/server/errors';
-import { sha256Hex } from '@holiday/server/ids';
+import type { RateLimitScope } from '@hailiday/core';
+import { rateLimited } from '@hailiday/server/errors';
+import { sha256Hex } from '@hailiday/server/ids';
 import {
   ENDPOINT_RATE_LIMITS,
   rateLimitHeaders,
   sessionCreationRule,
   type RateLimitRule,
-} from '@holiday/server/limits';
+} from '@hailiday/server/limits';
 import type { ApiDeps } from '../deps.js';
 import { ipHashOf } from './ip.js';
 import type { AuthState } from './session.js';

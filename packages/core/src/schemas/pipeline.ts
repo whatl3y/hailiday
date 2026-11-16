@@ -8,6 +8,7 @@ import {
   HolidayIdSchema,
   LightingModeSchema,
   PlacementRuleSchema,
+  RelightLightingModeSchema,
   RoomTypeSchema,
   SceneTypeSchema,
   StyleSchema,
@@ -26,6 +27,7 @@ import {
   MajorFailureCodeSchema,
   PreserveRegionKindSchema,
   ProtectedBlurKindSchema,
+  RenderAttemptNumberSchema,
   TimeOfDaySchema,
 } from '../types/render.js';
 import {
@@ -46,6 +48,9 @@ export const UPLOAD_TRIAGE_SCHEMA_VERSION = '1.0';
 export const DEFAULT_ANCHOR_CONFIDENCE_FLOOR = 0.6;
 export const DEFAULT_ANCHOR_MAX_OCCLUSION = 0.3;
 export const DEFAULT_JUDGE_THRESHOLDS = { critical: 0.7, uncertain: 0.4, major: 0.7 } as const;
+
+/** The most restore boxes a repair plan's composite mask carries. */
+export const MAX_RESTORE_BOXES = 32;
 
 const confidence = z.number().min(0).max(1);
 const recordId = z.string().min(1).max(64);
@@ -278,8 +283,8 @@ export type RelightBase = z.infer<typeof RelightBaseSchema>;
 export const DecorationPlanSchema = z.strictObject({
   schemaVersion: z.string(),
   renderJobId: z.string().min(1),
-  planVersion: z.union([z.literal(1), z.literal(2)]),
-  attemptNumber: z.union([z.literal(1), z.literal(2)]),
+  planVersion: RenderAttemptNumberSchema,
+  attemptNumber: RenderAttemptNumberSchema,
   sourceAssetId: z.string().min(1),
   sceneAnalysisId: z.string().min(1),
   countryCode: z.string().regex(/^[A-Z]{2}$/),
@@ -325,6 +330,11 @@ export const DecorationPlanSchema = z.strictObject({
       objectKey: z.string().optional(),
       dilationFraction: z.number().min(0).max(1),
       featherFraction: z.number().min(0).max(1),
+      /**
+       * A repair attempt's restore boxes: judge evidence boxes excluded (with a margin) from the
+       * composite mask and the keep-mask, so their pixels are the original's.
+       */
+      restoreBoxes: z.array(NormalizedBoxSchema).max(MAX_RESTORE_BOXES).optional(),
     })
     .optional(),
   compiled: z.strictObject({
@@ -380,14 +390,78 @@ export const LocalizationRecordSchema = z.strictObject({
 export type LocalizationRecord = z.infer<typeof LocalizationRecordSchema>;
 
 /**
- * `render_attempts.fallback` of an evening relight attempt: the daylight variant (or this job's
- * own daylight attempt) the relight used as its input. Earlier jobs may carry the retired
- * `evening_relight` record of a deterministic relight instead.
+ * `render_attempts.fallback` of a relight attempt (`evening` or `bright`): the daylight variant
+ * (or this job's own decorated attempt) the relight used as its input. Earlier jobs may carry the
+ * retired `evening_relight` record of a deterministic relight instead.
  */
 export const RelightAttemptRecordSchema = RelightBaseSchema.extend({
   kind: z.literal('relight'),
 });
 export type RelightAttemptRecord = z.infer<typeof RelightAttemptRecordSchema>;
+
+/**
+ * `render_attempts.fallback` of a decorate attempt of a relight-mode job that is not relit: the
+ * photo decorated as photographed is the job's result. `not_daylight`: an evening look of a photo
+ * the scene analysis reports as dusk or night. `already_bright`: a bright look of a photo whose
+ * median luma over its content area (padding excluded) is at or above the threshold.
+ */
+export const RelightSkippedRecordSchema = z.discriminatedUnion('reason', [
+  z.strictObject({
+    kind: z.literal('relight_skipped'),
+    reason: z.literal('not_daylight'),
+    timeOfDay: TimeOfDaySchema,
+  }),
+  z.strictObject({
+    kind: z.literal('relight_skipped'),
+    reason: z.literal('already_bright'),
+    medianLuma: z.number().min(0).max(1),
+    threshold: z.number().min(0).max(1),
+  }),
+]);
+export type RelightSkippedRecord = z.infer<typeof RelightSkippedRecordSchema>;
+
+/**
+ * Why a relight-mode job ended without its relight. `relight_rejected`: the relight failed QA for
+ * good; `relight_failed`: the relight's edit failed (`failureKind`); `relight_not_attempted`: the
+ * time budget or the paid-attempt cap allowed no further edit for the relight.
+ */
+export const RELIGHT_FALLBACK_REASONS = [
+  'relight_rejected',
+  'relight_failed',
+  'relight_not_attempted',
+] as const;
+export const RelightFallbackReasonSchema = z.enum(RELIGHT_FALLBACK_REASONS);
+export type RelightFallbackReason = z.infer<typeof RelightFallbackReasonSchema>;
+
+/**
+ * `render_attempts.fallback` of the decorated base of a relight-mode job that was not relit. A
+ * `bright` job delivers that base as its result (`deliveredAs: 'result'`). An `evening` job that
+ * decorated its own base and ends without its relight (rejected, failed or not attempted) has
+ * that base as its daylight variant (`daylight_variant`) and ends rejected; in pre-delivery review
+ * the base is instead held for a reviewer under a companion job in `needs_review` (`heldJobId`,
+ * `deliveredAs: null`). `codes` are the codes that rejected the relight, or, when the relight was
+ * not attempted after a repaired base, the codes that rejected the first base.
+ */
+export const RelightFallbackRecordSchema = z.strictObject({
+  kind: z.literal('relight_fallback'),
+  target: RelightLightingModeSchema,
+  reason: RelightFallbackReasonSchema,
+  deliveredAs: z.enum(['result', 'daylight_variant']).nullable(),
+  relightAttemptId: z.string().min(1).nullable(),
+  codes: z.array(FailureCodeSchema),
+  failureKind: z.string().max(64).optional(),
+  /** The companion job that holds the daylight base for pre-delivery review. */
+  heldJobId: z.string().min(1).optional(),
+});
+export type RelightFallbackRecord = z.infer<typeof RelightFallbackRecordSchema>;
+
+/** Every record `render_attempts.fallback` may carry. */
+export const AttemptFallbackRecordSchema = z.union([
+  RelightAttemptRecordSchema,
+  RelightSkippedRecordSchema,
+  RelightFallbackRecordSchema,
+]);
+export type AttemptFallbackRecord = z.infer<typeof AttemptFallbackRecordSchema>;
 
 /** Provider-specific edit request compiled deterministically from a plan. */
 export const CompiledRequestSchema = z.strictObject({
@@ -396,9 +470,11 @@ export const CompiledRequestSchema = z.strictObject({
   /**
    * What the request asks for: `decorate` (absent on requests written before relights existed)
    * adds the planned decorations; `relight` changes only the light of an accepted daylight
-   * variant (no mask; also marked by `parameters.relight`).
+   * variant (no mask; also marked by `parameters.relight`); `enhance` redraws a Street View
+   * frame sharper and cleaner with nothing else changed (no mask; also marked by
+   * `parameters.enhance`).
    */
-  kind: z.enum(['decorate', 'relight']).optional(),
+  kind: z.enum(['decorate', 'relight', 'enhance']).optional(),
   provider: z.string(),
   modelSnapshot: z.string(),
   images: z
@@ -419,6 +495,28 @@ export const CompiledRequestSchema = z.strictObject({
   settingsHash: z.string(),
 });
 export type CompiledRequest = z.infer<typeof CompiledRequestSchema>;
+
+/** How a job came by its working image with respect to the Street View enhancement. */
+export const JOB_ENHANCEMENT_OUTCOMES = [
+  'made',
+  'reused',
+  'rejected',
+  'failed',
+  'skipped',
+] as const;
+export const JobEnhancementOutcomeSchema = z.enum(JOB_ENHANCEMENT_OUTCOMES);
+export type JobEnhancementOutcome = z.infer<typeof JobEnhancementOutcomeSchema>;
+
+/**
+ * `render_jobs.enhancement`: the outcome of the enhancement step for a Street View job, the
+ * enhancement row it concerns (null when none) and the reason of a skip, rejection or failure.
+ */
+export const JobEnhancementRecordSchema = z.strictObject({
+  outcome: JobEnhancementOutcomeSchema,
+  enhancementId: z.uuid().nullable(),
+  reason: z.string().max(64).nullable(),
+});
+export type JobEnhancementRecord = z.infer<typeof JobEnhancementRecordSchema>;
 
 const score = z.int().min(1).max(5);
 

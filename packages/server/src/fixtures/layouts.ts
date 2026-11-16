@@ -5,7 +5,7 @@ import type {
   NormalizedBox,
   RoomType,
   SceneType,
-} from '@holiday/core';
+} from '@hailiday/core';
 import type { LibraryAnchors } from './photos.js';
 import { anchorsInCrop, recognizeLibraryPhoto } from './recognize.js';
 import {

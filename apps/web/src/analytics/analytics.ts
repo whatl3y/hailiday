@@ -7,7 +7,7 @@ import {
   type HolidayId,
   type SceneType,
   type SourceKind,
-} from '@holiday/core';
+} from '@hailiday/core';
 import { CLIENT_DEFAULTS } from '../config/values';
 
 export interface AnalyticsDimensions {

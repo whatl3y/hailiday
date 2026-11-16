@@ -1,4 +1,4 @@
-import type { AnalyticsEventProperties, NavigationType, WebVitalsPage } from '@holiday/core';
+import type { AnalyticsEventProperties, NavigationType, WebVitalsPage } from '@hailiday/core';
 
 export type WebVitals = AnalyticsEventProperties<'web_vitals'>;
 

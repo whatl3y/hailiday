@@ -15,7 +15,7 @@ import {
   SpecAttributesSchema,
   StyleKitSchema,
   packMajorMinor,
-} from '@holiday/core';
+} from '@hailiday/core';
 import type {
   ClimateClass,
   CommerceCatalog,
@@ -26,7 +26,7 @@ import type {
   SpecAttributes,
   Style,
   StyleKit,
-} from '@holiday/core';
+} from '@hailiday/core';
 import { sha256Hex } from '../ids/index.js';
 
 /** Default content directory: `packages/server/content` (sibling of `src` and `dist`). */

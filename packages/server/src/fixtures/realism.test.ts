@@ -1,16 +1,20 @@
 import { statSync } from 'node:fs';
 import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
-import type { NormalizedBox } from '@holiday/core';
+import type { NormalizedBox } from '@hailiday/core';
 import { sha256Hex } from '../ids/index.js';
+import { enhanceDeterministic } from '../pipeline/imaging/enhancement.js';
+import { decodeRaster, encodeJpeg, encodePng } from '../pipeline/imaging/raster.js';
+import { prepareWorkingImage } from '../pipeline/imaging/working.js';
 import { regionFor } from '../pipeline/plan/geometry.js';
 import { decorateImage, editableMask, splitPath } from './compositor.js';
+import { loadFixtureData } from './data.js';
 import type { FixturePlacement } from './decor.js';
 import { genericUploadGeometry } from './layouts.js';
 import { libraryAnchorsOf, loadPhotoLibrary, type DecorPhoto } from './photos.js';
 import { recognizeFrameByDoor, recognizeLibraryPhoto } from './recognize.js';
 import { loadSprite, renderSprite } from './sprites.js';
-import { fixturePanoramaFrame } from './street-view.js';
+import { fixturePanoramaFrame, referenceView } from './street-view.js';
 
 const library = loadPhotoLibrary();
 const lanternView = { panoId: 'fxSvLanternHillC01p1Sv', heading: 0, fov: 72.2, pitch: 4.8 };
@@ -523,4 +527,35 @@ describe('exterior decorations seen from the street', () => {
     const bulbs = (0.8 * size) / (scale * 0.3);
     expect(glass / bulbs).toBeGreaterThan(6);
   });
+});
+
+describe('fixture Street View frames after the fixture enhancement', () => {
+  it('are recognized as the same library photo, so decorations keep their measured anchors', async () => {
+    const data = loadFixtureData();
+    let recognized = 0;
+    for (const place of data.places) {
+      const panorama = place.panoramas[0];
+      if (!panorama) continue;
+      const view = referenceView(place, panorama);
+      const frame = fixturePanoramaFrame({
+        panoId: panorama.panoId,
+        ...view,
+        width: 640,
+        height: 640,
+      });
+      if (!frame || frame.kind !== 'photo') continue;
+      const door = frame.geometry.anchors.find((anchor) => anchor.category === 'front_door')?.box;
+      if (!door) continue;
+      const working = await prepareWorkingImage(await frame.render({ quality: 88 }), 'street_view');
+      const before = await recognizeFrameByDoor(working.png, door);
+      if (!before) continue;
+      const enhanced = await decodeRaster(
+        await encodeJpeg(enhanceDeterministic(working.raster), { quality: 92 }),
+      );
+      const after = await recognizeFrameByDoor(await encodePng(enhanced), door);
+      expect(after?.photo.id, panorama.panoId).toBe(before.photo.id);
+      recognized += 1;
+    }
+    expect(recognized).toBeGreaterThanOrEqual(15);
+  }, 120_000);
 });

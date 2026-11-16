@@ -1,19 +1,19 @@
 {
-  "name": "@holiday/workers",
+  "name": "@hailiday/workers",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
-    "dev": "tsx watch --clear-screen=false --import @holiday/server/config/load-env src/index.ts",
+    "dev": "tsx watch --clear-screen=false --import @hailiday/server/config/load-env src/index.ts",
     "start": "node dist/index.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@holiday/core": "workspace:*",
-    "@holiday/server": "workspace:*",
+    "@hailiday/core": "workspace:*",
+    "@hailiday/server": "workspace:*",
     "pino": "10.4.0",
     "zod": "4.6.7"
   },

@@ -4,7 +4,8 @@ import type { Db } from './client.js';
 import { migrateToLatest } from './migrator.js';
 
 /** Default URL of the integration-test database. */
-export const DEFAULT_TEST_DATABASE_URL = 'postgres://postgres:postgres@localhost:5434/holiday_test';
+export const DEFAULT_TEST_DATABASE_URL =
+  'postgres://postgres:postgres@localhost:5434/hailiday_test';
 
 export function testDatabaseUrl(): string {
   const fromEnv = process.env.DATABASE_URL_TEST;
@@ -54,7 +55,7 @@ export async function prepareTestDatabase(
   } finally {
     await admin.end();
   }
-  const db = createDb({ connectionString: url, max: 2, applicationName: 'holiday-test-setup' });
+  const db = createDb({ connectionString: url, max: 2, applicationName: 'hailiday-test-setup' });
   try {
     await migrateToLatest(db);
   } finally {
@@ -68,6 +69,6 @@ export function createTestDb(options: { max?: number } = {}): Db {
   return createDb({
     connectionString: testDatabaseUrl(),
     max: options.max ?? 4,
-    applicationName: 'holiday-test',
+    applicationName: 'hailiday-test',
   });
 }

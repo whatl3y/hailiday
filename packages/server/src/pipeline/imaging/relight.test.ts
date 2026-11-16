@@ -1,10 +1,15 @@
 import { readFileSync } from 'node:fs';
 import { beforeAll, describe, expect, it } from 'vitest';
-import type { NormalizedBox } from '@holiday/core';
+import type { NormalizedBox } from '@hailiday/core';
+import { attributionStrokes } from './attribution.js';
+import { SYNTHETIC_ATTRIBUTION, attributionScene, lumaAt } from './attribution.testing.js';
 import { gradientMagnitude } from './checks.js';
 import { toGray, toRect, type Raster } from './raster.js';
-import { relightSourceToEvening } from './relight.js';
+import { BRIGHT_GRADE, medianLuma, relightSourceToEvening, relightToBright } from './relight.js';
 import { prepareWorkingImage } from './working.js';
+import { PIPELINE_DEFAULTS } from '../versions.js';
+
+const SOLID = PIPELINE_DEFAULTS.attributionRelight.solidKeep;
 
 const PHOTO = new URL('../../../content/photos/samples/sample-front-porch.jpg', import.meta.url);
 /** The band the string lights run along, and a window and the attribution corner. */
@@ -141,5 +146,119 @@ describe('deterministic evening relight of a source composite', () => {
         expect(first.raster.data[q]).toBe(composite.data[q]);
       }
     }
+  });
+});
+
+describe('bright relight and the median luma measure', () => {
+  it('measures the median luma inside a box from the encoded values', () => {
+    const raster: Raster = {
+      width: 4,
+      height: 1,
+      data: Buffer.from([0, 0, 0, 51, 51, 51, 204, 204, 204, 255, 255, 255]),
+    };
+    expect(medianLuma(raster)).toBe(0.2);
+    expect(medianLuma(raster, [0.5, 0, 1, 1])).toBe(0.8);
+    expect(medianLuma({ width: 1, height: 1, data: Buffer.from([255, 0, 0]) })).toBeCloseTo(
+      0.2118,
+      3,
+    );
+  });
+
+  it('lifts shadows and midtones with a slight warm balance, keeps structure and restores rectangles', () => {
+    const bright = relightToBright({ image: composite, restore: [CREDIT] });
+    expect(bright.width).toBe(composite.width);
+    expect(medianLuma(bright)).toBeGreaterThan(medianLuma(composite) + 0.05);
+    // Shadows lift most: a dark gray rises more than a light one.
+    const dark = relightToBright({
+      image: { width: 1, height: 1, data: Buffer.from([40, 40, 40]) },
+    });
+    const light = relightToBright({
+      image: { width: 1, height: 1, data: Buffer.from([200, 200, 200]) },
+    });
+    expect(dark.data[1]! - 40).toBeGreaterThan(light.data[1]! - 200);
+    // Warm: red above green above blue on a neutral input; nothing clips at mid gray.
+    expect(dark.data[0]!).toBeGreaterThan(dark.data[1]!);
+    expect(dark.data[1]!).toBeGreaterThan(dark.data[2]!);
+    expect(BRIGHT_GRADE.gamma).toBeLessThan(1);
+    // Edges stay where they are: the gradient field keeps its peaks.
+    const before = gradientMagnitude(toGray(composite), composite.width, composite.height);
+    const after = gradientMagnitude(toGray(bright), bright.width, bright.height);
+    let moved = 0;
+    let edges = 0;
+    for (let i = 0; i < before.length; i += 1) {
+      if (before[i]! < 40) continue;
+      edges += 1;
+      if (after[i]! < 10) moved += 1;
+    }
+    expect(edges).toBeGreaterThan(1000);
+    expect(moved / edges).toBeLessThan(0.01);
+    // The credit corner is copied verbatim.
+    const rect = toRect(CREDIT, composite.width, composite.height);
+    const p = (rect.y0 * composite.width + rect.x0) * 3;
+    expect(bright.data.subarray(p, p + 3).equals(composite.data.subarray(p, p + 3))).toBe(true);
+    // Same input, same bytes.
+    expect(
+      relightToBright({ image: composite }).data.equals(relightToBright({ image: composite }).data),
+    ).toBe(true);
+  });
+});
+
+describe('attribution rectangles in the deterministic relights', () => {
+  const scene = attributionScene(1024);
+  const solid = (box: NormalizedBox) => {
+    const { rect, keep } = attributionStrokes(scene.base, box);
+    const pixels: number[] = [];
+    for (let y = rect.y0; y < rect.y1; y += 1) {
+      for (let x = rect.x0; x < rect.x1; x += 1) {
+        if ((keep[(y - rect.y0) * (rect.x1 - rect.x0) + (x - rect.x0)] as number) >= SOLID) {
+          pixels.push(y * 1024 + x);
+        }
+      }
+    }
+    return pixels;
+  };
+  const expectStrokesKept = (raster: Raster) => {
+    for (const box of SYNTHETIC_ATTRIBUTION) {
+      const pixels = solid(box);
+      expect(pixels.length).toBeGreaterThan(200);
+      for (const i of pixels) {
+        expect(
+          raster.data.subarray(i * 3, i * 3 + 3).equals(scene.base.data.subarray(i * 3, i * 3 + 3)),
+        ).toBe(true);
+      }
+    }
+  };
+  /** A ground pixel of the logo rectangle, clear of the strokes. */
+  const ground = (() => {
+    const rect = scene.rects[0]!;
+    return { x: rect.x1 - 3, y: rect.y0 + 2 };
+  })();
+
+  it('keeps the strokes and relights their ground in the evening relight; padding stays verbatim', () => {
+    const pad: NormalizedBox = [0.4, 0, 0.6, 0.04];
+    const evening = relightSourceToEvening({
+      composite: scene.base,
+      working: scene.base,
+      interior: false,
+      decorationMask: null,
+      seed: 'variant-1',
+      attribution: SYNTHETIC_ATTRIBUTION,
+      restore: [pad],
+    }).raster;
+    expectStrokesKept(evening);
+    expect(lumaAt(evening, ground.x, ground.y)).toBeLessThan(
+      lumaAt(scene.base, ground.x, ground.y) * 0.6,
+    );
+    const rect = toRect(pad, 1024, 1024);
+    const p = (rect.y0 * 1024 + rect.x0) * 3;
+    expect(evening.data.subarray(p, p + 3).equals(scene.base.data.subarray(p, p + 3))).toBe(true);
+  });
+
+  it('keeps the strokes and brightens their ground in the bright relight', () => {
+    const bright = relightToBright({ image: scene.base, attribution: SYNTHETIC_ATTRIBUTION });
+    expectStrokesKept(bright);
+    expect(lumaAt(bright, ground.x, ground.y)).toBeGreaterThan(
+      lumaAt(scene.base, ground.x, ground.y),
+    );
   });
 });

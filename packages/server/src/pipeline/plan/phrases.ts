@@ -5,8 +5,8 @@ import type {
   NormalizedBox,
   PlacementRule,
   SceneType,
-} from '@holiday/core';
-import { boxThirds } from '@holiday/core';
+} from '@hailiday/core';
+import { boxThirds } from '@hailiday/core';
 
 /** Plain words for each anchor category, used in compiled sentences. */
 export const ANCHOR_WORDS: Readonly<Record<AnchorCategory, string>> = {

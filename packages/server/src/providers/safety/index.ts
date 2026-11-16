@@ -1,4 +1,9 @@
-import type { NormalizedBox, QualityHint, UploadGuidanceReason, UploadTriage } from '@holiday/core';
+import type {
+  NormalizedBox,
+  QualityHint,
+  UploadGuidanceReason,
+  UploadTriage,
+} from '@hailiday/core';
 import { screeningTriggerFor, triggerPeopleBoxes } from '../../fixtures/data.js';
 import { ProviderConfigError, isProviderError } from '../errors.js';
 import type {

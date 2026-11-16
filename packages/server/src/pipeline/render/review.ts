@@ -5,10 +5,16 @@ import {
   JudgeResultSchema,
   type FailureCode,
   type JudgeResult,
-} from '@holiday/core';
+} from '@hailiday/core';
 import { newId } from '../../ids/index.js';
-import { evaluatePermission } from '../../policy/index.js';
-import type { RenderAsset, RenderJob } from '../../db/schema.js';
+import {
+  deniedPermission,
+  evaluatePermission,
+  isPropertyBlocked,
+  permissionSettingsOf,
+} from '../../policy/index.js';
+import type { DbOrTx } from '../../db/client.js';
+import type { RenderAsset, RenderAttempt, RenderJob } from '../../db/schema.js';
 import { emitServerEvent } from '../analytics.js';
 import { aiCapabilityFor, capabilityStateFor, type PipelineDeps } from '../context.js';
 import { attributionLine, heldKeys, publishAccepted } from './publish.js';
@@ -22,17 +28,45 @@ export class ReviewStateError extends Error {
   }
 }
 
-async function reviewContext(deps: PipelineDeps, jobId: string) {
-  const job = await readJob(deps.db, jobId);
-  if (!job || job.state !== 'needs_review')
-    throw new ReviewStateError('job is not awaiting review');
-  const attempt = await deps.db
+/**
+ * The attempt whose candidate a job awaiting review holds (its files are `heldKeys(job.id,
+ * attempt.id)`): the attempt whose candidate is the held file (the decorated base a bright job
+ * delivers in place of its relight), else the latest. A companion job that holds an evening job's
+ * daylight base has no attempts of its own: its attempt is the base attempt its
+ * `input_snapshot.relightBaseOf` names. Null when there is none.
+ */
+export async function heldAttemptOf(
+  db: DbOrTx,
+  job: Pick<RenderJob, 'id' | 'inputSnapshot'>,
+): Promise<RenderAttempt | null> {
+  const attempts = await db
     .selectFrom('renderAttempts')
     .selectAll()
     .where('jobId', '=', job.id)
     .orderBy('attemptNo', 'desc')
-    .limit(1)
-    .executeTakeFirstOrThrow();
+    .execute();
+  const own =
+    attempts.find((row) => row.candidateObjectKey === heldKeys(job.id, row.id).delivered) ??
+    attempts[0];
+  if (own) return own;
+  const baseAttemptId = (job.inputSnapshot as { relightBaseOf?: { attemptId?: unknown } } | null)
+    ?.relightBaseOf?.attemptId;
+  if (typeof baseAttemptId !== 'string') return null;
+  return (
+    (await db
+      .selectFrom('renderAttempts')
+      .selectAll()
+      .where('id', '=', baseAttemptId)
+      .executeTakeFirst()) ?? null
+  );
+}
+
+async function reviewContext(deps: PipelineDeps, jobId: string) {
+  const job = await readJob(deps.db, jobId);
+  if (!job || job.state !== 'needs_review')
+    throw new ReviewStateError('job is not awaiting review');
+  const attempt = await heldAttemptOf(deps.db, job);
+  if (!attempt) throw new ReviewStateError('job has no attempt');
   return { job, attempt, held: heldKeys(job.id, attempt.id) };
 }
 
@@ -121,15 +155,19 @@ export async function approveReview(
         .where('id', '=', source.assetPolicyId)
         .executeTakeFirst()) ?? null)
     : null;
-  const permission = evaluatePermission({
-    policy,
-    capabilityState:
-      (await capabilityStateFor(deps, aiCapabilityFor(source.kind))) ?? 'live_public',
-    appEnv: deps.config.appEnv,
-    now: deps.clock.now(),
-    sourceKind: source.kind,
-    isGoogleImagery: source.isGoogleImagery,
-  });
+  // A capability with no row (outside local environments) permits nothing.
+  const capabilityState = await capabilityStateFor(deps, aiCapabilityFor(source.kind));
+  const permission = capabilityState
+    ? evaluatePermission({
+        policy,
+        capabilityState,
+        ...permissionSettingsOf(deps.config),
+        now: deps.clock.now(),
+        sourceKind: source.kind,
+        isGoogleImagery: source.isGoogleImagery,
+        copyright: source.copyright,
+      })
+    : deniedPermission(policy);
   const judgeRow = await deps.db
     .selectFrom('judgeResults')
     .select('document')
@@ -140,6 +178,17 @@ export async function approveReview(
   const judgeParsed = JudgeResultSchema.safeParse(judgeRow?.document);
   const judge: JudgeResult | null = judgeParsed.success ? judgeParsed.data : null;
   const meta = await sharp(delivered.body).metadata();
+  // A Street View look held before its source's policy stopped allowing edits is never published.
+  if (source.kind === 'street_view' && !permission.edit) {
+    throw new ReviewStateError('the street photo may no longer be decorated');
+  }
+  // A Street View place put on the opt-out list since its look was held is never published.
+  if (
+    source.kind === 'street_view' &&
+    (await isPropertyBlocked(deps.db, project.propertyId, deps.clock.now()))
+  ) {
+    throw new ReviewStateError('the place is on the opt-out list');
+  }
   await recordReview(deps, job, {
     reviewerUserId: input.reviewerUserId,
     decision: 'approve',
@@ -172,7 +221,8 @@ export async function approveReview(
     permission,
     ...(input.adherence ? { adherence: input.adherence } : {}),
     ...(legacy ? { fidelityMode: 'global_relight' as const } : {}),
-    ...(fromVariant ? { keepAttemptOutcome: true } : {}),
+    // A held daylight base belongs to the evening job's attempt, which keeps its outcome.
+    ...(fromVariant || attempt.jobId !== job.id ? { keepAttemptOutcome: true } : {}),
     from: 'needs_review',
     patch: { reviewCompletedAt: deps.clock.now() },
   });

@@ -1,3 +1,5 @@
+import { assignLocation } from './navigate';
+
 /** Seconds of margin before a signed link's expiry at which it is treated as expired. */
 const EXPIRY_MARGIN_S = 30;
 
@@ -32,4 +34,15 @@ export function signedUrlExpiry(url: string): number | null {
 export function isSignedUrlExpired(url: string, now: number = Date.now()): boolean {
   const expiry = signedUrlExpiry(url);
   return expiry !== null && expiry - EXPIRY_MARGIN_S * 1000 <= now;
+}
+
+/**
+ * Follows a download link read again after the signed one expired: in the window opened when
+ * Download was pressed, or in this tab when the browser blocked that window. Closes the opened
+ * window when there is no link to follow.
+ */
+export function followFreshDownload(opened: Window | null, fresh: string | null | undefined): void {
+  if (fresh && opened) opened.location.href = fresh;
+  else if (fresh) assignLocation(fresh);
+  else opened?.close();
 }

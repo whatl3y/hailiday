@@ -45,6 +45,7 @@ const experience = {
     uploadAcceptedTypes: ['image/jpeg'],
     pollRenderMs: 3000,
     pollUploadMs: 2000,
+    retention: { timeBasedDeletion: false },
   },
   legal: {
     termsVersion: '2026-11',

@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { COPY, chooseAddress, expectResult, openLanding } from './support';
+import { COPY, chooseAddress, expectResult, lookCard, openLanding, openResultRow } from './support';
 
 test.setTimeout(15 * 60_000);
 
@@ -9,15 +9,16 @@ test('at the daily limit the allowance sheet explains when more looks are availa
   await openLanding(page);
   await chooseAddress(page, '14 Lantern', 'Lantern Hill');
   await expectResult(page);
+  await openResultRow(page, 'Try another look');
 
   const sheet = page.getByRole('dialog', { name: COPY.allowanceHeading });
-  const band = page.getByText(/Decorating the .* look/);
+  const band = lookCard(page);
   const holidayGroup = page.getByRole('group', { name: 'Holiday' });
   const styleGroup = page.getByRole('group', { name: 'Style' });
 
   // One control per step, so every step asks for exactly one look the project does not have
   // yet. Chips are found by name because the selected holiday moves to the front of its row.
-  // Each new look shows the pending band (after the request debounce) until it is decorated;
+  // Each new look shows the status card until it is decorated (the controls are locked till then);
   // once the allowance is spent, the sheet opens instead and makes the page behind it inert.
   const pressed = async (group: typeof styleGroup) =>
     (await group.getByRole('button', { pressed: true }).innerText()).trim();
@@ -51,7 +52,7 @@ test('at the daily limit the allowance sheet explains when more looks are availa
   await expect(sheet).toHaveCount(0);
   // Everything behind the sheet stays usable.
   await expect(page.getByText(/^No more looks today · more at /)).toBeVisible();
-  await expect(page.locator('.variant-card .badge--ai')).toBeVisible();
+  await expect(page.locator('.variant .badge--ai')).toBeVisible();
   await page.getByRole('button', { name: 'Before' }).click();
   await expect(page.getByRole('slider')).toHaveAttribute('aria-valuenow', '100');
 });

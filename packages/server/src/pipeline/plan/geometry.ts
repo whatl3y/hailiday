@@ -9,7 +9,7 @@ import {
   type MaskShape,
   type NormalizedBox,
   type PlacementRule,
-} from '@holiday/core';
+} from '@hailiday/core';
 import { AREA_ANCHORS } from './phrases.js';
 import { boxShape, clipShapes, shapesBounds } from './shapes.js';
 
@@ -300,31 +300,43 @@ export function regionFor(
   return placementGeometry(rule, anchor, grid, options)?.region ?? null;
 }
 
+/** The four boxes left of `region` when the side of it that overlaps `blocker` is cut away. */
+function cutsAround(region: NormalizedBox, blocker: NormalizedBox): NormalizedBox[] {
+  const [rx0, ry0, rx1, ry1] = region;
+  const [bx0, by0, bx1, by1] = blocker;
+  const options: (NormalizedBox | null)[] = [
+    clampBox([rx0, ry0, Math.min(rx1, bx0), ry1]),
+    clampBox([Math.max(rx0, bx1), ry0, rx1, ry1]),
+    clampBox([rx0, ry0, rx1, Math.min(ry1, by0)]),
+    clampBox([rx0, Math.max(ry0, by1), rx1, ry1]),
+  ];
+  return options.filter((option): option is NormalizedBox => option !== null);
+}
+
 /**
  * Shrinks a region so that at most `tolerance` of it overlaps the blockers, by cutting away the
- * side that overlaps each blocker. Returns the largest candidate that keeps at least `minKeep` of
- * the original area, or null when none does.
+ * side that overlaps each blocker; with `cuts` 2, a candidate that still overlaps another blocker
+ * is cut once more (a region with a blocker at each end keeps its free middle). Returns the
+ * largest candidate that keeps at least `minKeep` of the original area, or null when none does.
  */
 export function shrinkToAllowed(
   region: NormalizedBox,
   blockers: readonly NormalizedBox[],
   tolerance: number,
   minKeep = 0.25,
+  cuts: 1 | 2 = 1,
 ): NormalizedBox | null {
   if (regionOverlapFraction(region, blockers) <= tolerance) return region;
   const originalArea = boxArea(region);
-  const candidates: NormalizedBox[] = [];
-  for (const blocker of blockers) {
-    if (!intersectBoxes(region, blocker)) continue;
-    const [rx0, ry0, rx1, ry1] = region;
-    const [bx0, by0, bx1, by1] = blocker;
-    const options: (NormalizedBox | null)[] = [
-      clampBox([rx0, ry0, Math.min(rx1, bx0), ry1]),
-      clampBox([Math.max(rx0, bx1), ry0, rx1, ry1]),
-      clampBox([rx0, ry0, rx1, Math.min(ry1, by0)]),
-      clampBox([rx0, Math.max(ry0, by1), rx1, ry1]),
-    ];
-    for (const option of options) if (option) candidates.push(option);
+  const cutOnce = (box: NormalizedBox) =>
+    blockers.flatMap((blocker) => (intersectBoxes(box, blocker) ? cutsAround(box, blocker) : []));
+  const candidates = cutOnce(region);
+  if (cuts === 2) {
+    for (const candidate of [...candidates]) {
+      if (regionOverlapFraction(candidate, blockers) > tolerance) {
+        candidates.push(...cutOnce(candidate));
+      }
+    }
   }
   let best: NormalizedBox | null = null;
   for (const candidate of candidates) {

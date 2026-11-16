@@ -1,6 +1,6 @@
 import sharp, { type OutputInfo } from 'sharp';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { straightenScale, type NormalizedBox } from '@holiday/core';
+import { straightenScale, type NormalizedBox } from '@hailiday/core';
 import { toJson } from '../../db/client.js';
 import type { BoxJson, SourceAsset } from '../../db/schema.js';
 import type { PipelineDeps } from '../context.js';

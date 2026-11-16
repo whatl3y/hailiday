@@ -5,8 +5,8 @@ import {
   HOLIDAY_IDS,
   localDateIn,
   occurrenceFor,
-} from '@holiday/core';
-import type { HolidayId } from '@holiday/core';
+} from '@hailiday/core';
+import type { HolidayId } from '@hailiday/core';
 import type { Logger } from '../logger/index.js';
 import { toJson } from '../db/client.js';
 import type { DbOrTx } from '../db/client.js';
@@ -518,6 +518,13 @@ export async function publishExamplePlaceholders(
       .executeTakeFirst();
     inserted += Number(result.numInsertedOrUpdatedRows ?? 0);
   }
+  // An example whose specification left the content (its content cell is no longer offered) is
+  // no longer shown; its row and images stay for the record.
+  const current = content.examples.map((example) => example.exampleId);
+  let retire = db.updateTable('exampleAssets').set({ active: false }).where('active', '=', true);
+  if (current.length > 0) retire = retire.where('assetKey', 'not in', current);
+  const retired = await retire.executeTakeFirst();
+  inserted += Number(retired.numUpdatedRows ?? 0);
   return { exampleAssets: inserted };
 }
 

@@ -1,6 +1,7 @@
-import type { NormalizedBox } from '@holiday/core';
+import type { NormalizedBox } from '@hailiday/core';
 import { TO_LINEAR, blurFloat, clamp01, lum, smoothstep, toSrgb } from '../../fixtures/canvas.js';
 import { Rng } from '../../fixtures/svg.js';
+import { restoreAttributionRelit } from './attribution.js';
 import { copyRect, toRect, type Raster } from './raster.js';
 
 /** Evening grade of exteriors: exposure (linear gain) and white balance per channel. */
@@ -275,8 +276,33 @@ export interface EveningRelightInput {
   decorationMask: Uint8Array | null;
   /** Seeds which windows glow. */
   seed: string;
-  /** Rectangles copied verbatim from the composite afterwards (attribution, padding). */
+  /**
+   * Attribution rectangles: their logo and copyright strokes keep the composite's pixels and the
+   * ground behind them follows the evening light (`restoreAttributionRelit`).
+   */
+  attribution?: readonly NormalizedBox[];
+  /** Rectangles copied verbatim from the composite afterwards (padding). */
   restore?: readonly NormalizedBox[];
+}
+
+/**
+ * A relit raster's attribution rectangles restored from its source (strokes kept, ground relit;
+ * verbatim when the strokes are not found reliably), then the verbatim rectangles copied.
+ */
+function restoreRectangles(
+  relit: Raster,
+  source: Raster,
+  attribution: readonly NormalizedBox[],
+  verbatim: readonly NormalizedBox[],
+): Raster {
+  let out = relit;
+  for (const [index, box] of attribution.entries()) {
+    out = restoreAttributionRelit(out, source, box, {
+      ringExclude: [...attribution.filter((_, other) => other !== index), ...verbatim],
+    }).raster;
+  }
+  for (const box of verbatim) copyRect(out, source, toRect(box, source.width, source.height));
+  return out;
 }
 
 export interface EveningRelightResult {
@@ -403,8 +429,80 @@ export function relightSourceToEvening(input: EveningRelightInput): EveningRelig
     if (tight && wide) v += (tight[i] as number) * 2.2 + (wide[i] as number) * 3;
     raster.data[i] = Math.round(toSrgb(v));
   }
-  for (const box of input.restore ?? []) {
-    copyRect(raster, composite, toRect(box, width, height));
+  return {
+    raster: restoreRectangles(raster, composite, input.attribution ?? [], input.restore ?? []),
+    emitterPixels,
+    litWindows,
+  };
+}
+
+/**
+ * Median luma (Rec. 709 weights on the encoded sRGB values, 0 to 1) of a raster inside a box,
+ * from a 256-bin histogram: the deterministic brightness measure of the bright look (the
+ * already-bright rule on the photo's content area, and the not-darker check of a bright relight).
+ */
+export function medianLuma(raster: Raster, box?: NormalizedBox | null): number {
+  const { width, height, data } = raster;
+  const rect = box ? toRect(box, width, height) : { x0: 0, y0: 0, x1: width, y1: height };
+  const histogram = new Uint32Array(256);
+  let count = 0;
+  for (let y = rect.y0; y < rect.y1; y += 1) {
+    for (let x = rect.x0; x < rect.x1; x += 1) {
+      const i = (y * width + x) * 3;
+      const luma =
+        0.2126 * (data[i] as number) +
+        0.7152 * (data[i + 1] as number) +
+        0.0722 * (data[i + 2] as number);
+      histogram[Math.min(255, Math.round(luma))] += 1;
+      count += 1;
+    }
   }
-  return { raster, emitterPixels, litWindows };
+  if (count === 0) return 0;
+  const half = count / 2;
+  let seen = 0;
+  for (let level = 0; level < 256; level += 1) {
+    seen += histogram[level] as number;
+    if (seen >= half) return Math.round((level / 255) * 10_000) / 10_000;
+  }
+  return 1;
+}
+
+/**
+ * The deterministic bright grade: a tone curve on the encoded values (`v^gamma`, which lifts the
+ * shadows most and the midtones a little, and never clips) with a slight warm balance per channel.
+ */
+export const BRIGHT_GRADE = { gamma: 0.72, balance: [1.03, 1, 0.96] } as const;
+
+export interface BrightRelightInput {
+  /** The decorated image on the working grid. */
+  image: Raster;
+  /**
+   * Attribution rectangles: their logo and copyright strokes keep the input's pixels and the
+   * ground behind them follows the bright grade (`restoreAttributionRelit`).
+   */
+  attribution?: readonly NormalizedBox[];
+  /** Rectangles copied verbatim from the input afterwards (padding). */
+  restore?: readonly NormalizedBox[];
+}
+
+/**
+ * Deterministic bright relight of a decorated image (the fixture editor's answer to a `bright`
+ * relight): every pixel goes through the bright grade's tone curve and warm balance, so shadows
+ * lift, the room reads brighter and warmer, and edges, objects and decorations stay where they
+ * are (a monotone curve per channel changes no structure). Same input, same bytes.
+ */
+export function relightToBright(input: BrightRelightInput): Raster {
+  const { image } = input;
+  const luts = BRIGHT_GRADE.balance.map((gain) =>
+    Uint8Array.from({ length: 256 }, (_, value) =>
+      Math.min(255, Math.round(255 * (value / 255) ** BRIGHT_GRADE.gamma * gain)),
+    ),
+  );
+  const out: Raster = { ...image, data: Buffer.alloc(image.data.length) };
+  for (let i = 0; i < image.data.length; i += 3) {
+    out.data[i] = (luts[0] as Uint8Array)[image.data[i] as number] as number;
+    out.data[i + 1] = (luts[1] as Uint8Array)[image.data[i + 1] as number] as number;
+    out.data[i + 2] = (luts[2] as Uint8Array)[image.data[i + 2] as number] as number;
+  }
+  return restoreRectangles(out, image, input.attribution ?? [], input.restore ?? []);
 }

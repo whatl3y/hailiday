@@ -1,8 +1,8 @@
-import type { ServerContext } from '@holiday/server';
-import type { Content } from '@holiday/server/content';
-import { SlidingWindowLimiter } from '@holiday/server/limits';
-import type { PipelineDeps } from '@holiday/server/pipeline';
-import type { Providers } from '@holiday/server/providers';
+import type { ServerContext } from '@hailiday/server';
+import type { Content } from '@hailiday/server/content';
+import { SlidingWindowLimiter } from '@hailiday/server/limits';
+import type { PipelineDeps } from '@hailiday/server/pipeline';
+import type { Providers } from '@hailiday/server/providers';
 import type { RenderEventHub } from './sse/hub.js';
 import type { WebShell } from './html/shell.js';
 

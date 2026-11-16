@@ -1,5 +1,5 @@
 import sharp, { type Sharp } from 'sharp';
-import type { NormalizedBox, SourceKind } from '@holiday/core';
+import type { NormalizedBox, SourceKind } from '@hailiday/core';
 import { checksumOf, encodePng, type Raster } from './raster.js';
 
 /** Supported working aspects and their 1K provider dimensions. */

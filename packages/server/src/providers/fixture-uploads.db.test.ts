@@ -6,7 +6,7 @@ import {
   SceneAnalysisSchema,
   type RoomType,
   type SceneType,
-} from '@holiday/core';
+} from '@hailiday/core';
 import type * as Compositor from '../fixtures/compositor.js';
 import type { DecorateInput, DecorateResult } from '../fixtures/compositor.js';
 import { genericUploadGeometry } from '../fixtures/layouts.js';

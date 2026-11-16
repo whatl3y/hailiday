@@ -1,5 +1,5 @@
 # Holiday pack halloween.US (Halloween).
-# Normative schema: docs/specs/holidays-and-content.md, "Pack schema". Validated by HolidayPackSchema in @holiday/core.
+# Normative schema: docs/specs/holidays-and-content.md, "Pack schema". Validated by HolidayPackSchema in @hailiday/core.
 # quantity: { <style>: [min, max] } counts instances (runs for lights and garland) per style;
 # required lists the styles in which the archetype must appear whenever one of its anchors is eligible.
 # priority is omitted: list order is the placement priority (1 = first).
@@ -7,7 +7,7 @@
 # Any change that can alter a decoration plan or compiled instruction is at least a MINOR version bump.
 
 id: halloween.US
-version: 1.0.1
+version: 2.0.0
 holidayId: halloween
 region: US
 displayName: Halloween
@@ -15,10 +15,10 @@ journeyEmphasis: exterior
 traditionNotes: "Playful and autumnal: jack-o'-lanterns with friendly or classic faces, pumpkins and gourds, restrained cobwebs, bat silhouettes, lanterns, harvest plants, orange and purple light. No gore, no realistic weapons or corpses, no cartoon or licensed characters, no Día de los Muertos motifs, no religious imagery."
 lightingPolicy:
   bySceneType:
-    house_exterior: { default: source, offered: [source, evening] }
-    apartment_entry: { default: source, offered: [source] }
-    balcony: { default: source, offered: [source, evening] }
-    interior: { default: source, offered: [source, evening] }
+    house_exterior: { default: evening, offered: [source, evening] }
+    apartment_entry: { default: bright, offered: [bright] }
+    balcony: { default: evening, offered: [source, evening] }
+    interior: { default: bright, offered: [bright] }
   eveningGuidance: "Jack-o'-lanterns glow from inside with a warm amber flicker; orange and purple string lights cast a restrained colored glow on the rails and walls they touch; the ambient tone is cooler than a Christmas dusk; no fog and nothing added to the sky."
 climateRule:
   sourcePrecedence: [scene_analysis, address_region, neutral]
@@ -360,18 +360,18 @@ exampleRefs:
     sceneType: house_exterior
     style: classic
     lightingMode: evening
-  - exampleAssetId: example.halloween.apartment_entry.classic.source.v1
+  - exampleAssetId: example.halloween.apartment_entry.classic.bright.v1
     sceneType: apartment_entry
     style: classic
-    lightingMode: source
+    lightingMode: bright
   - exampleAssetId: example.halloween.balcony.classic.source.v1
     sceneType: balcony
     style: classic
     lightingMode: source
-  - exampleAssetId: example.halloween.interior.classic.source.v1
+  - exampleAssetId: example.halloween.interior.classic.bright.v1
     sceneType: interior
     style: classic
-    lightingMode: source
+    lightingMode: bright
 review:
   checklistVersion: 1
   approvedBy: [editorial_lead, second_approver]

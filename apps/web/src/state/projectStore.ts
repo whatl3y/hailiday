@@ -1,16 +1,18 @@
 import { create } from 'zustand';
-import type {
-  ActiveSource,
-  Candidate,
-  Discovery,
-  HolidayId,
-  LightingMode,
-  OfferedSet,
-  Project,
-  RenderStatus,
-  Style,
-  Variant,
-} from '@holiday/core';
+import {
+  isTerminalRenderJobState,
+  type ActiveSource,
+  type Candidate,
+  type Discovery,
+  type HolidayId,
+  type LightingMode,
+  type OfferedSet,
+  type Project,
+  type RenderStatus,
+  type StageLabelKey,
+  type Style,
+  type Variant,
+} from '@hailiday/core';
 
 export type ProjectPhase =
   | 'loading'
@@ -49,6 +51,15 @@ export interface Look {
   lightingMode: LightingMode;
 }
 
+/** The stages the look being made has reached (the status card's trail). */
+export interface StageTrail {
+  renderJobId: string;
+  /** Stage label keys in the order the job reached them, each once. */
+  keys: StageLabelKey[];
+  /** The stage the job is in now; always one of `keys`. */
+  current: StageLabelKey;
+}
+
 /** A new look being decorated while the current preview stays on screen. */
 export interface PendingLook {
   look: Look;
@@ -81,10 +92,18 @@ export interface ProjectFlowState {
   offered: OfferedSet | null;
   /** The look the controls show as selected (may be ahead of the variant while pending). */
   look: Look | null;
-  /** A new look being decorated under the "Decorating the … look" band. */
+  /** A new look being decorated while the current preview stays on screen. */
   pending: PendingLook | null;
-  /** A pending look that failed or was rejected: the error sheet over the current preview. */
+  /**
+   * Another look that ended with nothing to show: the current preview stays, and the notice under
+   * it says so with what the person can do next.
+   */
   pendingError: RenderStatus | null;
+  /**
+   * The look being made is the page's own second pass at a look that ended with nothing to show,
+   * so its status card says so.
+   */
+  secondPass: boolean;
   /** The variant that arrives as the project's first reveal. */
   revealFor: string | null;
   /** Whether the current render started without a confirmation tap (auto-start). */
@@ -100,6 +119,10 @@ export interface ProjectFlowState {
   inlineError: string | null;
   /** The wait-then-retry control beside a rate-limited `inlineError`. */
   inlineRetry: InlineRetry | null;
+  /** The stages the look being made has reached; null when no status has been seen. */
+  trail: StageTrail | null;
+  /** Counts uses of a locked control, so the screen can say why nothing happened. */
+  lockedNotice: number;
 }
 
 export const INITIAL_PROJECT_FLOW: ProjectFlowState = {
@@ -121,6 +144,7 @@ export const INITIAL_PROJECT_FLOW: ProjectFlowState = {
   look: null,
   pending: null,
   pendingError: null,
+  secondPass: false,
   revealFor: null,
   autoStarted: false,
   confirmNotice: null,
@@ -130,6 +154,8 @@ export const INITIAL_PROJECT_FLOW: ProjectFlowState = {
   busy: false,
   inlineError: null,
   inlineRetry: null,
+  trail: null,
+  lockedNotice: 0,
 };
 
 export const useProjectStore = create<ProjectFlowState>()(() => ({ ...INITIAL_PROJECT_FLOW }));
@@ -180,4 +206,41 @@ export function baseCandidateOf(
 /** The look a variant shows. */
 export function lookOf(variant: Pick<Variant, 'holidayId' | 'style' | 'lightingMode'>): Look {
   return { holidayId: variant.holidayId, style: variant.style, lightingMode: variant.lightingMode };
+}
+
+/**
+ * Whether a look is being made for the open project: its first look, or another look while the
+ * current one stays on screen.
+ */
+export function makingLook(state: Pick<ProjectFlowState, 'phase' | 'pending'>): boolean {
+  return state.phase === 'starting' || state.phase === 'waiting' || state.pending !== null;
+}
+
+/** The job status behind the look being made; null until the server has answered. */
+export function activeLookStatus(state: ProjectFlowState): RenderStatus | null {
+  if (state.pending) return state.pending.render;
+  if (state.phase !== 'starting' && state.phase !== 'waiting') return null;
+  return state.render && !isTerminalRenderJobState(state.render.state) ? state.render : null;
+}
+
+/**
+ * The look being made: the pending look, or the look of the first look's job. May return a new
+ * object, so components call it inside `useMemo` rather than as a store selector.
+ */
+export function lookBeingMade(state: ProjectFlowState): Look | null {
+  if (state.pending) return state.pending.look;
+  const status = activeLookStatus(state);
+  return status ? lookOf(status) : null;
+}
+
+/** Records that a locked control was used. */
+export function noteLocked(): void {
+  useProjectStore.setState((state) => ({ lockedNotice: state.lockedNotice + 1 }));
+}
+
+/** True, after noting it, when a look is being made: the caller leaves the look alone. */
+export function refuseWhileMakingLook(): boolean {
+  if (!makingLook(useProjectStore.getState())) return false;
+  noteLocked();
+  return true;
 }

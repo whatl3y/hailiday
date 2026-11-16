@@ -4,12 +4,13 @@ import {
   type Allowance,
   type ExperienceHoliday,
   type HolidayId,
+  type LightingMode,
   type OfferedSet,
   type SceneType,
   type Variant,
-} from '@holiday/core';
+} from '@hailiday/core';
 import { formatResetTime } from '../../api/present';
-import { t } from '../../copy';
+import { holidayName, lightingLabel, styleLabel, t } from '../../copy';
 import type { Look } from '../../state/projectStore';
 
 /** Whether two looks are the same combination. */
@@ -46,6 +47,22 @@ export function findCachedVariant(
   );
 }
 
+/**
+ * The variant that already shows an as-photographed look of a dusk or night photo. Such a photo
+ * is not offered evening once it has been analyzed, and its evening look was decorated in the
+ * photo's own light, so the evening variant of the same holiday and style stands in for the
+ * as-photographed look. Null when evening is still offered or the look is not as photographed.
+ */
+export function asPhotographedStandIn(
+  variants: readonly Variant[],
+  look: Look,
+  sourceAssetId: string | null | undefined,
+  lightingModes: readonly LightingMode[],
+): Variant | null {
+  if (look.lightingMode !== 'source' || lightingModes.includes('evening')) return null;
+  return findCachedVariant(variants, { ...look, lightingMode: 'evening' }, sourceAssetId);
+}
+
 /** Variants made from the given source, newest first. */
 export function variantsOfSource(
   variants: readonly Variant[],
@@ -80,16 +97,14 @@ export function withVariant(variants: readonly Variant[], variant: Variant): Var
   ]);
 }
 
-export interface OfferedLookOptions extends OfferedSet {
-  defaultStyle: Variant['style'];
-  defaultLightingMode: Variant['lightingMode'];
-}
+/** Offered styles and lighting modes with the look a never-chosen render starts from. */
+export type OfferedLookOptions = OfferedSet;
 
 /**
  * Styles and lighting modes the controls may offer for a holiday. The project's own offered
- * set (computed by the server, including whether the photo was judged daylight) is used for
- * its current holiday; another holiday's pack offer comes from the experience, with lighting
- * limited to what the source allows.
+ * set (computed by the server, including whether the photo was judged daylight, and carrying
+ * the scene type's default look) is used for its current holiday; another holiday's pack offer
+ * comes from the experience, with lighting limited to what the source allows.
  */
 export function offeredForHoliday(input: {
   holidayId: HolidayId;
@@ -98,6 +113,9 @@ export function offeredForHoliday(input: {
   sceneType: SceneType | null;
   holidays: readonly ExperienceHoliday[];
 }): OfferedLookOptions {
+  if (input.holidayId === input.projectHolidayId && input.projectOffered) {
+    return input.projectOffered;
+  }
   const pack =
     input.sceneType !== null
       ? (input.holidays.find((holiday) => holiday.id === input.holidayId)?.sceneTypes[
@@ -105,13 +123,6 @@ export function offeredForHoliday(input: {
         ] ?? null)
       : null;
   const sourceLighting = input.projectOffered?.lightingModes ?? [DEFAULT_LIGHTING_MODE];
-  if (input.holidayId === input.projectHolidayId && input.projectOffered) {
-    return {
-      ...input.projectOffered,
-      defaultStyle: pack?.defaultStyle ?? DEFAULT_STYLE,
-      defaultLightingMode: DEFAULT_LIGHTING_MODE,
-    };
-  }
   if (pack) {
     const lightingModes = pack.lightingModes.filter((mode) => sourceLighting.includes(mode));
     return {
@@ -129,6 +140,59 @@ export function offeredForHoliday(input: {
     defaultStyle: DEFAULT_STYLE,
     defaultLightingMode: DEFAULT_LIGHTING_MODE,
   };
+}
+
+/**
+ * The default look for a holiday: the offered default style and lighting, kept inside the
+ * offered sets.
+ */
+export function defaultLook(holidayId: HolidayId, offered: OfferedLookOptions): Look {
+  return normalizeLook(
+    { holidayId, style: offered.defaultStyle, lightingMode: offered.defaultLightingMode },
+    offered,
+  );
+}
+
+/**
+ * Whether a look's label names its lighting: never for `bright` (the only lighting of an
+ * interior, so there is nothing to tell apart), and not when the scene offers a single lighting
+ * mode and the look uses it.
+ */
+export function labelsLighting(
+  lightingMode: LightingMode,
+  lightingModes: readonly LightingMode[],
+): boolean {
+  if (lightingMode === 'bright') return false;
+  return !(lightingModes.length === 1 && lightingModes[0] === lightingMode);
+}
+
+const NO_BREAK_SPACE = '\u00a0';
+
+/**
+ * Text that never wraps inside: its spaces become non-breaking spaces. Each part of a look label
+ * is written this way (for example the holiday part is `unbroken(holidayName(id))`).
+ */
+export function unbroken(text: string): string {
+  return text.replace(/ /g, NO_BREAK_SPACE);
+}
+
+/**
+ * "{holiday} · {style} · {lighting}", or "{holiday} · {style}" when the lighting says nothing.
+ * Each part stays whole and each separator stays with the part before it, so a narrow line wraps
+ * only after a separator ("Christmas · Abundant ·" / "As photographed"), never inside a part or
+ * before a separator.
+ */
+export function lookLabel(look: Look, lightingModes: readonly LightingMode[]): string {
+  const holiday = unbroken(holidayName(look.holidayId));
+  const style = unbroken(styleLabel(look.style));
+  const label = labelsLighting(look.lightingMode, lightingModes)
+    ? t('result.holidayLabel', {
+        holiday,
+        style,
+        lighting: unbroken(lightingLabel(look.lightingMode)),
+      })
+    : t('result.holidayStyleLabel', { holiday, style });
+  return label.replace(/ ·/g, `${NO_BREAK_SPACE}·`);
 }
 
 /** Keeps a look inside the offered sets, falling back to the defaults. */

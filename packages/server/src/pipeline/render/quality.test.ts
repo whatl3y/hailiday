@@ -6,12 +6,19 @@ import {
   type DecorationPlan,
   type NormalizedBox,
   type SceneAnalysis,
-} from '@holiday/core';
+} from '@hailiday/core';
 import { buildCompositeMask, type CompositeMask } from '../imaging/mask.js';
 import { toRect, type Raster } from '../imaging/raster.js';
 import { warpRaster, type SimilarityTransform } from '../imaging/registration.js';
 import { prepareWorkingImage, type WorkingImage } from '../imaging/working.js';
-import { compositeAndCheck, keptShare, restoredChangeHints } from './quality.js';
+import {
+  compositeAndCheck,
+  decideAttempt,
+  keptShare,
+  restoredChangeHints,
+  UNCERTAIN_DELIVERABLE_CODES,
+  uncertainDeliverable,
+} from './quality.js';
 
 const PHOTO = new URL('../../../content/photos/samples/sample-front-porch.jpg', import.meta.url);
 const REGION: NormalizedBox = [0.4, 0.3, 0.6, 0.5];
@@ -211,5 +218,79 @@ describe('judge hints for the localizer other changes', () => {
     );
     expect(out).toMatch(/^restored from the original: bin moved/);
     expect(inside).toMatch(/^unrequested change inside the kept decorations: shutter removed/);
+  });
+});
+
+describe('attempt decision', () => {
+  it('delivers a doubt about a detail of the home, never one about people, privacy or which home it is', () => {
+    for (const code of UNCERTAIN_DELIVERABLE_CODES) expect(uncertainDeliverable([code])).toBe(true);
+    expect([...UNCERTAIN_DELIVERABLE_CODES].sort()).toEqual([
+      'access_blocked',
+      'camera_changed',
+      'structure_changed',
+      'text_added',
+    ]);
+    for (const code of [
+      'privacy_regression',
+      'people_altered',
+      'unsafe_or_offensive',
+      'attribution_altered',
+      'wrong_property',
+      'neighbor_decorated',
+    ] as const) {
+      expect(uncertainDeliverable([code]), code).toBe(false);
+      expect(uncertainDeliverable(['structure_changed', code]), code).toBe(false);
+    }
+    // Confident majors beside the doubt do not change it: they are recorded on the look.
+    expect(uncertainDeliverable(['structure_changed', 'implausible_decor'])).toBe(true);
+    expect(uncertainDeliverable([])).toBe(true);
+  });
+
+  const none = { critical: [], uncertain: [], major: [] };
+
+  it('records majors on a passing second attempt, but a decisive code fails any attempt', () => {
+    expect(
+      decideAttempt({ attemptNumber: 2, deterministic: ['lighting_implausible'], judge: none }),
+    ).toEqual({ verdict: 'pass', codes: [], recordedMajors: ['lighting_implausible'] });
+    for (const attemptNumber of [1, 2] as const) {
+      expect(
+        decideAttempt({
+          attemptNumber,
+          deterministic: ['lighting_implausible'],
+          judge: null,
+          decisive: ['lighting_implausible'],
+        }),
+      ).toEqual({ verdict: 'fail', codes: ['lighting_implausible'], recordedMajors: [] });
+    }
+    expect(
+      decideAttempt({ attemptNumber: 2, deterministic: [], judge: none, decisive: [] }).verdict,
+    ).toBe('pass');
+  });
+
+  it('fails majors on an attempt that still has a repair after it, records them otherwise', () => {
+    const majors = { critical: [], uncertain: [], major: ['implausible_decor' as const] };
+    const verdictOf = (attemptNumber: 1 | 2 | 3, repairLeft?: boolean) =>
+      decideAttempt({
+        attemptNumber,
+        deterministic: [],
+        judge: majors,
+        ...(repairLeft === undefined ? {} : { repairLeft }),
+      });
+    // Without the repair flag the first attempt is the one that can be repaired.
+    expect(verdictOf(1).verdict).toBe('fail');
+    expect(verdictOf(2).verdict).toBe('pass');
+    // The first relight of a base the job decorated (attempt 2 of 3) can still be repaired.
+    expect(verdictOf(2, true)).toEqual({
+      verdict: 'fail',
+      codes: ['implausible_decor'],
+      recordedMajors: [],
+    });
+    // The relight of a repaired base (attempt 3) has no repair after it.
+    expect(verdictOf(3, false)).toEqual({
+      verdict: 'pass',
+      codes: [],
+      recordedMajors: ['implausible_decor'],
+    });
+    expect(verdictOf(1, false).verdict).toBe('pass');
   });
 });

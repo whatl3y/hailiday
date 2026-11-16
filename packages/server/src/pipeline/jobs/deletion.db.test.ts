@@ -9,7 +9,8 @@ import { attemptQuota } from '../../limits/index.js';
 import { createAssetPolicy, defaultPolicyTemplate } from '../../policy/index.js';
 import { createSettings } from '../../settings/index.js';
 import { createStorage } from '../../storage/client.js';
-import { PRIVATE_PREFIXES, keys } from '../../storage/keys.js';
+import { keys } from '../../storage/keys.js';
+import { SERVER_TEST_BUCKETS } from '../../storage/testing.js';
 import type { PipelineDeps } from '../context.js';
 import { runRenderJob } from '../render/job.js';
 import { createPipelineTestDeps, createRenderJobRecord, createUploadSource } from '../testing.js';
@@ -26,7 +27,7 @@ let deps: PipelineDeps;
 let photo: Buffer;
 
 /** This file's own buckets, so its deletions never touch another file's objects. */
-const BUCKETS = { private: 'test-deletion-private', public: 'test-deletion-public' } as const;
+const BUCKETS = SERVER_TEST_BUCKETS.deletion;
 
 beforeAll(async () => {
   base = await createPipelineTestDeps();
@@ -79,6 +80,22 @@ async function requestOf(id: string) {
 
 const entryOf = (receipt: DeletionReceiptEntry[] | null, store: DeletionReceiptEntry['store']) =>
   (receipt ?? []).find((entry) => entry.store === store);
+
+/** The same database, except that every update of a deletion request's status fails. */
+function failRequestStatusWrite(db: PipelineDeps['db']): PipelineDeps['db'] {
+  return new Proxy(db, {
+    get(target, property) {
+      if (property === 'updateTable') {
+        return (table: string) => {
+          if (table === 'deletionRequests') throw new Error('database unavailable');
+          return target.updateTable(table as never);
+        };
+      }
+      const value: unknown = Reflect.get(target, property, target);
+      return typeof value === 'function' ? value.bind(target) : value;
+    },
+  });
+}
 
 describe('deletion residue', () => {
   it('leaves no attempt residue for an attempt that was never sent', async () => {
@@ -276,19 +293,14 @@ describe('partially held project deletion', () => {
     expect(await variantsAtDeletion(projectId)).toBe(2);
 
     // The first completion runs later and stops after its row update, before the status write
-    // (the tombstone mirror write fails).
+    // (that write fails). The tombstone mirror is not the step that fails here: a sweep in another
+    // test file may have mirrored this request's tombstones already, so a failure injected there
+    // would never be reached.
     const later = new Date(revokedAt.getTime() + 60_000);
     const interrupted: PipelineDeps = {
       ...deps,
       clock: { now: () => later },
-      storage: {
-        ...deps.storage,
-        async put(input) {
-          if (input.key.startsWith(PRIVATE_PREFIXES.tombstones))
-            throw new Error('storage unavailable');
-          return deps.storage.put(input);
-        },
-      },
+      db: failRequestStatusWrite(deps.db),
     };
     await expect(
       completeProjectDeletion(interrupted, {
@@ -296,7 +308,7 @@ describe('partially held project deletion', () => {
         requestId,
         scope: 'project',
       }),
-    ).rejects.toThrow('storage unavailable');
+    ).rejects.toThrow('database unavailable');
     const unheld = await deps.db
       .selectFrom('renderAssets')
       .select(['deletedAt', 'downloadable', 'downloadObjectKey'])

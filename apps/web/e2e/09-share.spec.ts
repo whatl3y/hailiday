@@ -22,6 +22,14 @@ test('a share link shows the preview publicly and can be stopped', async ({
   const shared = await visitor.newPage();
   await shared.goto(shareUrl);
   await expect(shared.getByText(COPY.shareCaption)).toBeVisible();
+  // The header is an ink band above the ink stage, and the browser chrome follows it.
+  await expect(shared.locator('header.site-header--stage')).toBeVisible();
+  await expect(shared.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#0d0d0f');
+  // The picture fills the stage under the header; its headline and the one way in stay in the
+  // first viewport.
+  await expect(shared.locator('.shared__stage .stage__picture img.shared__after')).toBeVisible();
+  await expect(shared.getByRole('heading', { name: COPY.shareCaption })).toBeInViewport();
+  await expect(shared.getByRole('link', { name: COPY.shareCta })).toBeInViewport();
   await expect(shared.locator('.badge--ai')).toBeVisible();
   await expect(shared.getByRole('link', { name: COPY.shareCta })).toHaveAttribute(
     'href',
@@ -37,5 +45,7 @@ test('a share link shows the preview publicly and can be stopped', async ({
 
   await shared.reload();
   await expect(shared.getByText(COPY.shareRevoked)).toBeVisible();
+  await expect(shared.locator('header.site-header--stage')).toHaveCount(0);
+  await expect(shared.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#ffffff');
   await visitor.close();
 });

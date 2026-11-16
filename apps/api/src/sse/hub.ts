@@ -1,12 +1,12 @@
-import type { AppConfig } from '@holiday/server/config';
-import { atCapacity } from '@holiday/server/errors';
-import type { Logger } from '@holiday/server/logger';
+import type { AppConfig } from '@hailiday/server/config';
+import { atCapacity } from '@hailiday/server/errors';
+import type { Logger } from '@hailiday/server/logger';
 import {
   RENDER_JOB_CHANNEL,
   createNotificationListener,
   parseRenderJobChanged,
   type NotificationListener,
-} from '@holiday/server/queue';
+} from '@hailiday/server/queue';
 
 type Listener = (seq: number | null) => void;
 

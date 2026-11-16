@@ -7,7 +7,7 @@
 
 holidayId: halloween
 packId: halloween.US
-packVersion: 1.0.1
+packVersion: 2.0.0
 kits:
   - kitId: halloween.house_exterior
     holidayId: halloween

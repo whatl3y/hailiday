@@ -134,18 +134,25 @@ function sendOptions(
 
 /**
  * Creates the pg-boss wrapper. `producer` (API) and `admin` (release scripts) instances run no
- * maintenance or cron; `worker` instances supervise queues and run schedules.
+ * maintenance or cron; `worker` instances supervise queues and run schedules. `schema` places
+ * pg-boss's tables elsewhere than `PG_BOSS_SCHEMA` (a test's own queues).
  */
 export function createQueue(
   config: AppConfig,
-  options: { logger?: Logger; role?: QueueRole; connectionString?: string; max?: number } = {},
+  options: {
+    logger?: Logger;
+    role?: QueueRole;
+    connectionString?: string;
+    max?: number;
+    schema?: string;
+  } = {},
 ): JobQueue {
   const role = options.role ?? 'producer';
   const definitions = queueDefinitions(config);
   const boss = new PgBoss({
     connectionString: options.connectionString ?? config.database.url,
-    schema: PG_BOSS_SCHEMA,
-    application_name: `holiday-${role}`,
+    schema: options.schema ?? PG_BOSS_SCHEMA,
+    application_name: `hailiday-${role}`,
     max: options.max ?? (role === 'worker' ? 10 : 4),
     migrate: true,
     supervise: role === 'worker',

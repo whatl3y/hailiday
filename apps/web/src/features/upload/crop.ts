@@ -1,4 +1,4 @@
-import { STRAIGHTEN_MAX_DEGREES, straightenScale, type NormalizedBox } from '@holiday/core';
+import { STRAIGHTEN_MAX_DEGREES, straightenScale, type NormalizedBox } from '@hailiday/core';
 import { t } from '../../copy';
 
 export type Corner = 'topLeft' | 'topRight' | 'bottomLeft' | 'bottomRight';

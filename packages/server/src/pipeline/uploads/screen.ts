@@ -1,5 +1,5 @@
 import sharp from 'sharp';
-import { UploadTriageSchema, type QualityHint, type UploadTriage } from '@holiday/core';
+import { UploadTriageSchema, type QualityHint, type UploadTriage } from '@hailiday/core';
 import { toJson } from '../../db/client.js';
 import type { SourceAsset } from '../../db/schema.js';
 import { addMs } from '../../clock/index.js';

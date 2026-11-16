@@ -1,5 +1,5 @@
 import { useId, useRef, useState } from 'react';
-import type { Project, Variant } from '@holiday/core';
+import type { Project, Variant } from '@hailiday/core';
 import { createShare, deleteShare } from '../../api/endpoints';
 import { isApiError } from '../../api/errors';
 import { presentError } from '../../api/present';
@@ -184,7 +184,11 @@ export function ShareSheet({
           >
             {t('share.stop')}
           </button>
-          <button type="button" className="button" onClick={() => setConfirmStop(false)}>
+          <button
+            type="button"
+            className="button button--quiet"
+            onClick={() => setConfirmStop(false)}
+          >
             {t('common.cancel')}
           </button>
         </div>
@@ -254,7 +258,7 @@ export function ShareSheet({
         {canNativeShare ? (
           <button
             type="button"
-            className="button"
+            className="button button--quiet"
             aria-disabled={busy || undefined}
             onClick={() => void onNativeShare()}
           >

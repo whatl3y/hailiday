@@ -1,0 +1,82 @@
+/* ---------- Report reasons ---------- */
+
+.report-reasons {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.report-reasons legend {
+  margin-bottom: var(--space-3);
+  padding: 0;
+  font-size: var(--text-m);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-item);
+}
+
+/* The reasons as one framed list: rows share hairlines, the chosen one is marked in ink. */
+.radio-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--target-comfort);
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--line);
+  background: var(--paper-raised);
+  font-size: var(--text-m);
+  cursor: pointer;
+  transition: background-color var(--dur-hover) var(--ease-out);
+}
+
+.radio-row + .radio-row {
+  margin-top: -1px;
+}
+
+.radio-row:first-of-type {
+  border-radius: var(--radius-m) var(--radius-m) 0 0;
+}
+
+.radio-row:last-of-type {
+  border-radius: 0 0 var(--radius-m) var(--radius-m);
+}
+
+.radio-row:hover {
+  background: var(--paper-sunk);
+}
+
+.radio-row:has(input:checked) {
+  background: var(--paper-sunk);
+  box-shadow: inset 2px 0 0 var(--ink);
+}
+
+.radio-row input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  flex: none;
+  accent-color: var(--ink);
+  cursor: pointer;
+}
+
+/* ---------- Don't decorate my home ---------- */
+
+.optout form > .button--primary {
+  align-self: flex-start;
+}
+
+/* The address field matches the email field under it: flat, the control height, 16px text. */
+.optout .combo__field {
+  box-shadow: none;
+}
+
+.optout .combo__field:focus-within {
+  box-shadow: var(--ring);
+}
+
+/* The field's 1px border sits around the input, so the input is 2px short of the control height. */
+.optout .combo__input {
+  min-height: calc(var(--control-height) - 2px);
+  font-size: 1rem;
+}

@@ -60,7 +60,7 @@ test('the sample dining room is uploaded and comes back decorated', async ({ pag
   await uploadSample(page, 'sample-dining-room.jpg', 'e2e-decorated-dining-room.jpg');
   await expectResult(page);
 
-  const card = page.locator('.variant-card');
+  const card = page.locator('.variant');
   await expect(card.getByText('Your photo')).toBeVisible();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(
     /Your place, ready for Christmas/,

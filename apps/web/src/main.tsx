@@ -1,6 +1,8 @@
 // The base stylesheet (tokens, then global rules) is the first import, so every feature
 // stylesheet follows it in the bundle and wins ties of equal specificity.
 import './styles/global.css';
+// The picture stage is shared by the project, upload, gallery and share pages.
+import './ui/stage.css';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { RouterProvider } from 'react-router';

@@ -48,7 +48,7 @@ describe('buttons', () => {
         for (const name of classes) if (!name.startsWith('button')) partners.add(name);
       }
     }
-    expect(partners.has('landing__upload')).toBe(true);
+    expect(partners.has('combo__sample')).toBe(true);
     for (const [file, css] of Object.entries(stylesheets)) {
       if (file.includes('/styles/')) continue;
       const plain = css.replace(/\/\*[\s\S]*?\*\//g, '');
@@ -92,10 +92,15 @@ describe('address suggestions', () => {
 });
 
 describe('the result card badge', () => {
-  it('never follows the comparison divider', () => {
-    for (const match of resultCss.matchAll(/([^{}]+)\{([^}]*)\}/g)) {
+  it('follows the comparison divider only at the upper left of the generated layer', () => {
+    const following: string[] = [];
+    const plain = resultCss.replace(/\/\*[\s\S]*?\*\//g, '');
+    for (const match of plain.matchAll(/([^{}]+)\{([^}]*)\}/g)) {
       if (!match[1]!.includes('image-card__corner')) continue;
-      expect(match[2]).not.toMatch(/--before/);
+      if (/--before/.test(match[2]!)) following.push(match[1]!.trim());
     }
+    // The lower-right badge of an upload stays pinned; the upper-left badge of a Street View
+    // frame stays just right of the divider, on the generated pixels.
+    expect(following).toEqual(['.compare__after .image-card__corner--upper-left']);
   });
 });

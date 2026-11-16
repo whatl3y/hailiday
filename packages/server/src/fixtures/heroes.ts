@@ -1,5 +1,5 @@
 import sharp, { type Sharp } from 'sharp';
-import type { NormalizedBox } from '@holiday/core';
+import type { NormalizedBox } from '@hailiday/core';
 import type { HeroPhoto } from './photos.js';
 import { transformBox, type CropRect } from './photos.js';
 

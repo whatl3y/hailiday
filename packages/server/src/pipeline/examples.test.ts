@@ -1,6 +1,6 @@
 import sharp from 'sharp';
 import { beforeAll, describe, expect, it } from 'vitest';
-import type { CompiledRequest, NormalizedBox } from '@holiday/core';
+import type { CompiledRequest, NormalizedBox } from '@hailiday/core';
 import { loadContent, type Content } from '../content/load.js';
 import type { EditOutcome, ImageEditor, VisionModel } from '../providers/types.js';
 import { ExampleCameraChangedError, renderExamplePair, type ExampleDaylight } from './examples.js';
@@ -297,5 +297,42 @@ describe('example renders register the output like the render job', () => {
       source,
     );
     expect(requests).toHaveLength(2);
+  });
+
+  it('renders a bright example like the render job: a dim photo relit, a bright one kept', async () => {
+    const render = async (exampleId: string) => {
+      const example = content.examples.find((e) => e.exampleId === exampleId);
+      if (!example) throw new Error(exampleId);
+      expect(example.lightingMode).toBe('bright');
+      const requests: CompiledRequest[] = [];
+      const pair = await renderExamplePair(
+        {
+          content,
+          imageEditor: reframingEditor(
+            { dx: 0, dy: 0, scale: 1, rotationDeg: 0, aspect: 1 },
+            { width: 1536, height: 1024 },
+            { requests, exposure: 1.1 },
+          ),
+          vision: manifestVision,
+          styleKitVersionId: 'kit',
+          modelSnapshot: 'stand-in',
+        },
+        example,
+      );
+      return { pair, requests };
+    };
+    // The hallway (median luma 0.47) is relit with the bright relight, judged against its base.
+    const dim = await render('example.christmas.apartment_entry.classic.bright.v1');
+    expect(dim.requests.map((request) => request.kind ?? 'decorate')).toEqual([
+      'decorate',
+      'relight',
+    ]);
+    expect(dim.requests[1]?.parameters.relight_target).toBe('bright');
+    expect(dim.requests[1]?.instructionText).toContain('bright, airy and cheerful');
+    expect(dim.pair.relightBase).toBeDefined();
+    // The living room (0.74) is already bright: decorated as photographed, no relight.
+    const bright = await render('example.christmas.interior.classic.bright.v1');
+    expect(bright.requests.map((request) => request.kind ?? 'decorate')).toEqual(['decorate']);
+    expect(bright.pair.relightBase).toBeUndefined();
   });
 });

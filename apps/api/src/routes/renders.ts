@@ -11,18 +11,19 @@ import {
   ProductsPanelSchema,
   QueuedRenderResponseSchema,
   RenderStatusSchema,
+  STANDARD_RENDER_ATTEMPTS,
   variantKey,
   type CreateRenderRequest,
   type RenderRequestOutcome,
   type VariantKeyInput,
-} from '@holiday/core';
+} from '@hailiday/core';
 import {
   isUniqueViolation,
   toJson,
   type Project,
   type RenderJob,
   type SourceAsset,
-} from '@holiday/server/db';
+} from '@hailiday/server/db';
 import {
   AppError,
   allowanceExhausted,
@@ -33,9 +34,9 @@ import {
   providerUnavailable,
   rateLimited,
   validationFailed,
-} from '@holiday/server/errors';
-import { newId, sha256Hex } from '@holiday/server/ids';
-import { linesBySku, renderReservationLines, reserve } from '@holiday/server/ledger';
+} from '@hailiday/server/errors';
+import { newId, sha256Hex } from '@hailiday/server/ids';
+import { linesBySku, renderReservationLines, reserve } from '@hailiday/server/ledger';
 import {
   attemptQuota,
   backstopLimits,
@@ -45,9 +46,16 @@ import {
   variantAllowance,
   type BackstopState,
   type CounterState,
-} from '@holiday/server/limits';
-import { compilerVersionFor, terminateRenderJob, visionModeFor } from '@holiday/server/pipeline';
-import { EnqueueConflictError, notifyRenderJobChanged } from '@holiday/server/queue';
+} from '@hailiday/server/limits';
+import {
+  compilerVersionFor,
+  enhancementReservationExpected,
+  streetViewFetchExpected,
+  terminateRenderJob,
+  visionModeFor,
+} from '@hailiday/server/pipeline';
+import { isPropertyBlocked } from '@hailiday/server/policy';
+import { EnqueueConflictError, notifyRenderJobChanged } from '@hailiday/server/queue';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { ApiDeps } from '../deps.js';
 import type { App } from '../http/types.js';
@@ -77,6 +85,7 @@ import {
 } from '../domain/projects.js';
 import { loadOwnedJob, renderStatus, variantDto } from '../domain/renders.js';
 import {
+  admissionSourceOf,
   capabilityModeFor,
   capabilityState,
   evaluateFor,
@@ -306,7 +315,20 @@ async function createRender(
     return replayJob(deps, auth, reply, prior);
   }
 
-  const source = await loadSource(deps, project.activeSourceAssetId);
+  const source = await admissionSourceOf(
+    deps,
+    await loadSource(deps, project.activeSourceAssetId),
+    auth.audience,
+  );
+  // A place on the opt-out list is never rendered in Street View form, also from a source bound
+  // before the block (no cached variant, no job).
+  if (
+    source?.kind === 'street_view' &&
+    (await isPropertyBlocked(deps.db, project.propertyId, deps.clock.now()))
+  ) {
+    await recordOutcome(deps, auth, { body, project, outcome: 'needs_photo' });
+    throw new AppError('NEEDS_PHOTO', { sourceMode: 'unavailable' });
+  }
   const holidayPackVersion = await packVersionFor(deps, body.holidayId);
   if (!holidayPackVersion) {
     throw validationFailed({ reason: 'content_cell_not_offered' });
@@ -316,8 +338,10 @@ async function createRender(
   const family = source ? await compilerFamilyFor(deps, source) : null;
   const compilerVersion = family ? compilerVersionFor(family) : null;
 
-  // 4. Variant-key cache: an accepted, unexpired variant of a `ready` source whose evaluated
-  // permission still allows display. Anything else falls through to the checks below.
+  // 4. Variant-key cache: the newest accepted variant of the key (an owner keeps every rendering,
+  // so a key may have several) of a `ready` source whose evaluated permission still allows
+  // display, unexpired while time-based deletion is on (its stored expiry is ignored while it is
+  // off). Anything else falls through to the checks below.
   if (source && compilerVersion) {
     const key4 = variantKey({
       sourceAssetId: source.id,
@@ -327,6 +351,7 @@ async function createRender(
       holidayPackVersion,
       compilerVersion,
     });
+    const timeBased = await deps.settings.get('retention.time_based_deletion');
     const cached = await deps.db
       .selectFrom('renderAssets')
       .selectAll()
@@ -334,7 +359,11 @@ async function createRender(
       .where('variantKey', '=', key4)
       .where('deletedAt', 'is', null)
       .where('withdrawnAt', 'is', null)
-      .where((eb) => eb.or([eb('expiresAt', 'is', null), eb('expiresAt', '>', now)]))
+      .$if(timeBased, (query) =>
+        query.where((eb) => eb.or([eb('expiresAt', 'is', null), eb('expiresAt', '>', now)])),
+      )
+      .orderBy('createdAt', 'desc')
+      .orderBy('id', 'desc')
       .executeTakeFirst();
     const displayable =
       cached !== undefined &&
@@ -344,6 +373,7 @@ async function createRender(
           policyId: source.assetPolicyId,
           kind: source.kind,
           isGoogleImagery: source.isGoogleImagery,
+          copyright: source.copyright,
           audience: auth.audience,
         })
       ).permission.display;
@@ -382,9 +412,6 @@ async function createRender(
     await recordOutcome(deps, auth, { body, project, outcome: 'source_not_editable' });
     return new AppError('SOURCE_NOT_EDITABLE', { reason });
   };
-  if (source.kind === 'street_view' && source.streetViewMode === 'display_only') {
-    throw await notEditable('display_only');
-  }
   if (source.state === 'stale') throw await notEditable('stale');
   if (source.state === 'declined' || source.state === 'failed') throw await notEditable('declined');
   if (source.state !== 'ready') throw await notEditable('permission_unknown');
@@ -392,6 +419,7 @@ async function createRender(
     policyId: source.assetPolicyId,
     kind: source.kind,
     isGoogleImagery: source.isGoogleImagery,
+    copyright: source.copyright,
     audience: auth.audience,
   });
   const { permission } = evaluated;
@@ -438,11 +466,18 @@ async function createRender(
     return refuse(deps, auth, { body, project }, { kind: 'allowance', state: allowance }, now);
   }
 
-  // 8. Paid-attempt cap.
+  // 8. Paid-attempt cap. Every job is projected at two attempts: the first attempt and either its
+  // repair or, for a relit look, its relight, which must both fit. A third attempt (the repair of
+  // a relit look's base or of its relight) is checked by the worker against the cap before it is
+  // sent. Whether the worker finds an accepted daylight variant to relight depends on the working
+  // image it prepares, so a relit look is reserved below as one that decorates its own base (three
+  // edits), which covers both.
+  const jobShape = { lightingMode: body.lightingMode, relightBase: false };
+  const projectedAttempts = STANDARD_RENDER_ATTEMPTS;
   const attempts = await attemptQuota(deps.db, deps.settings, {
     ownerId: auth.ownerId,
     now,
-    projected: 2,
+    projected: projectedAttempts,
   });
   if (attempts.used > attempts.limit) {
     return refuse(deps, auth, { body, project }, { kind: 'attempts', state: attempts }, now);
@@ -476,21 +511,42 @@ async function createRender(
   const visionMode = isFixture ? 'fixture' : await visionModeFor(deps, aiMode, auth.roles);
   const visionProvider = visionMode === 'live' ? deps.config.providers.vision : 'fixture';
   const imageEditProvider = isFixture ? 'fixture' : deps.config.providers.imageEditor;
+  // A stored Street View frame may have been replaced by a refetch with other bytes, so only an
+  // analysis made since that frame was fetched counts as one the worker can reuse.
+  const fetchedAtMs =
+    source.kind === 'street_view' && source.objectKey && source.viewpoint?.fetchedAt
+      ? Date.parse(source.viewpoint.fetchedAt)
+      : NaN;
+  const frameFetchedAt = Number.isFinite(fetchedAtMs) ? new Date(fetchedAtMs) : null;
   const hasAnalysis = await deps.db
     .selectFrom('sceneAnalyses')
     .select('id')
     .where('sourceAssetId', '=', source.id)
+    .$if(frameFetchedAt !== null, (query) => query.where('createdAt', '>=', frameFetchedAt as Date))
     .executeTakeFirst();
+  // A stored frame past its maximum age is fetched again in `preparing` (one more Static fetch).
+  // A fetched frame may carry other bytes, which are analyzed again (analyses are keyed by the
+  // working image), so the analysis is reserved too; the worker releases it when it reuses one.
+  const streetViewFetch = streetViewFetchExpected(source, source.streetViewMode, {
+    now,
+    maxAgeMs: deps.config.streetView.frameMaxAgeDays * 86_400_000,
+  });
+  // A stored Street View frame is first enhanced once per frame and release: its edit and judge
+  // call are reserved until a decided enhancement exists for the stored frame.
+  const enhance = await enhancementReservationExpected(deps.db, {
+    enabled: deps.config.streetView.enhance,
+    source,
+    streetViewFetch,
+    compilerVersion,
+  });
   const lines = renderReservationLines({
     imageEditProvider,
     visionProvider,
-    streetViewFetch: source.kind === 'street_view' && source.streetViewMode === 'transient',
-    reuseAnalysis: hasAnalysis !== undefined,
+    streetViewFetch,
+    enhance,
+    reuseAnalysis: hasAnalysis !== undefined && !streetViewFetch,
     streetViewProvider: isFixture ? 'fixture' : 'google',
-    // Whether the worker finds an accepted daylight variant to relight depends on the working
-    // image it prepares, so an evening job reserves the shape without one, which covers both.
-    lightingMode: body.lightingMode,
-    relightBase: false,
+    ...jobShape,
   });
   const block = await checkSpend(deps.db, deps.settings, {
     now,
@@ -588,7 +644,7 @@ async function createRender(
       const lockedAttempts = await attemptQuota(trx, deps.settings, {
         ownerId: auth.ownerId,
         now: lockedNow,
-        projected: 2,
+        projected: projectedAttempts,
         limit: attempts.limit,
       });
       if (lockedAttempts.used > lockedAttempts.limit) {

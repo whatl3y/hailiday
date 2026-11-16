@@ -22,7 +22,7 @@ import type {
   UploadDeclineReason,
   UploadDeclineReasonClass,
   UploadTriage,
-} from '@holiday/core';
+} from '@hailiday/core';
 import type { FixturePlacement } from '../fixtures/decor.js';
 import type { RenderScenario } from '../fixtures/data.js';
 import type { LatLng } from './geo.js';
@@ -217,7 +217,11 @@ export interface ViewCandidate {
   isPrimary: boolean;
   /** Panorama location; transient (re-derived from metadata, never persisted). */
   location: LatLng;
-  /** Probe that found it: `target` or the signed offset in meters. */
+  /**
+   * Probe that found it: `target`; the signed offset along the road (`offset_+15m`,
+   * `offset_-30m`); or, when the target answered `UNKNOWN_ERROR` and the road bearing is unknown,
+   * a point of the cross around the target (`cross_<n|e|s|w>_15m` with the default offsets).
+   */
   probe: string;
 }
 
@@ -359,6 +363,24 @@ export interface JudgeInput {
   fixture?: FixtureHint;
 }
 
+/**
+ * What the enhance judge checks: `candidate` must be `original` (the Street View frame on the
+ * working grid) with only its image quality improved. `preserve` names the protected spots: the
+ * people, blurred areas, house numbers, signs and logos show the frame's own pixels again.
+ */
+export interface EnhanceJudgeInput {
+  /** The enhancement row; recorded as the result's `renderAttemptId`. */
+  enhancementId: string;
+  original: ImageInput;
+  candidate: ImageInput;
+  sceneType: SceneType;
+  preserve: Pick<
+    DecorationPlan['preserve'],
+    'regions' | 'protectedBlurRegions' | 'peopleBoxes' | 'attributionRegions'
+  >;
+  fixture?: FixtureHint;
+}
+
 /** One planned placement offered to the localizer as a hint. */
 export interface LocalizePlacementHint {
   id: string;
@@ -399,6 +421,27 @@ export interface LocalizeAdditionsResult {
   otherChanges: LocalizedChange[];
 }
 
+/** A Street View frame in which to find the home it is aimed at. */
+export interface LocateHomeInput {
+  /** The frame as fetched (the provider's JPEG). */
+  image: ImageInput;
+  sourceAssetId: string;
+  fixture?: FixtureHint;
+}
+
+/**
+ * The home a Street View frame is aimed at: a tight box around its whole visible building (roof
+ * to ground, with its porch and an attached garage), or null when no home is in the frame.
+ * `ambiguous` when two homes are equally likely the target (a boundary between attached or close
+ * neighbors, or two about equally near and prominent).
+ */
+export interface LocateHomeResult {
+  home: NormalizedBox | null;
+  ambiguous: boolean;
+  /** Confidence from 0 to 1 that `home` is the target home and its box is right. */
+  confidence: number;
+}
+
 export interface VisionModel {
   readonly providerId: string;
   readonly mode: ProviderImplementationMode;
@@ -423,6 +466,20 @@ export interface VisionModel {
     input: LocalizeAdditionsInput,
     options?: CallOptions,
   ): Promise<VisionCallResult<LocalizeAdditionsResult>>;
+  /**
+   * Judges a Street View enhancement: the same place at the same moment with only the image
+   * quality improved. The result carries the enhancement ID as `renderAttemptId` and no
+   * placements.
+   */
+  judgeEnhancement(
+    input: EnhanceJudgeInput,
+    options?: CallOptions,
+  ): Promise<VisionCallResult<JudgeResult>>;
+  /** Locates the home a Street View frame is aimed at (a small call: one image, one box). */
+  locateHome(
+    input: LocateHomeInput,
+    options?: CallOptions,
+  ): Promise<VisionCallResult<LocateHomeResult>>;
 }
 
 // ---- image editor -------------------------------------------------------------------------------

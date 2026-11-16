@@ -3,6 +3,7 @@ import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as endpoints from '../../api/endpoints';
 import * as turnstile from '../../api/turnstile';
+import { useAppStore } from '../../state/appStore';
 import { OptOutPage } from './OptOutPage';
 
 vi.mock('../../api/endpoints', () => ({ getAddressSuggestions: vi.fn(), createReport: vi.fn() }));
@@ -62,6 +63,7 @@ afterEach(() => {
   cleanup();
   vi.useRealTimers();
   vi.clearAllMocks();
+  useAppStore.setState({ fixtureCapabilities: [] });
 });
 
 describe('OptOutPage', () => {
@@ -96,5 +98,54 @@ describe('OptOutPage', () => {
     await flush();
     expect(api.createReport).not.toHaveBeenCalled();
     expect(screen.getByRole('alert').textContent).toContain('confirm you');
+  });
+
+  it('with live lookup, the empty state names no manual entry or photo upload', async () => {
+    api.getAddressSuggestions.mockResolvedValue({
+      sessionToken: '6f1c1c1e-5b0a-4c47-9f4c-1f6f6f2b8a11',
+      suggestions: [],
+    });
+    const input = setup();
+    fireEvent.change(input, { target: { value: '1600 Pennsylvania Ave' } });
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    await flush();
+    const notice = screen.getByText(/^No matches\./);
+    expect(notice.textContent).toBe(
+      'No matches. Check the street number and ZIP. Address lookup covers US addresses for now.',
+    );
+    expect(notice.textContent).not.toMatch(/manual|upload/i);
+    expect(screen.queryByRole('group', { name: 'Sample places' })).toBeNull();
+    expect(document.querySelector('.sr-only[aria-live="polite"]')!.textContent).toBe('No matches');
+  });
+
+  describe('without Google keys (sample mode)', () => {
+    beforeEach(() => {
+      useAppStore.setState({ fixtureCapabilities: ['address_lookup'] });
+      api.getAddressSuggestions.mockResolvedValue({
+        sessionToken: '6f1c1c1e-5b0a-4c47-9f4c-1f6f6f2b8a11',
+        suggestions: [],
+      });
+    });
+
+    it('offers the sample places without mentioning a photo upload the page does not have', async () => {
+      const input = setup();
+      fireEvent.change(input, { target: { value: '1600 Pennsylvania Ave' } });
+      act(() => {
+        vi.advanceTimersByTime(1000);
+      });
+      await flush();
+      const notice = screen.getByText(/no Google Maps keys/);
+      expect(notice.textContent).toBe(
+        'No matches. This setup has no Google Maps keys, so address search only knows the ' +
+          'sample places. Try one below.',
+      );
+      expect(notice.textContent).not.toMatch(/upload/i);
+      expect(screen.getByRole('group', { name: 'Sample places' })).toBeTruthy();
+      expect(document.querySelector('.sr-only[aria-live="polite"]')!.textContent).toBe(
+        'No matches. Sample places are available.',
+      );
+    });
   });
 });

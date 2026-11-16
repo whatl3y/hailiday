@@ -1,18 +1,30 @@
-import { useEffect, useId, useRef } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
+import { useNavigate } from 'react-router';
 import { t } from '../../copy';
 import { useProjectStore } from '../../state/projectStore';
-import { UploadPanel } from '../upload/UploadPanel';
+import { UploadPanel, type UploadSurface } from '../upload/UploadPanel';
 import { discover, onUploadAttached } from './controller';
 import { noStreetViewReasonKey } from './plans';
 
-/** "We can't use a street photo for this address", a reason line and the upload actions. */
-export function NoStreetView() {
+/**
+ * "We can't use a street photo for this address": the holiday's photograph fills the screen and
+ * its white dock holds the reason and the two routes on, uploading a photo (the upload step's
+ * pickers) or trying another address. A chosen photo then fills a stage, as on the upload screen.
+ */
+export function NoStreetView({
+  onSurfaceChange,
+}: {
+  /** Told whether the screen shows the holiday's photograph or a chosen photo on its stage. */
+  onSurfaceChange?: (surface: UploadSurface) => void;
+}) {
   const headingId = useId();
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const navigate = useNavigate();
   const project = useProjectStore((state) => state.project);
   const discovery = useProjectStore((state) => state.discovery);
   const inlineError = useProjectStore((state) => state.inlineError);
   const cause = useProjectStore((state) => state.nosvCause);
+  const [surface, setSurface] = useState<UploadSurface>('photo');
 
   useEffect(() => {
     headingRef.current?.focus();
@@ -28,17 +40,16 @@ export function NoStreetView() {
   const line = cause === 'NEEDS_PHOTO' ? t('error.NEEDS_PHOTO') : t(noStreetViewReasonKey(reason));
   const canRetry = cause === null && (reason === 'error' || discovery?.retryable);
 
-  return (
-    <section
-      className="container container--narrow project-single stack stack--loose"
-      aria-labelledby={headingId}
-    >
-      <div className="stack">
+  // On the photograph the dock opens with the reason; once a photo is chosen the screen is the
+  // upload step's own.
+  const lead =
+    surface === 'photo' ? (
+      <div className="nosv__lead stack stack--tight">
         <h1
           id={headingId}
           ref={headingRef}
           tabIndex={-1}
-          className="title-section project__heading"
+          className="title-section project__heading nosv__heading"
         >
           {t('nosv.heading')}
         </h1>
@@ -53,7 +64,30 @@ export function NoStreetView() {
           </button>
         ) : null}
       </div>
-      <UploadPanel project={project} onAttached={(next) => void onUploadAttached(next)} />
+    ) : null;
+
+  return (
+    <section className="nosv" aria-labelledby={surface === 'photo' ? headingId : undefined}>
+      <UploadPanel
+        project={project}
+        layout="screen"
+        showHeading={false}
+        lead={lead}
+        trail={
+          <button
+            type="button"
+            className="link-button nosv__address"
+            onClick={() => navigate('/', { state: { focusAddress: true } })}
+          >
+            {t('interim.changeAddress')}
+          </button>
+        }
+        onSurfaceChange={(next) => {
+          setSurface(next);
+          onSurfaceChange?.(next);
+        }}
+        onAttached={(next) => void onUploadAttached(next)}
+      />
     </section>
   );
 }

@@ -7,7 +7,7 @@ import {
   REPORT_REASON_LABEL_KEYS,
   type ReportReason,
   type ReportTarget,
-} from '@holiday/core';
+} from '@hailiday/core';
 import { createReport } from '../../api/endpoints';
 import { isApiError } from '../../api/errors';
 import { getTurnstileToken } from '../../api/turnstile';
@@ -17,7 +17,7 @@ import { DISPLAY_VALUES } from '../../config/values';
 import { ChallengeSlot } from '../../ui/ChallengeSlot';
 import { RetryAfterButton } from '../../ui/RetryAfterButton';
 import { Sheet } from '../../ui/Sheet';
-import '../account/account.css';
+import './report.css';
 
 /**
  * "Report this image": one reason, optional details and an optional contact email. Works for

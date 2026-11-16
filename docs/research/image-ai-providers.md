@@ -65,7 +65,7 @@ Notes:
 **Verify:** OpenAI ZDR status for `gpt-image-2.6-sunburst` and `gpt-image-2.6-flare` (owner: user, through OpenAI sales or support, before the 2.6 arms run on any photo that is not a permissioned benchmark photo).
 **Verify:** Vertex AI availability of Nano Banana 2.1 (owner: engineering lead, with Google Cloud documentation or support, before Gate A).
 
-### Implications for Holiday
+### Implications for Hailiday
 
 - The product is for adults ([D-17](../decisions.md#d-17)) but interior uploads can show children. Gemini's clause bars clients "likely to be accessed" by under-18s, Vertex AI carries the same clause, and photos of children are personal information under COPPA. OpenAI's guidance is a safeguards model. The product-side treatment is in [Audience and age](../specs/privacy-safety-legal.md#audience-and-age).
 - "No training" is not "nothing is retained": OpenAI abuse-monitoring logs persist up to 30 days unless ZDR applies, and Vertex AI may log prompts for abuse detection.

@@ -1,8 +1,8 @@
 import { create } from 'zustand';
-import type { CreateShareResponse } from '@holiday/core';
+import type { CreateShareResponse } from '@hailiday/core';
 import { readStored, writeStored } from './persist';
 
-const STORAGE_KEY = 'holiday.shares';
+const STORAGE_KEY = 'hailiday.shares';
 
 /** A share link this device created, so the share sheet can show it and stop sharing. */
 export interface ShareRecord extends CreateShareResponse {

@@ -1,4 +1,4 @@
-import { sha256Hex } from '@holiday/server/ids';
+import { sha256Hex } from '@hailiday/server/ids';
 import { mintPlacesSessionToken } from '../auth/places-token.js';
 import type { Harness, TestClient } from './harness.js';
 

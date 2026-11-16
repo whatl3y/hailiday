@@ -1,4 +1,4 @@
-import type { ActivationState, SourceKind, UserRole } from '@holiday/core';
+import type { ActivationState, SourceKind, UserRole } from '@hailiday/core';
 import {
   capabilityMode,
   defaultCapabilityState,
@@ -46,6 +46,8 @@ export interface PipelineOptions {
   rejectedCandidateRetentionMs: number;
   /** Working images are kept this long after the job is terminal. */
   workingGraceMs: number;
+  /** A stored Street View frame older than this is fetched again before it is decorated. */
+  streetViewFrameMaxAgeMs: number;
 }
 
 /** Everything the pipeline stages and job handlers use. */
@@ -88,6 +90,7 @@ export function pipelineOptions(deps: Pick<PipelineDeps, 'config' | 'options'>):
     reconciliationWindowMs: PIPELINE_DEFAULTS.reconciliationWindowMs,
     rejectedCandidateRetentionMs: 7 * 24 * 3_600_000,
     workingGraceMs: 3_600_000,
+    streetViewFrameMaxAgeMs: deps.config.streetView.frameMaxAgeDays * 24 * 3_600_000,
   };
   return { ...defaults, ...(deps.options ?? {}) };
 }

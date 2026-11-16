@@ -4,7 +4,7 @@ import {
   type Allowance,
   type CapabilityKey,
   type Experience,
-} from '@holiday/core';
+} from '@hailiday/core';
 import { ApiError } from '../api/errors';
 
 /** The experience projection without the session-specific allowance snapshot. */

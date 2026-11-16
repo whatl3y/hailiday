@@ -5,11 +5,13 @@ import {
   ERROR_CODE_VALUES,
   FEEDBACK_REASON_LABEL_KEYS,
   HOLIDAY_IDS,
+  LIGHTING_MODES,
   REPORT_REASON_LABEL_KEYS,
   SCENE_TYPES,
   STAGE_LABEL_KEYS,
-} from '@holiday/core';
-import { COPY_DECK, formatCopy, isCopyKey, sceneTypeLabel, t } from './index';
+} from '@hailiday/core';
+import { trailWordKey } from '../features/project/stageTrail';
+import { COPY_DECK, formatCopy, isCopyKey, lightingLabel, sceneTypeLabel, t } from './index';
 
 /** Rows whose single key lists several values; the catalog splits them into these keys. */
 const SPLIT_KEYS: Record<string, string[]> = {
@@ -32,7 +34,11 @@ const SPLIT_KEYS: Record<string, string[]> = {
     'scene.label.room',
   ],
   'controls.style': ['controls.style.subtle', 'controls.style.classic', 'controls.style.abundant'],
-  'controls.lighting': ['controls.lighting.source', 'controls.lighting.evening'],
+  'controls.lighting': [
+    'controls.lighting.source',
+    'controls.lighting.evening',
+    'controls.lighting.bright',
+  ],
   'footer.links': [
     'footer.terms',
     'footer.privacy',
@@ -108,6 +114,33 @@ describe('copy deck', () => {
     expect(mismatches).toEqual([]);
   });
 
+  it('matches the deck wording for every value of a split row', () => {
+    const mismatches: string[] = [];
+    for (const row of rows) {
+      const split = row.keys.length === 1 ? SPLIT_KEYS[row.keys[0]!] : undefined;
+      if (!split) continue;
+      const values = row.text.split(' · ');
+      if (values.length !== split.length) {
+        mismatches.push(`${row.keys[0]}: ${values.length} values for ${split.length} keys`);
+        continue;
+      }
+      split.forEach((key, index) => {
+        if (!isCopyKey(key) || COPY_DECK[key] !== values[index]) {
+          mismatches.push(
+            `${key}: "${isCopyKey(key) ? COPY_DECK[key] : ''}" != "${values[index]}"`,
+          );
+        }
+      });
+    }
+    expect(mismatches).toEqual([]);
+  });
+
+  it('names every lighting mode', () => {
+    for (const mode of LIGHTING_MODES)
+      expect(isCopyKey(`controls.lighting.${mode}`), mode).toBe(true);
+    expect(lightingLabel('bright')).toBe('Bright');
+  });
+
   it('has a non-empty entry for every core error code', () => {
     for (const code of ERROR_CODE_VALUES) {
       const key = ERROR_CODES[code].copyKey;
@@ -123,6 +156,27 @@ describe('copy deck', () => {
       expect(isCopyKey(key), key).toBe(true);
     for (const key of Object.values(FEEDBACK_REASON_LABEL_KEYS))
       expect(isCopyKey(key), key).toBe(true);
+  });
+
+  it('gives every stage label a short trail word, so no stage key can ship without one', () => {
+    const keys = new Set<string>([
+      ...STAGE_LABEL_KEYS,
+      'stage.framing',
+      'stage.enhancing',
+      'stage.eveningLight',
+      'stage.brightLight',
+    ]);
+    for (const key of keys) {
+      expect(isCopyKey(key), key).toBe(true);
+      expect(isCopyKey(trailWordKey(key)), trailWordKey(key)).toBe(true);
+    }
+  });
+
+  it('never calls a look that did not arrive an error, nor says it did not work out', () => {
+    const offending = Object.entries(COPY_DECK)
+      .filter(([, text]) => /\berror\b|didn't work out|happy with/i.test(text))
+      .map(([key]) => key);
+    expect(offending).toEqual([]);
   });
 
   it('fills placeholders and leaves unknown ones visible', () => {

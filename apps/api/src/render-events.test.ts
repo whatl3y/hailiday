@@ -86,7 +86,7 @@ describe('shutdown with open streams', () => {
           host: '127.0.0.1',
           port,
           path: `/v1/renders/${renderJobId}/events`,
-          headers: { cookie: `holiday_session=${client.cookie}`, 'last-event-id': '0' },
+          headers: { cookie: `hailiday_session=${client.cookie}`, 'last-event-id': '0' },
         },
         (response) => {
           expect(response.statusCode).toBe(200);

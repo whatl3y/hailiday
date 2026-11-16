@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import type { HolidayChangeSurface, HolidayId } from '@holiday/core';
+import type { HolidayChangeSurface, HolidayId } from '@hailiday/core';
 import { analytics } from '../analytics';
 import { currentHolidayId, useAppStore } from '../state/appStore';
 

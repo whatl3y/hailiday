@@ -1,8 +1,11 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { NormalizedBox } from '@holiday/core';
-import { straightenScale } from '@holiday/core';
+import type { NormalizedBox } from '@hailiday/core';
+import { straightenScale } from '@hailiday/core';
+import globalCss from '../../styles/global.css?raw';
+import tokensCss from '../../styles/tokens.css?raw';
 import { PeopleSheet } from './PeopleSheet';
+import uploadCss from './upload.css?raw';
 
 afterEach(cleanup);
 
@@ -70,5 +73,42 @@ describe('PeopleSheet', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Use this crop' }));
     expect(onCrop).toHaveBeenCalledWith([0.4, 0, 1, 1], 10);
+  });
+});
+
+describe('the crop tool on the page', () => {
+  const style = document.createElement('style');
+
+  afterEach(() => style.remove());
+
+  it('clips the photo and its shade on an inner layer, so no corner handle is clipped', () => {
+    style.textContent = [tokensCss, globalCss.replace(/^@import [^;]+;$/gm, ''), uploadCss].join(
+      '\n',
+    );
+    document.head.append(style);
+    open(null);
+    fireEvent.click(screen.getByRole('button', { name: 'Crop them out' }));
+    const crop = document.querySelector<HTMLElement>('.crop')!;
+    const clip = crop.querySelector<HTMLElement>(':scope > .crop__clip')!;
+    expect(getComputedStyle(clip).overflow).toBe('hidden');
+    expect(clip.querySelector('.crop__image')).not.toBeNull();
+    // The frame's line and the dimming outside it are drawn inside the clipped layer.
+    const shade = clip.querySelector<HTMLElement>('.crop__shade')!;
+    expect(getComputedStyle(shade).borderTopWidth).toBe('2px');
+    expect(getComputedStyle(shade).boxShadow).toMatch(
+      /^rgba\(17, 17, 19, 0\.55\) 0px 0px 0px \d+px$/,
+    );
+    expect(shade.getAttribute('style')).toBe(
+      crop.querySelector('.crop__frame')!.getAttribute('style'),
+    );
+    const handles = crop.querySelectorAll<HTMLElement>('.crop__handle');
+    expect(handles).toHaveLength(4);
+    for (const handle of handles) {
+      expect(clip.contains(handle)).toBe(false);
+      for (let node: HTMLElement | null = handle; node; node = node.parentElement) {
+        expect(getComputedStyle(node).overflow, node.className).toBe('visible');
+        if (node === crop) break;
+      }
+    }
   });
 });

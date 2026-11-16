@@ -1,4 +1,4 @@
-import type { BuildingForm, NormalizedBox, PreserveRegion } from '@holiday/core';
+import type { BuildingForm, NormalizedBox, PreserveRegion } from '@hailiday/core';
 import { signedAngleDelta } from '../providers/geo.js';
 import type { HouseParams } from './data.js';
 import {

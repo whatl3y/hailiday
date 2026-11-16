@@ -1,4 +1,4 @@
-import { clampBox, type MaskShape, type NormalizedBox, type NormalizedPoint } from '@holiday/core';
+import { clampBox, type MaskShape, type NormalizedBox, type NormalizedPoint } from '@hailiday/core';
 
 /** Integer pixel rectangle `[x0, x1)` × `[y0, y1)`. */
 interface PixelRect {

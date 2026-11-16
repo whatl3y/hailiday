@@ -28,7 +28,7 @@ import {
   UPLOAD_DECLINE_CODES,
   UPLOAD_DECLINE_REASON_CLASSES,
   UPLOAD_DECLINE_REASONS,
-} from '@holiday/core';
+} from '@hailiday/core';
 import {
   ID_AND_CREATED,
   ID_CREATED_UPDATED,

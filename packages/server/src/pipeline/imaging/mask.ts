@@ -1,4 +1,4 @@
-import type { MaskShape, NormalizedBox, Placement, SceneAnalysis } from '@holiday/core';
+import type { MaskShape, NormalizedBox, Placement, SceneAnalysis } from '@hailiday/core';
 import { WINDOW_ANCHORS, garlandDrapeFor } from '../plan/geometry.js';
 import { fillShape } from '../plan/shapes.js';
 import { checksumOf, toRect, type PxRect } from './raster.js';

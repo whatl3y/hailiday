@@ -1,7 +1,7 @@
 import type { IncomingMessage } from 'node:http';
-import { forbidden } from '@holiday/server/errors';
-import { newId } from '@holiday/server/ids';
-import type { AppConfig } from '@holiday/server/config';
+import { forbidden } from '@hailiday/server/errors';
+import { newId } from '@hailiday/server/ids';
+import type { AppConfig } from '@hailiday/server/config';
 import type { App } from './types.js';
 import { isApiPath, pathOnly } from './types.js';
 import { sendAppError } from './errors.js';

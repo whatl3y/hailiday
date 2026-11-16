@@ -15,6 +15,10 @@ import { PRIVATE_PREFIXES, PUBLIC_PREFIXES } from './keys.js';
  * - `reviews/`: 8 days (the upload hold window is far shorter).
  * - `tombstones/`: 61 days (the tombstone mirror is kept 60 days).
  * - public `shared/` and `cards/`: 31 days (the longest share grant is 30 days).
+ *
+ * No rule for `originals/`, `outputs/`, `downloads/` and `enhanced/`: they live as long as what
+ * they belong to (`enhanced/` holds the accepted enhancement of a stored Street View frame and
+ * goes with that frame), and the retention sweep and the reconciliation remove them.
  */
 export function lifecycleRulesFor(bucket: BucketKind): LifecycleRule[] {
   if (bucket === 'public') {

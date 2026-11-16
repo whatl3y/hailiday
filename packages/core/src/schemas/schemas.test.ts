@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   AllowanceSchema,
+  AttemptFallbackRecordSchema,
   AnalyticsBatchSchema,
   CommerceCatalogSchema,
   CreateRenderRequestSchema,
@@ -11,6 +12,8 @@ import {
   ExperienceSchema,
   GeocodeRequestSchema,
   HolidayPackSchema,
+  CompiledRequestSchema,
+  JobEnhancementRecordSchema,
   JudgeResultSchema,
   MagicLinkRequestSchema,
   VerifyMagicLinkRequestSchema,
@@ -24,6 +27,8 @@ import {
   ProjectSchema,
   PutCapabilityRequestSchema,
   PutSourceRequestSchema,
+  RelightFallbackRecordSchema,
+  RelightSkippedRecordSchema,
   RenderStatusSchema,
   ResolveAddressRequestSchema,
   SceneAnalysisSchema,
@@ -49,7 +54,9 @@ import {
   styleKitFromSection,
   toPixelBox,
   validateClientAnalyticsEvent,
+  parseAnalyticsProperties,
 } from './index.js';
+import { DEFAULT_LIGHTING_MODE, DEFAULT_STYLE } from '../types/index.js';
 
 const ID = '0192f3b2-7c1e-7a6b-9c1d-2f6a1b3c4d5e';
 const ID2 = '0192f3b2-7c1e-7a6b-9c1d-2f6a1b3c4d5f';
@@ -99,7 +106,12 @@ const project = {
     candidateCount: 3,
     remainingDisplayLoads: 5,
   },
-  offered: { styles: ['subtle', 'classic', 'abundant'], lightingModes: ['source', 'evening'] },
+  offered: {
+    styles: ['subtle', 'classic', 'abundant'],
+    defaultStyle: 'abundant',
+    lightingModes: ['source', 'evening'],
+    defaultLightingMode: 'evening',
+  },
   activeRenderJobId: null,
   variantCount: 2,
   saved: false,
@@ -185,6 +197,19 @@ describe('shared objects', () => {
     ).toBe(ID);
   });
 
+  it("carries the project's starting look in its offered set", () => {
+    const { defaultStyle: _style, ...withoutStyle } = project.offered;
+    const { defaultLightingMode: _lighting, ...withoutLighting } = project.offered;
+    expect(ProjectSchema.safeParse({ ...project, offered: withoutStyle }).success).toBe(false);
+    expect(ProjectSchema.safeParse({ ...project, offered: withoutLighting }).success).toBe(false);
+    expect(ProjectSchema.parse(project).offered).toMatchObject({
+      defaultStyle: 'abundant',
+      defaultLightingMode: 'evening',
+    });
+    expect(DEFAULT_STYLE).toBe('abundant');
+    expect(DEFAULT_LIGHTING_MODE).toBe('source');
+  });
+
   it('requires the source a variant was rendered from', () => {
     const { sourceAssetId: _sourceAssetId, ...withoutSource } = variant;
     expect(VariantSchema.safeParse(withoutSource).success).toBe(false);
@@ -213,6 +238,8 @@ describe('shared objects', () => {
   it('rejects unknown fields and bad enum values', () => {
     expect(ProjectSchema.safeParse({ ...project, address: '1 Main St' }).success).toBe(false);
     expect(AllowanceSchema.safeParse({ ...allowance, gate: 'quota_exceeded' }).success).toBe(false);
+    expect(RenderStatusSchema.parse({ ...renderStatus, attempt: 3 }).attempt).toBe(3);
+    expect(RenderStatusSchema.safeParse({ ...renderStatus, attempt: 4 }).success).toBe(false);
     expect(RenderStatusSchema.safeParse({ ...renderStatus, state: 'cancelled' }).success).toBe(
       false,
     );
@@ -547,8 +574,8 @@ describe('discovery, uploads, products and experience', () => {
           packVersion: '1.2.0',
           sceneTypes: {
             house_exterior: {
-              styles: ['subtle', 'classic', 'abundant'],
-              defaultStyle: 'classic',
+              styles: ['subtle', 'abundant', 'abundant'],
+              defaultStyle: 'abundant',
               lightingModes: ['source'],
               defaultLightingMode: 'source',
             },
@@ -588,6 +615,7 @@ describe('discovery, uploads, products and experience', () => {
         uploadAcceptedTypes: ['image/jpeg', 'image/png', 'image/webp'],
         pollRenderMs: 3000,
         pollUploadMs: 2000,
+        retention: { timeBasedDeletion: false },
       },
       legal: {
         termsVersion: '2026-11',
@@ -700,6 +728,49 @@ const sceneAnalysis = {
 };
 
 describe('render pipeline contracts', () => {
+  it('parses an enhance request, the job enhancement record and an enhancing status', () => {
+    const request = {
+      schemaVersion: '1.0',
+      compilerVersion: '2026.11.8-openai',
+      kind: 'enhance',
+      provider: 'openai',
+      modelSnapshot: 'gpt-image-1.5',
+      images: [{ role: 'source', width: 1024, height: 1024, checksum: 'abc' }],
+      instructionText: 'Re-photograph this exact scene.',
+      parameters: { size: '1024x1024', enhance: true },
+      settingsHash: 'hash',
+    };
+    expect(CompiledRequestSchema.parse(request).kind).toBe('enhance');
+    expect(CompiledRequestSchema.safeParse({ ...request, kind: 'upscale' }).success).toBe(false);
+    const record = { outcome: 'made', enhancementId: ID, reason: null };
+    expect(JobEnhancementRecordSchema.parse(record)).toEqual(record);
+    expect(
+      JobEnhancementRecordSchema.parse({
+        outcome: 'skipped',
+        enhancementId: null,
+        reason: 'disabled',
+      }).outcome,
+    ).toBe('skipped');
+    expect(JobEnhancementRecordSchema.safeParse({ ...record, outcome: 'pending' }).success).toBe(
+      false,
+    );
+    expect(JobEnhancementRecordSchema.safeParse({ ...record, extra: 1 }).success).toBe(false);
+    expect(
+      RenderStatusSchema.parse({
+        ...renderStatus,
+        state: 'analyzing',
+        stageLabelKey: 'stage.enhancing',
+      }).stageLabelKey,
+    ).toBe('stage.enhancing');
+    expect(
+      RenderStatusSchema.parse({
+        ...renderStatus,
+        state: 'preparing',
+        stageLabelKey: 'stage.framing',
+      }).stageLabelKey,
+    ).toBe('stage.framing');
+  });
+
   it('parses a scene analysis and rejects bad boxes, categories and duplicate ids', () => {
     expect(SceneAnalysisSchema.parse(sceneAnalysis).anchors).toHaveLength(1);
     expect(
@@ -780,7 +851,11 @@ describe('render pipeline contracts', () => {
       },
     };
     expect(DecorationPlanSchema.parse(plan).placements[0]?.id).toBe('p1');
-    expect(DecorationPlanSchema.safeParse({ ...plan, planVersion: 3 }).success).toBe(false);
+    // A relit look that decorates its own base may make a third attempt; none makes a fourth.
+    const third = { ...plan, planVersion: 3, attemptNumber: 3 };
+    expect(DecorationPlanSchema.parse(third).attemptNumber).toBe(3);
+    expect(DecorationPlanSchema.safeParse({ ...plan, planVersion: 4 }).success).toBe(false);
+    expect(DecorationPlanSchema.safeParse({ ...plan, attemptNumber: 0 }).success).toBe(false);
 
     // Attribution: a stored plan with the single rectangle still parses; the list is optional.
     const single = { ...plan, preserve: { ...plan.preserve, attributionRegion: [0.7, 0.9, 1, 1] } };
@@ -1008,13 +1083,65 @@ describe('holiday packs', () => {
     );
     expect(packOfferFor(pack, 'house_exterior')).toEqual({
       styles: ['subtle', 'classic', 'abundant'],
-      defaultStyle: 'classic',
+      defaultStyle: 'abundant',
       lightingModes: ['source', 'evening'],
       defaultLightingMode: 'source',
     });
     expect(packOfferFor(pack, 'balcony')).toBeNull();
     expect(isContentCellOffered(pack, 'house_exterior', 'abundant', 'evening')).toBe(true);
     expect(isContentCellOffered(pack, 'apartment_entry', 'classic', 'source')).toBe(false);
+  });
+
+  it('accepts a bright-only interior policy and offers only that cell', () => {
+    const raw = christmasPack();
+    raw.lightingPolicy.bySceneType.interior = { default: 'bright', offered: ['bright'] };
+    const pack = HolidayPackSchema.parse(raw);
+    expect(packOfferFor(pack, 'interior')).toMatchObject({
+      lightingModes: ['bright'],
+      defaultLightingMode: 'bright',
+    });
+    expect(isContentCellOffered(pack, 'interior', 'abundant', 'bright')).toBe(true);
+    expect(isContentCellOffered(pack, 'interior', 'abundant', 'source')).toBe(false);
+    expect(isContentCellOffered(pack, 'interior', 'abundant', 'evening')).toBe(false);
+    expect(isContentCellOffered(pack, 'house_exterior', 'abundant', 'bright')).toBe(false);
+  });
+
+  it('validates the attempt records of relight-mode jobs', () => {
+    expect(
+      AttemptFallbackRecordSchema.parse({
+        kind: 'relight_skipped',
+        reason: 'already_bright',
+        medianLuma: 0.74,
+        threshold: 0.6,
+      }),
+    ).toMatchObject({ reason: 'already_bright' });
+    expect(
+      RelightSkippedRecordSchema.parse({
+        kind: 'relight_skipped',
+        reason: 'not_daylight',
+        timeOfDay: 'dusk',
+      }),
+    ).toMatchObject({ reason: 'not_daylight' });
+    expect(
+      RelightSkippedRecordSchema.safeParse({
+        kind: 'relight_skipped',
+        reason: 'already_bright',
+        timeOfDay: 'dusk',
+      }).success,
+    ).toBe(false);
+    const fallback = {
+      kind: 'relight_fallback',
+      target: 'bright',
+      reason: 'relight_rejected',
+      deliveredAs: 'result',
+      relightAttemptId: 'attempt-2',
+      codes: ['structure_changed'],
+    };
+    expect(RelightFallbackRecordSchema.parse(fallback)).toEqual(fallback);
+    expect(RelightFallbackRecordSchema.safeParse({ ...fallback, target: 'source' }).success).toBe(
+      false,
+    );
+    expect(AttemptFallbackRecordSchema.safeParse({ kind: 'relight_skipped' }).success).toBe(false);
   });
 
   const invalid: [string, (pack: ReturnType<typeof christmasPack>) => void][] = [
@@ -1189,6 +1316,28 @@ describe('analytics', () => {
     const kept = batch.events.map(validateClientAnalyticsEvent).filter((e) => e !== null);
     expect(kept.map((e) => e.name)).toEqual(['compare_used', 'holiday_changed']);
     expect(kept[1]?.properties).not.toHaveProperty('address');
+  });
+
+  it('counts up to three attempts on render outcome events', () => {
+    const succeeded = {
+      latencyMs: 120_000,
+      attempts: 3,
+      repaired: true,
+      reviewMode: 'sampled_audit',
+      reviewWaitMs: null,
+      style: 'abundant',
+      lightingMode: 'evening',
+      fidelityMode: 'global_relight',
+    };
+    expect(parseAnalyticsProperties('render_succeeded', succeeded)).toMatchObject({ attempts: 3 });
+    expect(() =>
+      parseAnalyticsProperties('render_succeeded', { ...succeeded, attempts: 4 }),
+    ).toThrow();
+    const rejected = { rejectionReason: 'qa_critical', failureCodes: [], attempts: 3 };
+    expect(parseAnalyticsProperties('render_rejected', rejected)).toMatchObject({ attempts: 3 });
+    const failed = { failureKind: 'timeout', failureDetail: null, attempts: 3 };
+    expect(parseAnalyticsProperties('render_failed', failed)).toMatchObject({ attempts: 3 });
+    expect(() => parseAnalyticsProperties('render_failed', { ...failed, attempts: 4 })).toThrow();
   });
 
   it('limits batch size', () => {

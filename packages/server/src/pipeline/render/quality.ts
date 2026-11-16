@@ -9,9 +9,11 @@ import {
   type LocalizedAdditionRecord,
   type MajorFailureCode,
   type NormalizedBox,
+  type RenderAttemptNumber,
   type SceneAnalysis,
-} from '@holiday/core';
+} from '@hailiday/core';
 import { positionWords } from '../plan/phrases.js';
+import { openTextMarkHint } from '../../providers/vision/prompts.js';
 import type {
   FixtureHint,
   ImageInput,
@@ -76,6 +78,26 @@ export function deterministicClassification(codes: readonly FailureCode[]): Judg
   };
 }
 
+/**
+ * Critical codes a look may carry at uncertain confidence and still be delivered: doubts about a
+ * detail of the home. A doubt about privacy, people, safety, the attribution, which home it is or
+ * a neighbouring home is never delivered. A doubted `camera_changed` stays deliverable because the
+ * registration that runs before the judge measures the camera itself and has passed by then: a
+ * picture whose camera it finds moved carries its own deterministic `camera_changed` and is never
+ * delivered.
+ */
+export const UNCERTAIN_DELIVERABLE_CODES: readonly FailureCode[] = [
+  'structure_changed',
+  'access_blocked',
+  'text_added',
+  'camera_changed',
+];
+
+/** Whether every critical code of an uncertain verdict is one a delivered look may carry. */
+export function uncertainDeliverable(codes: readonly FailureCode[]): boolean {
+  return codes.filter(isCritical).every((code) => UNCERTAIN_DELIVERABLE_CODES.includes(code));
+}
+
 /** The decision recorded on one judge result row. */
 export function judgeDecision(classification: JudgeClassification): JudgeDecision {
   if (classification.critical.length > 0 || classification.major.length > 0) return 'reject';
@@ -88,19 +110,26 @@ export interface AttemptVerdict {
   verdict: 'pass' | 'fail' | 'uncertain';
   /** Codes that failed the attempt (critical and major), or the uncertain critical codes. */
   codes: FailureCode[];
-  /** Majors recorded on a passing second attempt. */
+  /** Majors recorded on a passing attempt that has no repair after it. */
   recordedMajors: MajorFailureCode[];
 }
 
 /**
  * Decision policy (render spec, quality checks): a deterministic or confident critical code
- * fails; an uncertain critical code (after escalation) is uncertain; confident majors fail the
- * first attempt and are only recorded on the second; otherwise the attempt passes.
+ * fails; a decisive deterministic code (a bright relight darker than its base) fails on any
+ * attempt; an uncertain critical code (after escalation) is uncertain; confident majors fail an
+ * attempt that still has a repair after it (the first attempt; also a relight that follows the
+ * base a job decorated itself, while the job has not used its repair) and are only recorded on
+ * an attempt that has none; otherwise the attempt passes.
  */
 export function decideAttempt(input: {
-  attemptNumber: 1 | 2;
+  attemptNumber: RenderAttemptNumber;
+  /** Whether a repair may follow this attempt; defaults to whether it is the first attempt. */
+  repairLeft?: boolean;
   deterministic: readonly FailureCode[];
   judge: JudgeClassification | null;
+  /** Deterministic codes that fail the attempt whatever the judge says and on any attempt. */
+  decisive?: readonly FailureCode[];
 }): AttemptVerdict {
   const deterministicCritical = input.deterministic.filter(isCritical);
   const deterministicMajor = input.deterministic.filter(
@@ -109,13 +138,13 @@ export function decideAttempt(input: {
   const judge = input.judge ?? { critical: [], uncertain: [], major: [] };
   const critical = [...new Set([...deterministicCritical, ...judge.critical])];
   const majors = [...new Set([...deterministicMajor, ...judge.major])];
-  if (critical.length > 0)
+  if (critical.length > 0 || (input.decisive?.length ?? 0) > 0)
     return { verdict: 'fail', codes: [...critical, ...majors], recordedMajors: [] };
   if (judge.uncertain.length > 0) {
     return { verdict: 'uncertain', codes: [...judge.uncertain, ...majors], recordedMajors: [] };
   }
   if (majors.length > 0) {
-    return input.attemptNumber === 1
+    return (input.repairLeft ?? input.attemptNumber === 1)
       ? { verdict: 'fail', codes: majors, recordedMajors: [] }
       : { verdict: 'pass', codes: [], recordedMajors: majors };
   }
@@ -145,8 +174,8 @@ export interface RegisteredOutput {
 
 /**
  * Registration at the start of `checking` (render spec, registration): the provider output is
- * decoded and registered to the reference image (the working image, or for an evening relight the
- * accepted daylight variant on the working grid) over pixels outside the placement shapes (the
+ * decoded and registered to the reference image (the working image, or for a relight the decorated
+ * base on the working grid) over pixels outside the placement shapes (the
  * composite mask in `source`; the dilated shapes and glowing windows otherwise), and warped into
  * alignment when the transform is within the limits.
  */
@@ -191,9 +220,11 @@ export async function registerOutput(input: {
  * algorithm and quality checks). In `source` mode the output's color and brightness are matched
  * to the working image over the unedited ring around the keep-mask (photometric alignment, kept
  * only when it lowers the seam) and the original pixels are pasted back outside the feathered
- * mask; in `evening` mode (a relight) the aligned output is the candidate and every check runs
- * against the reference (the accepted daylight variant). In both modes the attribution
- * rectangles and any padding are restored verbatim from the reference.
+ * mask; in a relight (`evening` or `bright`) the aligned output is the candidate and every check
+ * runs against the reference (the decorated base the relight started from); a bright relight is
+ * also checked to be no darker than that base. Padding is restored verbatim from the reference in
+ * both modes; the attribution rectangles verbatim in `source` mode and, in a relight, with the
+ * reference's logo and copyright strokes kept over a relit ground (`restoreProtectedRectangles`).
  */
 export async function compositeAndCheck(input: {
   working: WorkingImage;
@@ -214,7 +245,12 @@ export async function compositeAndCheck(input: {
    * out of the edge check like placement regions.
    */
   keptRegions?: readonly NormalizedBox[];
-  /** The embedded attribution rectangle(s), restored verbatim and compared after restoration. */
+  /**
+   * House numbers a decoration covers (`open` text marks, `source` mode): the editor's pixels stay
+   * there, so they are not compared with the reference; the judge guards their text.
+   */
+  openHouseNumbers?: readonly NormalizedBox[];
+  /** The embedded attribution rectangle(s), restored and compared after restoration. */
   attributionRegion: NormalizedBox | readonly NormalizedBox[] | null;
   glowRegions: readonly NormalizedBox[];
   thresholds?: Partial<Record<string, number>>;
@@ -249,6 +285,12 @@ export async function compositeAndCheck(input: {
         PIPELINE_DEFAULTS.checks.maxTranslationFraction) * long,
   });
   const { raw, candidate, exposureMatched, attributionRestored } = composite;
+  const open = input.openHouseNumbers ?? [];
+  const isOpen = (box: NormalizedBox) =>
+    open.some((other) => other.every((value, i) => value === box[i]));
+  const houseNumbers = input.analysis.preserveRegions
+    .filter((region) => region.kind === 'house_number')
+    .map((region) => region.box);
   const deterministic = runDeterministicChecks({
     working: reference,
     raw,
@@ -262,10 +304,10 @@ export async function compositeAndCheck(input: {
     targetFacade: input.analysis.targetFacade ?? null,
     peopleBoxes: input.analysis.peopleBoxes,
     blurRegions: input.analysis.protectedBlurRegions.map((region) => region.box),
-    houseNumberRegions: input.analysis.preserveRegions
-      .filter((region) => region.kind === 'house_number')
-      .map((region) => region.box),
+    houseNumberRegions: houseNumbers.filter((box) => !isOpen(box)),
+    coveredHouseNumberRegions: houseNumbers.filter(isOpen),
     glowRegions: input.glowRegions,
+    contentBox: input.working.contentBox,
     attributionRegion: input.attributionRegion,
     mask,
     alignment: composite.alignment,
@@ -274,6 +316,7 @@ export async function compositeAndCheck(input: {
   deterministic.checks.compositing = {
     exposureMatched,
     attributionRestored,
+    attribution: composite.attribution,
     registrationApplied: composite.alignment.applied,
     photometric: composite.photometric,
   };
@@ -483,4 +526,16 @@ export function restoredChangeHints(
       ? `restored from the original: ${description} (${where})`
       : `unrequested change inside the kept decorations: ${description} (${where})`;
   });
+}
+
+/**
+ * Judge hints for the house numbers, signs and logos left `open` (the composite keeps the
+ * editor's pixels over them), one per mark in the given order.
+ */
+export function openTextMarkHints(
+  textMarks: readonly { kind: string; box: NormalizedBox; mode: string }[],
+): string[] {
+  return textMarks
+    .filter((mark) => mark.mode === 'open')
+    .map((mark) => openTextMarkHint(mark.kind, mark.box));
 }

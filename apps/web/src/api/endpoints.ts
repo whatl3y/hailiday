@@ -2,7 +2,6 @@ import {
   CompleteUploadResponseSchema,
   CreateClickResponseSchema,
   CreateFeedbackResponseSchema,
-  CreateRenderResponseSchema,
   CreateReportResponseSchema,
   CreateSessionResponseSchema,
   CreateShareResponseSchema,
@@ -10,17 +9,16 @@ import {
   DeleteMeResponseSchema,
   DeleteProjectResponseSchema,
   EmptyObjectSchema,
+  GalleryResponseSchema,
   GeocodeResponseSchema,
   MeSchema,
   ProductsPanelSchema,
   ProjectListResponseSchema,
   ProjectResponseSchema,
-  RenderStatusSchema,
   ResolveAddressResponseSchema,
   ShareViewSchema,
   SourceDiscoveryResponseSchema,
   UploadStatusSchema,
-  VariantListResponseSchema,
   VerifyMagicLinkResponseSchema,
   ViewpointResponseSchema,
   AddressSuggestionsResponseSchema,
@@ -36,10 +34,15 @@ import {
   type ResolveAddressRequest,
   type VerifyMagicLinkRequest,
   type ViewpointRequest,
-} from '@holiday/core';
-import { detectClientTimeZone } from '@holiday/core';
+} from '@hailiday/core';
+import { detectClientTimeZone } from '@hailiday/core';
 import { sessionError, type ApiError } from './errors';
 import { createApiClient } from './http';
+import {
+  CreateRenderResponseReader,
+  RenderStatusReader,
+  VariantListResponseReader,
+} from './renderStatus';
 import { getTurnstileToken } from './turnstile';
 import { parseExperiencePayload } from '../experience/payload';
 
@@ -264,7 +267,7 @@ export async function createRender(body: CreateRenderRequest, idempotencyKey: st
     method: 'POST',
     body,
     headers: { 'Idempotency-Key': idempotencyKey },
-    schema: CreateRenderResponseSchema,
+    schema: CreateRenderResponseReader,
   });
   return data;
 }
@@ -272,7 +275,7 @@ export async function createRender(body: CreateRenderRequest, idempotencyKey: st
 export async function getRender(renderJobId: string, signal?: AbortSignal) {
   const { data } = await api.request(`/v1/renders/${id(renderJobId)}`, {
     signal,
-    schema: RenderStatusSchema,
+    schema: RenderStatusReader,
   });
   return data;
 }
@@ -281,14 +284,29 @@ export async function cancelRender(renderJobId: string) {
   const { data } = await api.request(`/v1/renders/${id(renderJobId)}/cancel`, {
     method: 'POST',
     body: {},
-    schema: RenderStatusSchema,
+    schema: RenderStatusReader,
   });
   return data;
 }
 
 export async function listVariants(projectId: string) {
   const { data } = await api.request(`/v1/projects/${id(projectId)}/variants`, {
-    schema: VariantListResponseSchema,
+    schema: VariantListResponseReader,
+  });
+  return data;
+}
+
+/**
+ * `GET /v1/gallery`: every rendering of the session's owner, newest first. It never starts a
+ * session or runs the bot check: without a session the API refuses, and the gallery is empty.
+ */
+export async function listGallery(cursor?: string | null, limit?: number, signal?: AbortSignal) {
+  const { data } = await api.request('/v1/gallery', {
+    query: { cursor: cursor ?? undefined, limit },
+    session: false,
+    verify: false,
+    signal,
+    schema: GalleryResponseSchema,
   });
   return data;
 }

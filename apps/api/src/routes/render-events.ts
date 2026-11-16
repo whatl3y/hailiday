@@ -3,8 +3,8 @@ import {
   RENDER_SSE_EVENT,
   RENDER_SSE_RETRY_MS,
   isTerminalRenderJobState,
-} from '@holiday/core';
-import type { RenderJob } from '@holiday/server/db';
+} from '@hailiday/core';
+import type { RenderJob } from '@hailiday/server/db';
 import type { ApiDeps } from '../deps.js';
 import type { App } from '../http/types.js';
 import { requireSession } from '../auth/session.js';

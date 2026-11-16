@@ -5,7 +5,7 @@ import {
   commerceCapabilityKey,
   isCapabilityKey,
   isCommerceCapabilityKey,
-} from '@holiday/core';
+} from '@hailiday/core';
 import type {
   ActivationState,
   AppEnv,
@@ -14,9 +14,10 @@ import type {
   CapabilityRecord,
   PublicCapabilities,
   UserRole,
-} from '@holiday/core';
+} from '@hailiday/core';
 import type { Clock } from '../clock/index.js';
 import type { AppConfig } from '../config/index.js';
+import { DEFAULT_STREET_VIEW_USE_POLICY } from '../config/index.js';
 import { systemClock } from '../clock/index.js';
 import type { Db, DbOrTx } from '../db/client.js';
 import type { CountryCapability } from '../db/schema.js';
@@ -248,20 +249,28 @@ export function capabilityKeysFor(merchantProgramKeys: readonly string[]): Capab
  * The default activation state of a capability for an environment (the seed profile, and the
  * state assumed for a missing row locally). Everything starts in `fixture`. In development a leg
  * whose provider resolves to a live adapter defaults to `live_public`, so a local visitor reaches
- * the live model: `image_editing`, `vision_analysis`, `address_lookup` and `street_view_display`.
- * `street_view_ai` never defaults to live (Street View processing needs a recorded licensing
- * grant), and staging and production defaults never go live.
+ * the live model: `image_editing`, `vision_analysis`, `address_lookup` and `street_view_display`,
+ * and `street_view_ai` when both the Street View provider and the image editor are live and the
+ * Street View use policy (default `full`) is not `display_only`. Staging and production defaults
+ * never go live.
  */
 export function defaultCapabilityState(
-  config: Pick<AppConfig, 'appEnv' | 'providers'>,
+  config: Pick<AppConfig, 'appEnv' | 'providers'> & {
+    streetView?: Pick<AppConfig['streetView'], 'usePolicy'>;
+  },
   capability: CapabilityKey,
 ): ActivationState {
   if (config.appEnv !== 'development') return 'fixture';
+  const usePolicy = config.streetView?.usePolicy ?? DEFAULT_STREET_VIEW_USE_POLICY;
   const live: Partial<Record<BaseCapabilityKey, boolean>> = {
     image_editing: config.providers.imageEditor !== 'fixture',
     vision_analysis: config.providers.vision !== 'fixture',
     address_lookup: config.providers.address !== 'fixture',
     street_view_display: config.providers.streetView !== 'fixture',
+    street_view_ai:
+      config.providers.streetView !== 'fixture' &&
+      config.providers.imageEditor !== 'fixture' &&
+      usePolicy !== 'display_only',
   };
   return live[capability as BaseCapabilityKey] ? 'live_public' : 'fixture';
 }

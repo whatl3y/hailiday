@@ -1,4 +1,4 @@
-name: holiday
+name: hailiday
 
 # One-command local stack: `docker compose up --build` (or `pnpm docker:up`) brings up
 # Postgres, S3-compatible object storage (RustFS), a mail catcher (Mailpit), runs
@@ -7,16 +7,18 @@ name: holiday
 #
 # Configuration: copy .env.example to .env and edit it; migrate, api and workers load that
 # one file (it is optional, so the stack also runs with no .env at all). `environment:`
-# below only overrides what must differ inside the Docker network (database, storage and
-# mail endpoints, the API port and the SMTP mailer), so the host-oriented values in .env
-# work unchanged for `pnpm dev`. Provider keys come only from .env, never from your shell,
+# below only overrides what belongs to this local stack itself (the database, the storage
+# endpoint with its local credentials and bucket names, the mail endpoints, the API port and
+# the SMTP mailer), so the host-oriented values in .env work unchanged for `pnpm dev` and a
+# value left over from an earlier .env cannot point the stack at storage it does not have.
+# Provider keys come only from .env, never from your shell,
 # and with no keys every provider runs in fixture mode. `pnpm docker:e2e` adds
 # docker-compose.e2e.yml, which forces fixture mode for the browser tests and runs as its
 # own Compose project, so resetting it never deletes this stack's data.
 #
 #   pnpm docker:up      # build and start everything in the background
 #   pnpm docker:infra   # only Postgres, storage and Mailpit (for `pnpm dev` on the host)
-#   pnpm docker:e2e     # the full stack in fixture mode for the e2e suite (project holiday-e2e)
+#   pnpm docker:e2e     # the full stack in fixture mode for the e2e suite (project hailiday-e2e)
 #   pnpm docker:logs    # follow logs
 #   pnpm docker:down    # stop (keeps data)
 #   pnpm docker:reset   # stop and delete all local data volumes
@@ -30,11 +32,16 @@ x-app-env-file: &app-env-file
   - path: .env
     required: false
 
-# In-network endpoints. Browser-facing URLs stay interpolated so .env can change them.
+# In-network endpoints and the local storage's identity (the config module's local defaults).
+# Browser-facing URLs stay interpolated so .env can change them.
 x-app-env: &app-env
-  DATABASE_URL: postgres://postgres:postgres@postgres:5432/holiday
+  DATABASE_URL: postgres://postgres:postgres@postgres:5432/hailiday
   S3_ENDPOINT: http://storage:9000
   S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT:-http://localhost:9000}
+  S3_ACCESS_KEY_ID: hailiday
+  S3_SECRET_ACCESS_KEY: hailiday-dev-secret
+  S3_PRIVATE_BUCKET: hailiday-private
+  S3_PUBLIC_BUCKET: hailiday-public
   SMTP_URL: smtp://mailpit:1025
   EMAIL_PROVIDER: smtp
   PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:8080}
@@ -43,33 +50,33 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: holiday
+      POSTGRES_DB: hailiday
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
       - '${DB_PORT:-5434}:5432'
     volumes:
-      - holiday-pgdata:/var/lib/postgresql/data
+      - hailiday-pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U postgres -d holiday']
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d hailiday']
       interval: 5s
       timeout: 3s
       retries: 20
     restart: unless-stopped
 
-  # S3-compatible object storage for uploads, renders, heroes and share cards. The
-  # credentials default to the same values as the config module's local defaults.
+  # S3-compatible object storage for uploads, renders, heroes and share cards. Its
+  # credentials are the config module's local defaults, the same the app services get above.
   storage:
     image: rustfs/rustfs:latest
     environment:
-      RUSTFS_ACCESS_KEY: ${S3_ACCESS_KEY_ID:-holiday}
-      RUSTFS_SECRET_KEY: ${S3_SECRET_ACCESS_KEY:-holiday-dev-secret}
+      RUSTFS_ACCESS_KEY: hailiday
+      RUSTFS_SECRET_KEY: hailiday-dev-secret
       RUSTFS_CONSOLE_ENABLE: 'true'
     ports:
       - '${STORAGE_PORT:-9000}:9000'
       - '${STORAGE_CONSOLE_PORT:-9001}:9001'
     volumes:
-      - holiday-storage:/data
+      - hailiday-storage:/data
     healthcheck:
       test:
         [
@@ -142,5 +149,5 @@ services:
     restart: unless-stopped
 
 volumes:
-  holiday-pgdata:
-  holiday-storage:
+  hailiday-pgdata:
+  hailiday-storage:

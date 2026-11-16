@@ -1,7 +1,9 @@
-import { expandBox, type FailureCode, type NormalizedBox } from '@holiday/core';
+import { expandBox, type FailureCode, type LightingMode, type NormalizedBox } from '@hailiday/core';
 import { PIPELINE_DEFAULTS } from '../versions.js';
+import { checkAttributionStrokes } from './attribution.js';
 import { featherBand, type CompositeMask } from './mask.js';
 import { toGray, toRect, type PxRect, type Raster } from './raster.js';
+import { medianLuma } from './relight.js';
 
 /** Gradient magnitude (central differences) of a gray plane. */
 export function gradientMagnitude(gray: Float32Array, width: number, height: number): Float32Array {
@@ -477,17 +479,28 @@ export function edgeAgreement(
 export interface DeterministicCheckInput {
   working: Raster;
   raw: Raster;
-  /** Composited candidate (source mode) or the raw output with restorations (evening). */
+  /** Composited candidate (source mode) or the raw output with restorations (a relight). */
   candidate: Raster;
   requested: { width: number; height: number };
-  lightingMode: 'source' | 'evening';
+  /** `source` checks a decorate composite; `evening` and `bright` check a relight. */
+  lightingMode: LightingMode;
   placementRegions: readonly NormalizedBox[];
   targetFacade?: NormalizedBox | null;
   peopleBoxes: readonly NormalizedBox[];
   blurRegions: readonly NormalizedBox[];
   houseNumberRegions: readonly NormalizedBox[];
-  /** Existing windows and light sources, which may glow in evening mode. */
+  /**
+   * House numbers a decoration covers (`source` mode): the composite keeps the editor's pixels
+   * there, so they are counted, not compared; the judge guards their text.
+   */
+  coveredHouseNumberRegions?: readonly NormalizedBox[];
+  /** Existing windows and light sources, which may glow in a relight. */
   glowRegions: readonly NormalizedBox[];
+  /**
+   * The photo's content area on the grid (padding excluded), where the `bright` brightness check
+   * measures; the whole image when absent.
+   */
+  contentBox?: NormalizedBox | null;
   /** The embedded attribution rectangle(s), compared after restoration. */
   attributionRegion?: NormalizedBox | readonly NormalizedBox[] | null;
   mask: CompositeMask | null;
@@ -501,8 +514,16 @@ export interface DeterministicCheckInput {
 }
 
 export interface DeterministicCheckResult {
-  /** Deterministic failure codes (critical, plus `implausible_decor` from the seam check). */
+  /**
+   * Deterministic failure codes (critical, plus `implausible_decor` from the seam check and
+   * `lighting_implausible` from the bright brightness check).
+   */
   codes: FailureCode[];
+  /**
+   * Codes that fail the attempt whatever the judge says and on any attempt (a bright relight
+   * darker than its base). Absent when there are none.
+   */
+  decisive?: FailureCode[];
   /** Hints passed to the judge. */
   hints: string[];
   registration: Registration | null;
@@ -539,8 +560,9 @@ function areaMask(
 /**
  * Runs the deterministic checks of the render spec on one attempt: output dimensions,
  * alignment, out-of-mask drift (hint), edge agreement, protected-region preservation, house
- * number preservation, the seam check (source mode) and the attribution region. Text detection
- * on the rest of the frame needs a detector and is reported as not available.
+ * number preservation, the seam check (source mode), the attribution region and, for a bright
+ * relight, that the result is not darker than its base (median luma over the content area).
+ * Text detection on the rest of the frame needs a detector and is reported as not available.
  */
 export function runDeterministicChecks(input: DeterministicCheckInput): DeterministicCheckResult {
   const t: (typeof PIPELINE_DEFAULTS)['checks'] & { edgeExclusionFraction?: number } = {
@@ -648,12 +670,12 @@ export function runDeterministicChecks(input: DeterministicCheckInput): Determin
     if (share > t.driftTileShare) hints.push('structure_changed');
   }
 
-  // Edge agreement. Evening: F1 inside the target facade, excluding the placements (with their
+  // Edge agreement. A relight: F1 inside the target facade, excluding the placements (with their
   // dilation, where decorations and their glow land) and existing windows and light sources,
   // which may legitimately glow. Source: the mask's feather band, where the original edges must
   // survive the blend; decorations reaching into the band add edges, so recall is the measure.
   let area: Uint8Array;
-  const evening = input.lightingMode === 'evening' || !input.mask;
+  const evening = input.lightingMode !== 'source' || !input.mask;
   if (evening) {
     const pad = t.edgeExclusionFraction ?? 0.04;
     const excluded = [
@@ -677,9 +699,9 @@ export function runDeterministicChecks(input: DeterministicCheckInput): Determin
     : { passed: true, skipped: 'insufficient_edges' };
   if (edgeScore !== null && edgeScore < t.edgeF1) codes.add('structure_changed');
 
-  // Protected regions: never sharper than the working image, whatever the exposure. In evening
-  // mode, where the relight passes through every protected box, a reconstruction also shows as
-  // edges the working box does not have.
+  // Protected regions: never sharper than the working image, whatever the exposure. In a relight,
+  // which passes through every protected box, a reconstruction also shows as edges the working
+  // box does not have.
   const protectedResults: Record<string, unknown>[] = [];
   const protect = (box: NormalizedBox, code: FailureCode, kind: string) => {
     const rect = toRect(box, width, height);
@@ -713,8 +735,10 @@ export function runDeterministicChecks(input: DeterministicCheckInput): Determin
 
   // House numbers must stay unchanged (the feasible part of text detection). In source mode they
   // are excluded from the composite mask, so this passes by construction unless restoration
-  // failed. In evening mode the relight and the legitimate window glow change these pixels, so a
-  // pixel comparison is no evidence; the judge's `text_added` code covers them.
+  // failed; a house number a decoration covers keeps the editor's pixels, so it is only counted
+  // (`covered`) and the judge's `text_added` code covers it. In a relight the new light and the
+  // legitimate window glow change these pixels, so a pixel comparison is no evidence; the judge
+  // covers them all.
   if (evening) {
     checks.textDetection = { detector: 'not_available', houseNumbers: 'delegated_to_judge' };
   } else {
@@ -723,7 +747,11 @@ export function runDeterministicChecks(input: DeterministicCheckInput): Determin
       if (score < t.houseNumberSsim) codes.add('text_added');
       return { ssim: score, passed: score >= t.houseNumberSsim };
     });
-    checks.textDetection = { detector: 'not_available', houseNumbers };
+    checks.textDetection = {
+      detector: 'not_available',
+      houseNumbers,
+      covered: input.coveredHouseNumberRegions?.length ?? 0,
+    };
   }
 
   // Seam check across the feather band (source mode).
@@ -733,9 +761,22 @@ export function runDeterministicChecks(input: DeterministicCheckInput): Determin
     if (deltaE > t.seamDeltaE) codes.add('implausible_decor');
   }
 
-  // Attribution rectangles, compared after restoration.
+  // Attribution rectangles, compared after restoration. In a relight the ground behind the logo and
+  // copyright follows the new light, so where the reference's strokes are found reliably only the
+  // solid stroke pixels are compared, and must equal the reference's; elsewhere the rectangle was
+  // restored verbatim and its SSIM against the reference is the measure, as in `source` mode.
   const attribution = attributionRegionsOf(input.attributionRegion);
-  if (attribution.length > 0) {
+  if (attribution.length > 0 && input.lightingMode !== 'source') {
+    const regions = attribution.map((box) => {
+      const strokes = checkAttributionStrokes(working, candidate, box);
+      if (strokes.mode === 'adapted') return strokes;
+      const ssim = meanSsim(grayW, grayC, width, toRect(box, width, height));
+      return { ...strokes, ssim, passed: ssim >= t.attributionSsim };
+    });
+    const passed = regions.every((region) => region.passed);
+    checks.attribution = { passed, regions };
+    if (!passed) codes.add('attribution_altered');
+  } else if (attribution.length > 0) {
     const scores = attribution.map((box) =>
       meanSsim(grayW, grayC, width, toRect(box, width, height)),
     );
@@ -748,5 +789,24 @@ export function runDeterministicChecks(input: DeterministicCheckInput): Determin
     if (score < t.attributionSsim) codes.add('attribution_altered');
   }
 
-  return { codes: [...codes], hints, registration, checks };
+  // A bright relight must not be darker than its base over the photo's content area.
+  const decisive: FailureCode[] = [];
+  if (input.lightingMode === 'bright') {
+    const base = medianLuma(working, input.contentBox ?? null);
+    const result = medianLuma(candidate, input.contentBox ?? null);
+    const passed = result >= base;
+    checks.brightness = { measure: 'median_luma', base, candidate: result, passed };
+    if (!passed) {
+      codes.add('lighting_implausible');
+      decisive.push('lighting_implausible');
+    }
+  }
+
+  return {
+    codes: [...codes],
+    hints,
+    registration,
+    checks,
+    ...(decisive.length > 0 ? { decisive } : {}),
+  };
 }

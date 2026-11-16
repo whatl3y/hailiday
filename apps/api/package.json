@@ -1,11 +1,11 @@
 {
-  "name": "@holiday/api",
+  "name": "@hailiday/api",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
-    "dev": "tsx watch --clear-screen=false --import @holiday/server/config/load-env src/index.ts",
+    "dev": "tsx watch --clear-screen=false --import @hailiday/server/config/load-env src/index.ts",
     "start": "node dist/index.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
@@ -14,8 +14,8 @@
   "dependencies": {
     "@fastify/cookie": "11.1.5",
     "@fastify/static": "10.1.10",
-    "@holiday/core": "workspace:*",
-    "@holiday/server": "workspace:*",
+    "@hailiday/core": "workspace:*",
+    "@hailiday/server": "workspace:*",
     "fastify": "5.12.8",
     "fastify-type-provider-zod": "7.0.0",
     "pino": "10.4.0",

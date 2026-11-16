@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { DecorationPlanSchema, VariantListResponseSchema } from '@holiday/core';
-import { createRenderJobRecord } from '@holiday/server/pipeline';
+import { DecorationPlanSchema, VariantListResponseSchema } from '@hailiday/core';
+import { createRenderJobRecord } from '@hailiday/server/pipeline';
 import { createHarness, type Harness } from './test/harness.js';
 import { adoptStreetViewProject } from './test/projects.js';
 

@@ -1,5 +1,5 @@
 /**
- * Preload for host development (`node --import @holiday/server/config/load-env`): loads the
+ * Preload for host development (`node --import @hailiday/server/config/load-env`): loads the
  * repository's root `.env` into `process.env` before the app reads its configuration. Variables set
  * in the shell win, except provider keys, which come only from the file, and the refused vendor
  * redirect variables, which are removed wherever they come from.

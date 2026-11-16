@@ -1,6 +1,11 @@
 import { sha256Hex } from '../../ids/index.js';
 import type { Logger } from '../../logger/index.js';
-import { diagnosticFields, googleErrorDiagnostics, logProviderFailure } from '../diagnostics.js';
+import {
+  diagnosticFields,
+  googleErrorDiagnostics,
+  logProviderFailure,
+  redactProviderText,
+} from '../diagnostics.js';
 import { ProviderError, kindForHttpStatus } from '../errors.js';
 import type { LatLng } from '../geo.js';
 import { providerFetch, type FetchLike } from '../http.js';
@@ -13,7 +18,7 @@ import {
   type StreetViewProvider,
   type StreetViewView,
 } from '../types.js';
-import { discoverCandidates } from './discover.js';
+import { METADATA_ERROR_STATUSES, discoverCandidates } from './discover.js';
 import { refreshPinnedPanorama } from './refresh.js';
 
 const PROVIDER = 'google-street-view';
@@ -76,7 +81,16 @@ export function createGoogleStreetViewProvider(options: {
           ...(callOptions?.signal ? { signal: callOptions.signal } : {}),
         },
       );
-    } catch {
+    } catch (error) {
+      logProviderFailure(
+        options.logger,
+        {
+          provider: PROVIDER,
+          operation: 'Street View metadata',
+          kind: error instanceof ProviderError ? error.kind : 'provider_error',
+        },
+        {},
+      );
       return { status: 'UNKNOWN_ERROR', panoId: null, location: null, date: null, copyright: null };
     }
     if (response.status !== 200) {
@@ -92,16 +106,37 @@ export function createGoogleStreetViewProvider(options: {
       );
       return { status: 'UNKNOWN_ERROR', panoId: null, location: null, date: null, copyright: null };
     }
-    const body = response.json<{
+    let body: {
       status?: string;
       pano_id?: string;
       location?: { lat: number; lng: number };
       date?: string;
       copyright?: string;
-    }>();
+    };
+    try {
+      body = response.json();
+    } catch {
+      body = {};
+    }
     const status = (METADATA_STATUSES as readonly string[]).includes(body.status ?? '')
       ? (body.status as MetadataStatus)
       : 'UNKNOWN_ERROR';
+    if (METADATA_ERROR_STATUSES.includes(status)) {
+      // A 200 answer whose JSON status is an error (or missing or unrecognized): log the
+      // vendor's status and redacted error_message so a failed discovery can be explained.
+      const diagnostics = googleErrorDiagnostics(response.bytes, secrets);
+      logProviderFailure(
+        options.logger,
+        {
+          provider: PROVIDER,
+          operation: 'Street View metadata',
+          httpStatus: response.status,
+          kind: status === 'INVALID_REQUEST' ? 'invalid_request' : 'provider_error',
+        },
+        { ...diagnostics, code: redactProviderText(diagnostics.code ?? status, secrets) },
+      );
+      return { status, panoId: null, location: null, date: null, copyright: null };
+    }
     return {
       status,
       panoId: body.pano_id ?? null,

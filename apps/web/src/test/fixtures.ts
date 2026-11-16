@@ -3,10 +3,11 @@ import {
   buildErrorBody,
   type Allowance,
   type ErrorCode,
+  type GalleryItem,
   type Project,
   type RenderStatus,
   type Variant,
-} from '@holiday/core';
+} from '@hailiday/core';
 import { errorFromResponse, type ApiError } from '../api/errors';
 
 /** Test data builders shaped exactly like the core schemas. */
@@ -55,7 +56,12 @@ export function project(overrides: Partial<Project> = {}): Project {
       privateOnly: false,
     },
     discovery: null,
-    offered: { styles: ['subtle', 'classic', 'abundant'], lightingModes: ['source', 'evening'] },
+    offered: {
+      styles: ['subtle', 'classic', 'abundant'],
+      defaultStyle: 'abundant',
+      lightingModes: ['source', 'evening'],
+      defaultLightingMode: 'evening',
+    },
     activeRenderJobId: null,
     variantCount: 1,
     saved: false,
@@ -91,6 +97,35 @@ export function variant(overrides: Partial<Variant> = {}): Variant {
     sourceState: 'ready',
     createdAt: '2026-11-09T12:00:00.000Z',
     expiresAt: null,
+    ...overrides,
+  };
+}
+
+export function galleryItem(overrides: Partial<GalleryItem> = {}): GalleryItem {
+  const id = uuid();
+  return {
+    id,
+    projectId: '018f0000-0000-7000-8000-aaaaaaaaaaaa',
+    group: {
+      key: 'place-1',
+      kind: 'address',
+      label: '14 Lantern Hill Rd, Maplebrook, VT 05341, USA',
+    },
+    holidayId: 'christmas',
+    style: 'abundant',
+    lightingMode: 'evening',
+    sceneType: 'house_exterior',
+    sourceKind: 'street_view',
+    createdAt: '2026-11-09T12:00:00.000Z',
+    imageUrl: `https://cdn.test/gallery-${id}.jpg`,
+    width: 1024,
+    height: 1024,
+    beforeImageUrl: null,
+    downloadUrl: null,
+    attribution:
+      overrides.sourceKind === 'upload'
+        ? null
+        : { text: 'Google Maps · © 2026 Google', logo: 'google_maps' },
     ...overrides,
   };
 }
@@ -157,4 +192,9 @@ export function apiError(
     buildErrorBody(code, { requestId: 'req-test', details: options.details as never }),
     options.retryAfter ?? null,
   );
+}
+
+/** Text with its non-breaking spaces read as plain spaces. */
+export function plainSpaces(text: string | null | undefined): string {
+  return (text ?? '').replace(/\u00a0/g, ' ');
 }

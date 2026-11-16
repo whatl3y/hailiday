@@ -1,17 +1,17 @@
-import { createServerContext, type ServerContext } from '@holiday/server';
-import type { Clock } from '@holiday/server/clock';
-import { testConfig, type AppConfig } from '@holiday/server/config';
-import type { FixtureEmailSender } from '@holiday/server/email';
-import { createSilentLogger, type Logger } from '@holiday/server/logger';
-import { runRenderJob, seedPipelineTestContent, type PipelineDeps } from '@holiday/server/pipeline';
-import { createProviders } from '@holiday/server/providers';
+import { createServerContext, type ServerContext } from '@hailiday/server';
+import type { Clock } from '@hailiday/server/clock';
+import { testConfig, type AppConfig } from '@hailiday/server/config';
+import type { FixtureEmailSender } from '@hailiday/server/email';
+import { createSilentLogger, type Logger } from '@hailiday/server/logger';
+import {
+  runRenderJob,
+  seedPipelineTestContent,
+  type PipelineDeps,
+} from '@hailiday/server/pipeline';
+import { createProviders } from '@hailiday/server/providers';
 import type { LightMyRequestResponse } from 'fastify';
 import { buildServer, type ApiServer } from '../server.js';
-
-export const TEST_BUCKETS = {
-  S3_PRIVATE_BUCKET: 'test-api-private',
-  S3_PUBLIC_BUCKET: 'test-api-public',
-} as const;
+import { TEST_BUCKETS } from './buckets.js';
 
 export const OPERATOR_EMAIL = 'ops@example.com';
 
@@ -40,12 +40,12 @@ export interface RequestInput {
 export interface TestClientOptions {
   /** The socket address requests come from (the API trusts no proxy header in tests). */
   remoteAddress?: string;
-  /** A `holiday_device` cookie to start with, so several sessions share one browser. */
+  /** A `hailiday_device` cookie to start with, so several sessions share one browser. */
   deviceCookie?: string | null;
 }
 
 /**
- * An inject client with a cookie jar (the session and the `holiday_device` cookie, as a browser
+ * An inject client with a cookie jar (the session and the `hailiday_device` cookie, as a browser
  * keeps them) and the app origin on every request.
  */
 export class TestClient {
@@ -65,8 +65,8 @@ export class TestClient {
     const headers: Record<string, string> = { ...(input.headers ?? {}) };
     if (!input.noOrigin) headers.origin ??= this.harness.config.publicBaseUrl;
     const jar = [
-      ...(this.cookie ? [`holiday_session=${this.cookie}`] : []),
-      ...(this.deviceCookie ? [`holiday_device=${this.deviceCookie}`] : []),
+      ...(this.cookie ? [`hailiday_session=${this.cookie}`] : []),
+      ...(this.deviceCookie ? [`hailiday_device=${this.deviceCookie}`] : []),
     ];
     if (jar.length > 0) headers.cookie = jar.join('; ');
     const response = await this.harness.server.app.inject({
@@ -76,9 +76,9 @@ export class TestClient {
       ...(this.remoteAddress ? { remoteAddress: this.remoteAddress } : {}),
       ...(input.payload !== undefined ? { payload: input.payload as object } : {}),
     });
-    const session = response.cookies.find((cookie) => cookie.name === 'holiday_session');
+    const session = response.cookies.find((cookie) => cookie.name === 'hailiday_session');
     if (session) this.cookie = session.value || null;
-    const device = response.cookies.find((cookie) => cookie.name === 'holiday_device');
+    const device = response.cookies.find((cookie) => cookie.name === 'hailiday_device');
     if (device) this.deviceCookie = device.value || null;
     return response;
   }
@@ -118,7 +118,7 @@ export class TestClient {
   }
 }
 
-/** Builds the API against `holiday_test`, the `test-api-*` buckets and fixture providers. */
+/** Builds the API against `hailiday_test`, the `test-api-*` buckets and fixture providers. */
 export async function createHarness(
   options: {
     overrides?: Record<string, string>;

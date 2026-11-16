@@ -1,4 +1,4 @@
-import type { HolidayPack, SceneType, Style } from '@holiday/core';
+import type { HolidayPack, SceneType, Style } from '@hailiday/core';
 import {
   compilePlan,
   type CompileContent,

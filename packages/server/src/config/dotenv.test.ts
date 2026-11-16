@@ -17,7 +17,7 @@ afterEach(() => {
 });
 
 function workspace(envContent: string | null): string {
-  const dir = mkdtempSync(path.join(tmpdir(), 'holiday-dotenv-'));
+  const dir = mkdtempSync(path.join(tmpdir(), 'hailiday-dotenv-'));
   dirs.push(dir);
   writeFileSync(path.join(dir, 'pnpm-workspace.yaml'), 'packages: []\n');
   if (envContent !== null) writeFileSync(path.join(dir, '.env'), envContent);
@@ -28,8 +28,8 @@ function workspace(envContent: string | null): string {
 describe('applyEnvFile', () => {
   it('fills unset variables from the file and keeps values set in the shell', () => {
     const env: Record<string, string | undefined> = { LOG_LEVEL: 'debug' };
-    const result = applyEnvFile(env, 'LOG_LEVEL=info\nPORT=3000\nEMAIL_FROM="Holiday <a@b.c>"\n');
-    expect(env).toMatchObject({ LOG_LEVEL: 'debug', PORT: '3000', EMAIL_FROM: 'Holiday <a@b.c>' });
+    const result = applyEnvFile(env, 'LOG_LEVEL=info\nPORT=3000\nEMAIL_FROM="Hailiday <a@b.c>"\n');
+    expect(env).toMatchObject({ LOG_LEVEL: 'debug', PORT: '3000', EMAIL_FROM: 'Hailiday <a@b.c>' });
     expect(result.applied.sort()).toEqual(['EMAIL_FROM', 'PORT']);
   });
 

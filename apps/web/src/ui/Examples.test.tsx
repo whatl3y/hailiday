@@ -29,12 +29,12 @@ afterEach(() => {
 });
 
 describe('example cards', () => {
-  it('keep the AI preview badge in the lower-right corner (examples carry no burned-in credit)', () => {
+  it('keep the AI preview badge in the lower-right corner (examples are never Street View frames)', () => {
     const { container } = render(<ExampleGallery holidayId="christmas" />);
     const corner = container.querySelector<HTMLElement>('.image-card__corner');
     expect(corner?.textContent).toBe('AI preview');
     expect(corner?.classList.contains('image-card__corner--lower-right')).toBe(true);
-    expect(corner?.classList.contains('image-card__corner--lower-left')).toBe(false);
+    expect(corner?.classList.contains('image-card__corner--upper-left')).toBe(false);
   });
 
   it('describe the before and AI preview images differently from the caption and toggle', () => {

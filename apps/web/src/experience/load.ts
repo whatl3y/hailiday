@@ -1,4 +1,4 @@
-import { detectClientTimeZone, type HolidayId } from '@holiday/core';
+import { detectClientTimeZone, type HolidayId } from '@hailiday/core';
 import { analytics } from '../analytics';
 import { getExperience, hasSession, onSessionReady } from '../api/endpoints';
 import { currentHolidayId, useAppStore } from '../state/appStore';

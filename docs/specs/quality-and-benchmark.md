@@ -1,13 +1,13 @@
 # Quality evaluation and benchmark specification
 
-This specification defines how Holiday measures the quality of AI-decorated previews and how those measurements feed the gates: what "good" means, which photographs may be used to measure it, how the exploratory spike and the formal benchmark are run, how human reviewers score outputs, how the numbers are read, how the image-edit provider is chosen, how the automated QA judge is calibrated, and how the built pipeline, the live Street View path and the private pilot are evaluated. Engineers and coding agents build the benchmark harness and the review tooling from this document; the product owner reads the decision rules to understand what each gate requires.
+This specification defines how Hailiday measures the quality of AI-decorated previews and how those measurements feed the gates: what "good" means, which photographs may be used to measure it, how the exploratory spike and the formal benchmark are run, how human reviewers score outputs, how the numbers are read, how the image-edit provider is chosen, how the automated QA judge is calibrated, and how the built pipeline, the live Street View path and the private pilot are evaluated. Engineers and coding agents build the benchmark harness and the review tooling from this document; the product owner reads the decision rules to understand what each gate requires.
 
 **Owns:** quality goals; permissioned corpus; exploratory spike; formal benchmark (arms, cohorts); review rubric; statistics and decision rules; provider comparison; QA judge calibration; production re-benchmark; live Street View validation; pilot evaluation.
 **Baseline:** planning baseline 2026-11-09; external facts retrieved 2026-11-08.
 
 ## Quality goals
 
-Holiday decorates real photographs. Every quality goal below is therefore a statement about the relationship between a source image and its accepted variant. The goals are measured by human review (this document), approximated by the automated QA judge ([render pipeline: quality checks](render-pipeline.md#quality-checks)), and summarized for the product owner in [PLAN §10](../PLAN.md#10-quality-bar-and-release-criteria).
+Hailiday decorates real photographs. Every quality goal below is therefore a statement about the relationship between a source image and its accepted variant. The goals are measured by human review (this document), approximated by the automated QA judge ([render pipeline: quality checks](render-pipeline.md#quality-checks)), and summarized for the product owner in [PLAN §10](../PLAN.md#10-quality-bar-and-release-criteria).
 
 ### Definitions
 
@@ -33,12 +33,12 @@ No judge, metric or reviewer can prove a property unchanged. Evaluation estimate
 flowchart LR
     K[Permissioned corpus<br/>rights records loaded] --> S[Exploratory spike<br/>tuning set only]
     S -->|frozen configuration v1| F[Formal benchmark<br/>provider arms, cohorts,<br/>SV-shaped arm, lighting arm]
-    F --> GA{Gate A<br/>provider decision D-42<br/>lighting defaults D-10<br/>latency range D-14}
+    F --> GA{Gate A<br/>provider decision D-42<br/>latency range D-14}
     GA --> C[QA judge calibration<br/>labeled set + seeded failures]
     C --> R[Production pipeline re-benchmark<br/>held-out set + sample]
     R --> GC{Gate C}
     GC --> P[Private pilot<br/>10–15 adults, needs_review on]
-    GC -.->|only under a grant or<br/>evaluation allowance,<br/>street_view_ai in live_private| L[Live Street View validation]
+    GC -.->|only under a grant,<br/>evaluation allowance or the<br/>owner decision of 2026-11-10,<br/>street_view_ai in live_private| L[Live Street View validation]
     P --> GD{Gate D<br/>review-mode switch}
     L --> GD
 ```
@@ -47,7 +47,7 @@ Evidence from fixtures and permissioned photos is always labeled as such. It nev
 
 ## Permissioned corpus
 
-The corpus is the set of photographs Holiday may process, store and evaluate under written permission. It is the only image input to the exploratory spike, the formal benchmark, judge calibration and the production re-benchmark. Customer uploads and production outputs never enter it.
+The corpus is the set of photographs Hailiday may process, store and evaluate under written permission. It is the only image input to the exploratory spike, the formal benchmark, judge calibration and the production re-benchmark. Customer uploads and production outputs never enter it.
 
 ### Composition
 
@@ -173,7 +173,7 @@ The model bake-off (`pnpm models:bakeoff`, [development](../development.md#model
 
 ## Formal benchmark
 
-The formal benchmark compares provider arms on identical inputs under the frozen configuration and produces the evidence for Gate A: provider selection ([D-42](../decisions.md#d-42)), lighting defaults ([D-10](../decisions.md#d-10)), the latency range ([D-14](../decisions.md#d-14)) and the cost check.
+The formal benchmark compares provider arms on identical inputs under the frozen configuration and produces the evidence for Gate A: provider selection ([D-42](../decisions.md#d-42)), the lighting arm's report to the owner ([D-10](../decisions.md#d-10)), the latency range ([D-14](../decisions.md#d-14)) and the cost check.
 
 ### Arms, cohorts and cases
 
@@ -184,10 +184,10 @@ A **provider arm** is one image-edit model at one frozen settings profile (quali
 | Formal set | 40 (10 per cohort) | Halloween, Thanksgiving, Christmas packs at `classic`, lighting `source` | 120 |
 | Street View-shaped arm | 30 (SV-shaped copies of the 20 formal house exteriors plus the 10 additional curb-distance exteriors) | Same three packs, `source` | 90 |
 | Lighting arm | The 50 exterior photos above (20 formal house exteriors as taken and the 30 SV-shaped photos) | Christmas and Halloween at `classic`, lighting `evening` | 100 |
-| Interior lighting check | The 10 formal interiors | Thanksgiving and Christmas at `classic`, lighting `evening` | 20 |
+| Interior lighting check | The 10 formal interiors | Thanksgiving and Christmas at `classic`, lighting `bright` | 20 |
 | Total | | | 330 |
 
-Case identity is (source asset, holiday, style, lighting mode); a case's `source` and `evening` renders are paired for the lighting rule. The apartment entries and balconies cohort is rendered in `source` only: `apartment_entry` offers no `evening` in the US Release, and the `evening` cells the benchmark does not cover (balconies, Halloween interiors) are offered on golden-render approval under [holidays: lighting policy](holidays-and-content.md#lighting-policy).
+Case identity is (source asset, holiday, style, lighting mode); a case's `source` and `evening` renders are paired for the lighting rule. The apartment entries and balconies cohort is rendered in `source` only; the cells the benchmark does not cover (`evening` for balconies, for example) are offered on golden-render approval under [holidays: lighting policy](holidays-and-content.md#lighting-policy).
 
 ### Runs, repairs and variance
 
@@ -223,20 +223,20 @@ The rubric is shared by human reviewers and the automated QA judge: the same fai
 
 ### Critical failure codes
 
-Any critical code makes a render not critical-free and therefore not deliverable. Reviewers flag every code that applies.
+Any critical code makes a render not critical-free and therefore not deliverable. Reviewers flag every code that applies. The same codes judge the [enhancement](render-pipeline.md#enhancing) of a Street View frame, where image 1 is the frame and image 2 the enhanced picture: sharper detail, cleaner color, contrast and exposure and a clearer sky of the same weather and time of day are expected and never flagged, leaves, grass, gravel, shingles, bricks and cloud wisps are drawn anew by any enhancement and are not a failure, and a thing that a person comparing the two pictures would name as present in one and not the other, in another place, or different (a window, door, roof line, material, color, vehicle, object, plant, a sign that reads differently) is `structure_changed`, `text_added` or `unrequested_change` as for any other attempt; a faint provider watermark that the enhancement repainted is not flagged.
 
 | Code | Definition | Flag when, for example | Do not flag when |
 | --- | --- | --- | --- |
 | `structure_changed` | An architectural or layout element of the target is altered, added or removed: roof line, wall, window or door count, position, size or style, mullions, columns, steps, railings, chimneys, garage, siding or cladding type, or (interiors) walls, openings, built-ins, large furniture position | A window gains a mullion grid; a porch rail appears where none existed; brick becomes siding; a sofa moves | Decor hides part of an element without changing it; fine texture is sharper but the material and pattern are the same (note it under realism) |
 | `wrong_property` | The decorated building, unit or room is not the user's selected place, or decorations sit on a different structure in frame while the target is left alone | The neighbor's house is decorated and the target is not; a different facade is synthesized | The right property is decorated with low plan adherence (use `plan_not_followed`) |
 | `neighbor_decorated` | Decorations, lights or glow appear on an adjacent property, unit, balcony or shared element that is not the target | Garland continues onto the attached neighbor's railing; lights on the next-door roofline | Spill of cast light onto the ground or a shared sidewalk |
-| `access_blocked` | A door, step, walkway, driveway, stair, hallway, exit or circulation path is obstructed by decor | Pumpkins across the full width of the steps; a tree in front of the unit door; a garland across a hallway at head height | Decor beside the path leaves clear passage |
+| `access_blocked` | A door, step, walkway, driveway, stair, hallway, exit or circulation path is obstructed by decor | Pumpkins across the full width of the steps; a tree in front of the unit door; a garland across a hallway at head height | Decor beside the path leaves clear passage; a lantern or planter at the outer edge of a step, landing or path that leaves at least about two thirds of the width clear and stands neither in the walking line nor in front of a door |
 | `privacy_regression` | A region blurred or unidentifiable in the source becomes clearer, or a face, plate, person or house number is reconstructed or sharpened | A blurred plate shows characters; a blurred face gains features; a distant figure becomes recognizable | Blur remains at least as strong as in the source |
 | `people_altered` | A person in the source is moved, removed, re-posed, re-dressed or added, or a new person appears | A standing figure vanishes; a child is added at the table; a passer-by changes clothes | Decor partially occludes a person without changing them |
-| `text_added` | Legible text, signage, numbers or logos are added or altered, including house numbers and existing signs | A "Merry Christmas" banner; a changed house number; a brand name on a box | Illegible marks on decor |
+| `text_added` | Legible text, signage, numbers or logos are added or altered, including house numbers and existing signs | A "Merry Christmas" banner; a changed house number; a brand name on a box | Illegible marks on decor; a decoration beside or around a house number, sign or logo that leaves its text unaltered and readable; a mark too small to read in the original that a decoration covers; a mark a decoration covers (`open`) whose text still reads as in the original |
 | `unsafe_or_offensive` | Content beyond the pack's limits: gore beyond the Halloween pack limit, sexual content, hateful or extremist symbols, weapons, religious symbols not selected, content that appeals to children in a way the packs forbid | Realistic severed limbs; a religious symbol in a secular pack | Pack-approved spooky content within limits |
 | `camera_changed` | Framing, crop, zoom, rotation or perspective differs from the source beyond the pipeline's alignment threshold ([render pipeline: quality checks](render-pipeline.md#quality-checks)) | The output is zoomed so the eaves leave the frame; the horizon tilts | Identical framing with a changed sky in `evening` mode |
-| `attribution_altered` | Street View-origin outputs only: attribution burned into the source image, or attribution the product must show with it, is cropped, covered or altered ([address spec: before image and attribution](address-and-street-view.md#before-image-and-attribution)) | Garland drawn across an embedded logo strip; the copyright text is smeared or rewritten | Uploads and as-taken corpus photos (the code does not apply); attribution unchanged under an `evening` relight |
+| `attribution_altered` | Street View-origin outputs only: attribution burned into the source image, or attribution the product must show with it, is cropped, covered or altered ([address spec: before image and attribution](address-and-street-view.md#before-image-and-attribution)) | Garland drawn across an embedded logo strip; the copyright text is smeared or rewritten | Uploads and as-taken corpus photos (the code does not apply); attribution strokes unchanged, with the ground behind them following the new light, under an `evening` or `bright` relight; the loss of a faint semi-transparent provider watermark elsewhere in the picture under a relight, which repaints it |
 
 ### Major failure codes
 
@@ -244,7 +244,7 @@ Major codes count against acceptability, not against structural fidelity. One ma
 
 | Code | Definition | Flag when, for example | Do not flag when |
 | --- | --- | --- | --- |
-| `unrequested_change` | A visible change to what belongs to the home or the scene, outside what the lighting mode requires: an object removed, replaced, moved or restyled (including an object replaced by a decoration), repainting, new landscaping, added or removed snow, season change, removed or changed cars or bins, changed sky or weather in `source` mode, changed furniture finish, or any addition that is not a decoration | Lawn turns green in a winter photo; snow appears on a clear roof; a parked car disappears | The sky darkens in an `evening` render (expected); shadows and glow from placed lights; extra decorations of the requested holiday and style in sensible places |
+| `unrequested_change` | A visible change to what belongs to the home or the scene, outside what the lighting mode requires: an object removed, replaced, moved or restyled (including an object replaced by a decoration, except that outside a house a decoration of the requested holiday may take the place of a removable seasonal item at its spot: an existing wreath or door hanger, a potted plant, flower pot, planter or urn, a hanging basket, a seasonal flag or a doormat; [Judge](render-pipeline.md#judge)), repainting, new landscaping, added or removed snow, season change, removed or changed cars or bins, changed sky or weather in `source` mode, changed furniture finish, or any addition that is not a decoration | Lawn turns green in a winter photo; snow appears on a clear roof; a parked car disappears | The sky darkens in an `evening` render (expected); shadows and glow from placed lights; extra decorations of the requested holiday and style in sensible places; outside a house, a removable seasonal item replaced by a decoration at its spot |
 | `plan_not_followed` | Planned placements missing, of a different kind, holiday or style than the plan specifies, or clearly fewer than planned. Extra decorations of the requested holiday and style in sensible places, and a planned item in a different natural spot, are not `plan_not_followed` | Plan says one wreath on the front door; render has no wreath and no garland | Minor count deviation on repeated small items (string lights, small pumpkins) when the look matches |
 | `implausible_decor` | Decor floats, passes through objects, is at the wrong scale, has impossible attachment or missing contact shadows | A wreath hovers in front of the door; a 3 m pumpkin; garland that penetrates a column | Stylized but physically possible placement |
 | `lighting_implausible` | Light behavior is wrong for the mode: lit bulbs with no glow, glow with no source, shadows contradicting the scene, daylight-bright lights in `evening`, facade illegible in `evening` | Window glow with no window; roofline lights casting no light in `evening` mode | `source` mode shows unlit or faintly lit decor by day |
@@ -369,13 +369,15 @@ Applied per holiday (Christmas, Halloween) on the lighting arm, pairing each cas
 
 | Decision | Rule |
 | --- | --- |
-| `evening` is **offered** for the holiday's exteriors (the control appears after the first result) | `evening` critical-free rate observed ≥ 90% (45/50 → [78.6%, 95.7%]) **and** the paired excess critical rate of `evening` over `source` is at most 5 percentage points |
-| `evening` becomes the **default** for the holiday's exteriors | The offer rule passes **and** the appeal indicator for `evening` exceeds that for `source` by a paired difference whose 95% interval excludes zero **and** `evening` acceptability after repair meets the QA-7 floor on the lighting cases |
+| `evening` is **offered** for the holiday's exteriors | `evening` critical-free rate observed ≥ 90% (45/50 → [78.6%, 95.7%]) **and** the paired excess critical rate of `evening` over `source` is at most 5 percentage points |
+| `evening` is **reported as the better default** for the holiday's exteriors (the default itself is the owner's, below) | The offer rule passes **and** the appeal indicator for `evening` exceeds that for `source` by a paired difference whose 95% interval excludes zero **and** `evening` acceptability after repair meets the QA-7 floor on the lighting cases |
 | `evening` is **withheld** for the holiday's exteriors | The offer rule fails; the control is hidden for that holiday until a later benchmark version passes |
-| Interiors (`evening` for Thanksgiving and Christmas) | Offered when the interior lighting check is critical-free on at least 18 of 20 cases ([69.9%, 97.2%]: a smoke test); default stays `source` |
-| Default for Thanksgiving exteriors | `source` with no electric lights; not benchmarked in `evening` ([holidays: lighting policy](holidays-and-content.md#lighting-policy)) |
+| Interiors (`bright` for Thanksgiving and Christmas) | Reported as passing when the interior lighting check is critical-free on at least 18 of 20 cases ([69.9%, 97.2%]: a smoke test); a failed check is reported to the owner |
+| Defaults | The owner's ([D-10](../decisions.md#d-10)): `evening` for exteriors and balconies, Thanksgiving exteriors included, and `bright` for interiors and apartment entries ([holidays: lighting policy](holidays-and-content.md#lighting-policy)); a failed offer rule is reported to the owner |
 
-Default rule when the lighting arm is inconclusive: `source` remains the default and `evening` is offered only where the offer rule passed. New Year's Eve inherits the Christmas decision until its pack is benchmarked.
+**Owner decision of 2026-11-10 ([D-10](../decisions.md#d-10)).** The defaults are set by the owner, not by this rule: exteriors and balconies default to `evening` (offering `source`) in every pack, Thanksgiving exteriors included, and interiors and apartment entries offer `bright` only. The rule above stays as the way the lighting arm is measured and reported: a failed offer rule for a holiday's exteriors is reported to the owner and, if the owner agrees, withdraws `evening` for that holiday (a pack MINOR bump), and the interior lighting check measures `bright` instead of `evening`. A `bright` relight has one more deterministic check (not darker than its base) described in [render-pipeline.md](render-pipeline.md#quality-checks).
+
+Defaults are the owner's ([D-10](../decisions.md#d-10)); a failed offer rule is reported to the owner, and an inconclusive lighting arm changes no default. New Year's Eve inherits the Christmas report until its pack is benchmarked.
 
 ### Latency and the D-14 range
 
@@ -413,6 +415,10 @@ A second arm that passed is kept as a benchmarked alternative for resilience; sw
 
 The automated quality check has two parts: deterministic checks (alignment, out-of-region difference, blur and face/plate region preservation, dimensions, text detection) and a vision-language judge that returns a JudgeResult with critical and major codes, per-placement adherence and a confidence ([render pipeline: quality checks](render-pipeline.md#quality-checks)). The pipeline owns the decision policy; this section owns the calibration protocol and the targets the judge must meet before it gates delivery.
 
+### Enhance mode
+
+The judge has a third mode for the enhancement of a stored Street View frame ([render pipeline: Judge](render-pipeline.md#judge)), with its own system prompt (`judge-2026.11.10`, the one version string of every judge mode), two images (the frame and the restored candidate) and a decision rule without escalation or reviewer: a critical code at or above `Tu` (0.4) and a major code at or above `Tm` (0.7) reject the enhancement, which is then final for the frame and the release. Its calibration is the same protocol on its own labeled set: enhanced pictures of recorded Street View frames, accepted and rejected, plus seeded failures (a replaced porch, replaced dormers, a moved or enlarged object, a redrawn house number or sign, a blurred plate made clear, an attribution mark altered). Until that set exists the mode's behavior is unmeasured: it ran on no live enhanced picture before the first live address, which it accepted with no finding, and the two paragraphs of its prompt ("judge things, not pixels" and the sky) and the 0.4 floor are the dials to read against the first rejections. Every enhancement records its judge document, deterministic checks and lowest structure tile in `source_enhancements`, so the first live week shows how many are accepted and why the others are not.
+
 ### Labeled set
 
 - **Benchmark labels.** Every adjudicated attempt from the formal benchmark (run 1, repairs and run 2, all arms) with its human codes. At a 10% critical rate this yields on the order of 200 critical positives across three arms, unevenly spread over codes.
@@ -425,7 +431,7 @@ The automated quality check has two parts: deterministic checks (alignment, out-
 
 | Metric | Definition | Target (default, configuration) | Required denominator |
 | --- | --- | --- | --- |
-| Critical recall | Share of human-labeled critical renders the quality checks reject (a deterministic critical code, a judge critical code at confidence ≥ `Tc`, or a verdict still uncertain after escalation, which automated mode rejects) | observed ≥ 0.95 with Wilson lower bound ≥ 0.90 (143/150 → [90.7%, 97.7%]) | at least 150 critical positives |
+| Critical recall | Share of human-labeled critical renders the quality checks reject (a deterministic critical code, a judge critical code at confidence ≥ `Tc`, or a verdict still uncertain after escalation, which is rejected unless it is only a doubt about a detail of the home that the decision policy delivers; an attempt rejected with no repair after it is rejected unless its objected spots are put back and the restored picture is delivered, and an attempt that failed only because a repair was open is delivered as it stands when the repair yields no picture; a delivered doubt, or a restored picture, on a render a human labeled critical counts as a miss) | observed ≥ 0.95 with Wilson lower bound ≥ 0.90 (143/150 → [90.7%, 97.7%]) | at least 150 critical positives |
 | Per-code recall | Recall for each critical code | ≥ 0.90 for every code with at least 15 positives; codes with fewer are reported, not gated | 15 per code |
 | Precision | Share of judge rejections that humans also labeled not acceptable (critical or major) | ≥ 0.70 | all rejections in the held-back third |
 | Deterministic checks | Recall of `camera_changed`, `privacy_regression`, `text_added` and `attribution_altered` on seeded failures | ≥ 0.95 each | seeded set |
@@ -437,7 +443,7 @@ Recall is the gating metric because a missed critical failure reaches a user, wh
 
 ### Uncertainty band
 
-The judge's per-code confidence is split by the thresholds of the render spec's decision policy ([render pipeline: quality checks](render-pipeline.md#quality-checks)): a critical code at or above `Tc` rejects, a critical code in [`Tu`, `Tc`) is **uncertain**, a critical code below `Tu` is recorded and ignored, and `Tm` is the reject threshold for major codes. Calibration chooses, on the selection split, the (`Tc`, `Tu`) pair that meets the recall target with the smallest uncertain share, checks `Tm` against the precision target, and records the three values as configuration in place of the seeded defaults. The decision policy, not this section, says what happens to an uncertain verdict (one escalation, then `needs_review` in `pre_delivery` mode or a rejection in `sampled_audit` mode). The thresholds are recalibrated whenever a trigger below fires.
+The judge's per-code confidence is split by the thresholds of the render spec's decision policy ([render pipeline: quality checks](render-pipeline.md#quality-checks)): a critical code at or above `Tc` rejects, a critical code in [`Tu`, `Tc`) is **uncertain**, a critical code below `Tu` is recorded and ignored, and `Tm` is the reject threshold for major codes. Calibration chooses, on the selection split, the (`Tc`, `Tu`) pair that meets the recall target with the smallest uncertain share, checks `Tm` against the precision target, and records the three values as configuration in place of the seeded defaults. The decision policy, not this section, says what happens to an uncertain verdict: one escalation, then `needs_review` in `pre_delivery` mode; otherwise a doubt that is only about a detail of the home (`structure_changed`, `access_blocked`, `text_added` or `camera_changed`) is delivered when no repair can follow, or when the look is to be relit and a repair would leave too little time for the relight, and any other doubt, one about people, privacy, safety, the attribution, which home it is or a neighboring home, is repaired or rejected ([render pipeline: decision policy](render-pipeline.md#decision-policy)). An attempt rejected with no repair after it is not rejected outright when every critical objection is a boxed spot, no deterministic code is present and none is a code about the whole picture (`wrong_property`, `camera_changed`, `unsafe_or_offensive`, `attribution_altered`): its spots are put back from the original, and the picture is delivered as a doubt when at least 40% of the decorations' area remains, one planned placement keeps 60% of its region and its deterministic checks report no code (a confident major finding without a box is recorded, not put back, and so are boxed majors when putting their boxes back would leave too little); the doubted spots of a doubt that is delivered are put back the same way when at least 85% of the decorations remain. The judge does not see the restored picture, so the restore is recorded on the attempt (`composite_mask.restored`) ([render pipeline: decision policy](render-pipeline.md#decision-policy)). Delivering a doubt, or a picture with its spots put back, is a deliberate trade, so the uncertain share and the human labels of delivered doubts and restored pictures are reported together. The thresholds are recalibrated whenever a trigger below fires.
 
 ### Judge model selection (D-43)
 
@@ -480,7 +486,7 @@ Sources enter as source assets of kind `fixture`; `image_editing` and `vision_an
 | Paired regression, formal sample and SV-shaped sample | Paired difference in critical rate (pipeline minus harness) with its interval; **regression** = interval excludes zero in the worse direction, or any critical code appears in 3 or more cases where the harness render had none | Blocks Gate C until fixed and re-run |
 | Deterministic checks | All seeded regression fixtures (alignment, blur preservation, text, dimensions, embedded attribution) are caught | Blocks Gate C |
 | Judge agreement | Judge recall and precision on the re-benchmark outputs meet the calibration targets | Blocks automated delivery; pilot proceeds in `needs_review` |
-| Compositing parity | Before and after delivered at identical rendered size; `source` mode restores pixels outside the keep-mask (plan shapes and localized decorations); `evening` mode skips paste-back and relights the daylight variant as specified | Blocks Gate C |
+| Compositing parity | Before and after delivered at identical rendered size; `source` mode restores pixels outside the keep-mask (plan shapes and localized decorations), and the surroundings of a house number, sign or logo that the editor left alone (`grown` or `exact`; one a decoration covers or surrounds stays `open` and is judged, see [render pipeline, compositing](render-pipeline.md#compositing-algorithm-source-mode)); `evening` mode skips paste-back and relights the daylight variant as specified | Blocks Gate C |
 | Latency | Production D-14 metric on these jobs without queue wait is within the Gate A target; the loaded figure comes from the capacity test in [architecture: capacity and admission control](../architecture.md#capacity-and-admission-control) | Blocks Gate C if the unloaded p90 exceeds the target |
 | Cost | Cost per accepted variant from the real ledger within the economics ceiling | Blocks Gate C |
 | Provenance | Delivered files carry the label and metadata required by D-28 ([render pipeline: provenance and labeling](render-pipeline.md#provenance-and-labeling)) | Blocks Gate C |
@@ -489,7 +495,7 @@ A subset re-benchmark (the formal sample and SV-shaped sample only) is repeated 
 
 ## Live Street View validation
 
-The formal benchmark approximates Street View inputs; it cannot measure them. Live validation runs only when `street_view_ai` is `live_private` under a recorded grant or a written evaluation allowance recorded under [D-15](../decisions.md#d-15), in the source mode the record allows ([address spec: licensing outcomes and activation](address-and-street-view.md#licensing-outcomes-and-activation)). Before that, the exterior path's quality evidence is the SV-shaped arm, labeled as a proxy. Fixture evidence is never counted as live.
+The formal benchmark approximates Street View inputs; it cannot measure them. Live validation runs when `street_view_ai` is `live_private` or `live_public` under a recorded grant, a written evaluation allowance or the owner decision of 2026-11-10 recorded under [D-15](../decisions.md#d-15) (the default `STREET_VIEW_USE_POLICY=full` runs decoration without a grant, at the owner's accepted risk, so this validation measures real output rather than gating it), in the source mode the record allows ([address spec: licensing outcomes and activation](address-and-street-view.md#licensing-outcomes-and-activation)). Before that, the exterior path's quality evidence is the SV-shaped arm, labeled as a proxy. Fixture evidence is never counted as live.
 
 ### Sample
 
@@ -505,7 +511,7 @@ The formal benchmark approximates Street View inputs; it cannot measure them. Li
 | Structural fidelity | QA-4 on the 90 live cases, scored by the benchmark reviewers | Pass as QA-4; the live rate is compared with the SV-shaped prediction and the recipe is adjusted for later benchmark versions |
 | Acceptability | QA-8 and QA-9 on the live cases | Pass as QA-8 and QA-9 |
 | Privacy preservation | `privacy_regression` and `people_altered` codes; deterministic blur-region check against the fetched source | Zero occurrences; any occurrence is a stop condition for `live_public` |
-| Attribution | Deterministic check that any burned-in attribution in the fetched image is unaltered in the output (`attribution_altered` otherwise), and that the displayed attribution follows [address spec: before image and attribution](address-and-street-view.md#before-image-and-attribution) | 100%; zero `attribution_altered` among delivered outputs |
+| Attribution | Deterministic check that any burned-in attribution in the fetched image is unaltered in the output (`attribution_altered` otherwise; in a relight the validated logo and copyright strokes, found inside each mark's place, are compared pixel for pixel, the ground behind them may follow the new light, and the loss of a faint provider watermark elsewhere in the picture is not reported), and that the displayed attribution follows [address spec: before image and attribution](address-and-street-view.md#before-image-and-attribution) | 100%; zero `attribution_altered` among delivered outputs |
 | Blur propagation | **Verify:** that panoramas with owner-requested whole-house blur appear blurred in Static API responses (Google states blurs apply to all copies of published imagery, https://www.google.com/streetview/privacy/, retrieved 2026-11-08, without naming the Static API); owner: engineering lead, during this validation | A blurred-house location, if one is found, must end before any paid edit as the address spec requires (`failureKind` `source_rejected`, `failureDetail` `owner_blurred`; [address spec: panorama changes, blur and takedown](address-and-street-view.md#panorama-changes-blur-and-takedown)) and render nothing identifiable |
 | Latency | Production D-14 metric on these jobs; discovery time (`sourceReadyAt` − address selection) reported separately | Within the Gate A target |
 | Cost | Google SKU charges per location (metadata, Static fetches, Geocoding) and attempts per accepted variant | Reported against [economics: cost worksheet](economics.md#cost-worksheet) |
@@ -516,6 +522,10 @@ The formal benchmark approximates Street View inputs; it cannot measure them. Li
 - `auto_start` rendering on the public address path (`street_view_ai` = `live_public` with automatic start for `auto_start` matches) is enabled only when property correctness, structural fidelity, acceptability and privacy preservation all pass on the live sample.
 - Otherwise the address path operates **confirm-first**: every match is treated as `confirm`, the quality notice and the photo-upload alternative are shown before rendering, and the product owner records in the decision log whether to keep confirm-first or to accept a relaxed, labeled threshold. Street View stays in the product in either branch; the mechanism is the match-class thresholds in the address spec.
 - The provisional provider selection for the Street View path (D-42) is confirmed or re-opened by this result.
+
+### Enhancement acceptance (unmeasured)
+
+The [enhancement](render-pipeline.md#enhancing) of each live Street View frame is one more observation of this validation: the acceptance rate of the judge on real enhanced pictures is not measured. It was tried live on three recorded frames and on the first address of 2026-11-11 (accepted in 26 s, no judge finding), which is too few to read a rate. Read after the first ten new addresses on the owner's stack: the counts of `accepted`, `rejected` and `failed` rows in `source_enhancements`; every rejection's codes, judge evidence and `checks` (the lowest structure tile and the raw output under `attempts/`); and, for one accepted address, "Before" and the look at full size: the house, its windows and door, the neighbors, vehicles, the two Google marks and any house number. The structure thresholds rest on three frames (the tile correlation floor of 0.35 has a margin of 0.22 to the lowest good tile). Looks made on an enhanced picture are scored as any other live case, against the enhanced picture as the base of the paste-back.
 
 ## Pilot evaluation
 

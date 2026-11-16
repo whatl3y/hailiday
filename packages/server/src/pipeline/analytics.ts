@@ -1,4 +1,4 @@
-import { parseAnalyticsProperties, type AnalyticsEventName } from '@holiday/core';
+import { parseAnalyticsProperties, type AnalyticsEventName } from '@hailiday/core';
 import type { Clock } from '../clock/index.js';
 import type { AppConfig } from '../config/index.js';
 import { toJson, type DbOrTx } from '../db/client.js';

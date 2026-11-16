@@ -1,5 +1,5 @@
 import { useId, useState } from 'react';
-import { ROOM_TYPES, SCENE_TYPES, type RoomType, type SceneType } from '@holiday/core';
+import { ROOM_TYPES, SCENE_TYPES, type RoomType, type SceneType } from '@hailiday/core';
 import { sceneTypeLabel, t } from '../../copy';
 
 export interface SceneChoice {
@@ -11,7 +11,11 @@ function roomLabel(roomType: RoomType): string {
   return sceneTypeLabel('interior', roomType);
 }
 
-/** "What's in this photo?": the four scene types, then the room type for `interior`. */
+/**
+ * "What's in this photo?": the four scene types, then the room type for `interior`. A choice the
+ * person may change (`required` false) marks the current scene type. A required choice marks
+ * nothing, so it reads as a question: the person taps what the photo shows.
+ */
 export function SceneChooser({
   value,
   required,
@@ -23,7 +27,8 @@ export function SceneChooser({
 }) {
   const headingId = useId();
   const roomHeadingId = useId();
-  const [pendingInterior, setPendingInterior] = useState(value?.sceneType === 'interior');
+  const current = required ? null : value;
+  const [pendingInterior, setPendingInterior] = useState(current?.sceneType === 'interior');
 
   return (
     <div className={required ? 'scene-chooser scene-chooser--required' : 'scene-chooser'}>
@@ -39,7 +44,7 @@ export function SceneChooser({
             aria-pressed={
               sceneType === 'interior'
                 ? pendingInterior
-                : value?.sceneType === sceneType && !pendingInterior
+                : current?.sceneType === sceneType && !pendingInterior
             }
             onClick={() => {
               if (sceneType === 'interior') {
@@ -65,7 +70,7 @@ export function SceneChooser({
                 key={roomType}
                 type="button"
                 className="chip"
-                aria-pressed={value?.sceneType === 'interior' && value.roomType === roomType}
+                aria-pressed={current?.sceneType === 'interior' && current.roomType === roomType}
                 onClick={() => onChoose({ sceneType: 'interior', roomType })}
               >
                 <span className="cap-first">{roomLabel(roomType)}</span>

@@ -1,8 +1,8 @@
 import { createHash } from 'node:crypto';
-import { parseAnalyticsProperties, type AnalyticsEventName } from '@holiday/core';
-import type { AuditActorKind } from '@holiday/core';
-import { toJson, toJsonOrNull, type DbOrTx } from '@holiday/server/db';
-import { formatUuidV7, newId } from '@holiday/server/ids';
+import { parseAnalyticsProperties, type AnalyticsEventName } from '@hailiday/core';
+import type { AuditActorKind } from '@hailiday/core';
+import { toJson, toJsonOrNull, type DbOrTx } from '@hailiday/server/db';
+import { formatUuidV7, newId } from '@hailiday/server/ids';
 import type { ApiDeps } from '../deps.js';
 import { sessionHashOf } from '../auth/session.js';
 

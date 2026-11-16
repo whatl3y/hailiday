@@ -1,15 +1,19 @@
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { CreateShareResponseSchema, CreateUploadResponseSchema, type Project } from '@holiday/core';
-import { renderFixturePanorama } from '@holiday/server/fixtures';
-import { sha256Hex } from '@holiday/server/ids';
+import {
+  CreateShareResponseSchema,
+  CreateUploadResponseSchema,
+  type Project,
+} from '@hailiday/core';
+import { renderFixturePanorama } from '@hailiday/server/fixtures';
+import { sha256Hex } from '@hailiday/server/ids';
 import {
   createRenderJobRecord,
   fixturePlace,
   screenUpload,
   validateUpload,
-} from '@holiday/server/pipeline';
-import { keys } from '@holiday/server/storage';
+} from '@hailiday/server/pipeline';
+import { keys } from '@hailiday/server/storage';
 import { createHarness, json, type Harness, type TestClient } from './test/harness.js';
 import { operatorClient, signInSameSession } from './test/operator.js';
 import { adoptStreetViewProject, ownerIdOf } from './test/projects.js';

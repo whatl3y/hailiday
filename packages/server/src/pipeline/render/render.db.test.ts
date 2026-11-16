@@ -31,6 +31,7 @@ const PLACES = {
   moderation: 'ChIJfxCornflowerRoadFarmh09',
   noAnchors: 'ChIJfxHemlockRidgeRanchXX10',
   blurred: 'ChIJfxSitkaSpruceBungalow12',
+  dusk: 'ChIJfxOrchardBluffColonia11',
 };
 
 let deps: PipelineDeps & { close(): Promise<void> };
@@ -275,6 +276,76 @@ describe('render job, Street View fixture place', () => {
     expect(plans[1]?.compiledInstruction).toContain('Relight this exact photograph');
   });
 
+  it('delivers an evening look of a dusk photo as photographed, with one edit and no relight', async () => {
+    const { ownerId, projectId, source } = await createStreetViewSource(deps, {
+      placeId: PLACES.dusk,
+    });
+    const job = await createRenderJobRecord(deps, {
+      ownerId,
+      projectId,
+      source,
+      holidayId: 'halloween',
+      style: 'abundant',
+      lightingMode: 'evening',
+    });
+    expect(await runRenderJob(deps, { renderJobId: job.id })).toEqual({
+      state: 'succeeded',
+      stopped: false,
+    });
+    expect(await readJob(deps.db, job.id)).toMatchObject({ attemptCount: 1, repairUsed: false });
+
+    const attempts = await deps.db
+      .selectFrom('renderAttempts')
+      .selectAll()
+      .where('jobId', '=', job.id)
+      .execute();
+    expect(attempts.map((a) => [a.attemptNo, a.outcome, a.fidelityMode])).toEqual([
+      [1, 'succeeded', 'composite_additive'],
+    ]);
+    expect(attempts[0]?.fallback).toEqual({
+      kind: 'relight_skipped',
+      reason: 'not_daylight',
+      timeOfDay: 'dusk',
+    });
+    const plans = await deps.db
+      .selectFrom('decorationPlans')
+      .selectAll()
+      .where('jobId', '=', job.id)
+      .execute();
+    expect(plans).toHaveLength(1);
+    expect((plans[0]?.document as { lightingMode?: string }).lightingMode).toBe('source');
+    expect(plans[0]?.compiledInstruction).not.toContain('Relight');
+
+    // One evening result and no daylight companion job or variant.
+    const assets = await deps.db
+      .selectFrom('renderAssets')
+      .selectAll()
+      .where('projectId', '=', projectId)
+      .execute();
+    expect(assets).toHaveLength(1);
+    expect(assets[0]).toMatchObject({
+      jobId: job.id,
+      style: 'abundant',
+      lightingMode: 'evening',
+      fidelityMode: 'composite_additive',
+    });
+    const jobs = await deps.db
+      .selectFrom('renderJobs')
+      .select('id')
+      .where('projectId', '=', projectId)
+      .execute();
+    expect(jobs.map((row) => row.id)).toEqual([job.id]);
+
+    // An evening look is reserved as one that decorates its own base (three edits). One image
+    // edit is charged; the other two reserved edits are released.
+    const ledger = await ledgerFor(job.id);
+    const edits = ledger.filter((row) => row.sku === 'image_edit_attempt');
+    expect(edits.filter((row) => row.kind === 'reservation')).toHaveLength(3);
+    expect(edits.filter((row) => row.kind === 'settlement')).toHaveLength(1);
+    expect(edits.filter((row) => row.kind === 'release')).toHaveLength(2);
+    expect(await openReservationIds(job.id)).toEqual([]);
+  });
+
   it('repairs once after a repairable QA failure and then succeeds', async () => {
     const { ownerId, projectId, source } = await createStreetViewSource(deps, {
       placeId: PLACES.repair,
@@ -427,13 +498,13 @@ describe('render job, Street View fixture place', () => {
 });
 
 describe('Street View source modes', () => {
-  it('marks a transient source stale when the refetched frame changed', async () => {
+  it('renders a transient source on a refetched frame with other bytes than its previous attempt', async () => {
     const { ownerId, projectId, source } = await createStreetViewSource(deps, {
       placeId: PLACES.showcase,
     });
     const first = await createRenderJobRecord(deps, { ownerId, projectId, source });
     expect((await runRenderJob(deps, { renderJobId: first.id })).state).toBe('succeeded');
-    // The imagery behind the pinned panorama changed since the last attempt.
+    // The previous attempt worked on a frame with other bytes than the next fetch returns.
     await deps.db
       .updateTable('renderAttempts')
       .set({ sourceChecksumSha256: 'a'.repeat(64) })
@@ -445,18 +516,13 @@ describe('Street View source modes', () => {
       source,
       holidayId: 'halloween',
     });
-    expect((await runRenderJob(deps, { renderJobId: second.id })).state).toBe('failed');
-    expect(await readJob(deps.db, second.id)).toMatchObject({
-      failureKind: 'source_unavailable',
-      attemptCount: 0,
-    });
-    const stale = await deps.db
+    expect((await runRenderJob(deps, { renderJobId: second.id })).state).toBe('succeeded');
+    const row = await deps.db
       .selectFrom('sourceAssets')
       .selectAll()
       .where('id', '=', source.id)
       .executeTakeFirstOrThrow();
-    expect(stale.state).toBe('stale');
-    expect(stale.staleAt).toBeInstanceOf(Date);
+    expect(row).toMatchObject({ state: 'ready', staleAt: null });
   });
 
   it('stores the frame and the working image in persist mode', async () => {

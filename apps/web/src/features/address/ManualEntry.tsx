@@ -1,5 +1,5 @@
 import { useEffect, useId, useState, type FormEvent } from 'react';
-import { GeocodeRequestSchema, type GeocodeCandidate } from '@holiday/core';
+import { GeocodeRequestSchema, type GeocodeCandidate } from '@hailiday/core';
 import { geocodeAddress } from '../../api/endpoints';
 import { presentError } from '../../api/present';
 import { t } from '../../copy';

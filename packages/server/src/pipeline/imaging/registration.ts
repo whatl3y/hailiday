@@ -1,4 +1,4 @@
-import type { NormalizedBox, Placement } from '@holiday/core';
+import type { NormalizedBox, Placement } from '@hailiday/core';
 import { gradientMagnitude } from './checks.js';
 import { buildCompositeMask, placementMaskShapes, type CompositeMask } from './mask.js';
 import { resizeRaster, toGray, toRect, type Raster } from './raster.js';
@@ -379,7 +379,7 @@ export interface AlignmentRecord extends SimilarityEstimate {
   /** Depth in working pixels of the deepest uncovered strip (0 when everything is covered). */
   uncoveredInsetPx?: number;
   /**
-   * Why the candidate was not accepted. `uncovered`: in `evening`, where nothing is pasted back,
+   * Why the candidate was not accepted. `uncovered`: in a relight, where nothing is pasted back,
    * the warp left a strip deeper than the configured inset (see `alignAndComposite`).
    */
   reason?: 'aspect' | 'out_of_range' | 'poor_fit' | 'uncovered';

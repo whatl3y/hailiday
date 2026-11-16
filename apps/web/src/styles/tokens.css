@@ -1,79 +1,117 @@
 /*
- * Design tokens. A warm, quiet, editorial system: ivory paper, deep ink, a serif display face
- * for headlines and a clean humanist sans for the interface. Every holiday sets its own accent
- * family through [data-holiday]; nothing else changes between seasons.
+ * Design tokens. A monochrome, minimal system: a white page, near-black ink, hairlines and
+ * generous space, set in Outfit with JetBrains Mono for small technical text. Photographs are
+ * the only color, apart from one small holiday dot and the bulbs of the light string that hangs
+ * over a picture while its look is being made: every holiday sets only --holiday-dot and its
+ * three bulb colours (--bulb-1..3) through [data-holiday].
  */
 :root {
-  /* Type */
-  --font-display:
-    ui-serif, 'New York', 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Charter,
-    'Bitstream Charter', 'Sitka Display', Cambria, Georgia, serif;
-  --font-ui:
-    'Avenir Next', Avenir, 'Segoe UI Variable Text', 'Segoe UI', ui-sans-serif, system-ui,
-    -apple-system, 'Helvetica Neue', Arial, sans-serif;
+  /* Type. Both families are self-hosted (fonts.css); the system stacks cover the swap period. */
+  --font-ui: 'Outfit Variable', Outfit, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-display: var(--font-ui);
+  --font-mono: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, monospace;
 
-  --text-xs: 0.78125rem;
-  --text-s: 0.875rem;
-  --text-m: 1rem;
-  --text-l: 1.125rem;
-  --text-xl: 1.375rem;
-  --text-2xl: clamp(1.625rem, 1.3rem + 1.4vw, 2.125rem);
-  --text-display: clamp(2.25rem, 1.55rem + 3.1vw, 4rem);
+  --text-label: 0.6875rem;
+  --text-xs: 0.75rem;
+  --text-s: 0.8125rem;
+  --text-m: 0.9375rem;
+  --text-l: 1.0625rem;
+  --text-xl: 1.25rem;
+  --text-2xl: clamp(1.375rem, 3vw, 1.875rem);
+  --text-display: clamp(2.25rem, 5.4vw, 4.25rem);
 
-  --leading-tight: 1.08;
-  --leading-snug: 1.3;
-  --leading-body: 1.55;
-  --tracking-display: -0.018em;
-  --tracking-caps: 0.14em;
+  --weight-light: 300;
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
 
-  /* Paper and ink */
-  --paper: #faf6ef;
-  --paper-raised: #fffdf9;
-  --paper-sunk: #f2ebdf;
-  --ink: #221c17;
-  --ink-soft: #574c42;
-  --ink-muted: #6e6257;
-  --line: rgb(34 28 23 / 0.12);
-  --line-strong: rgb(34 28 23 / 0.24);
-  /* The boundary of a field or drop target: a warm taupe at 3:1 or better on every paper and
-     accent-soft surface. Dividers and text buttons keep the quieter lines above. */
-  --control-border: #8b7b6b;
-  --scrim: rgb(20 15 11 / 0.55);
-  --glass: rgb(255 252 246 / 0.86);
-  --on-photo: #fffaf2;
-  /* Smoked glass and the header scrim keep on-photo text legible even over a white sky:
-     4.5:1 for chip text on the glass, 3:1 for the large wordmark on the scrim. */
-  --glass-dark: rgb(24 18 13 / 0.66);
-  --photo-scrim-top: rgb(18 13 9 / 0.56);
-  --photo-scrim-band: rgb(18 13 9 / 0.5);
+  --leading-tight: 1.04;
+  --leading-title: 1.15;
+  --leading-snug: 1.35;
+  --leading-body: 1.6;
+  --tracking-display: -0.035em;
+  --tracking-title: -0.025em;
+  --tracking-item: -0.01em;
+  --tracking-caps: 0.16em;
+  --tracking-eyebrow: 0.28em;
+  --tracking-footer: 0.22em;
 
-  /* Seasonal accent (neutral by default) */
-  --accent: #46624f;
-  --accent-strong: #354c3d;
+  /* Surfaces and ink */
+  --paper: #ffffff;
+  --paper-raised: #ffffff;
+  --paper-sunk: #fafbfc;
+  --ink: #1d1d1f;
+  --ink-soft: #4a4a4f;
+  /* The lightest gray for small text that carries meaning (4.5:1 on every surface). */
+  --ink-muted: #6e6e73;
+  /* Decorative grays: never for essential text. */
+  --ink-decor: #86868b;
+  --ink-quiet: #a8adb5;
+  --separator: #c7cbd0;
+  --line: #eef0f3;
+  --line-strong: #e6e8eb;
+  /* The boundary of a field or drop target: 3:1 or better on every surface. Dividers, chips
+     and text buttons keep the hairlines above; their text identifies them. */
+  --control-border: #86868b;
+  --scrim: rgb(29 29 31 / 0.32);
+  --glass: rgb(255 255 255 / 0.86);
+  --on-photo: #ffffff;
+  /* Dark translucent fills for marks on photographs: 4.5:1 for white text even over white. */
+  --glass-dark: rgb(17 17 19 / 0.66);
+  --photo-scrim-top: rgb(17 17 19 / 0.56);
+  --photo-scrim-band: rgb(17 17 19 / 0.5);
+
+  /* Picture surfaces: the ink ground a photograph or a picture stage is shown on, the white type
+     laid over it, and the scrim color its gradients are mixed from (rgb(var(--scrim-rgb) / a)). */
+  --stage: #0d0d0f;
+  --on-stage: #ffffff;
+  --on-stage-muted: rgb(255 255 255 / 0.72);
+  --stage-line: rgb(255 255 255 / 0.14);
+  --scrim-rgb: 13 13 15;
+  /* The header's height on every page (56px on phones); a stage reserves it above itself. */
+  --header-height: 72px;
+  /* What stays visible under a stage in the first viewport (88px on phones). */
+  --stage-peek: 104px;
+  /* The white dock that rests on a photograph: progy's paper, lifted. */
+  --dock-radius: 20px;
+  --dock-shadow: 0 24px 64px -24px rgb(13 13 15 / 0.5);
+
+  /* The accent is ink: one solid action per view, selected chips and segments. */
+  --accent: #1d1d1f;
+  --accent-strong: #000000;
   --accent-ink: #ffffff;
-  --accent-soft: #e5ece3;
-  --accent-glow: rgb(70 98 79 / 0.22);
-  --accent-secondary: #a6713a;
+  --accent-soft: #f2f3f5;
+  --accent-glow: rgb(29 29 31 / 0.12);
+  --accent-secondary: #4a4a4f;
+  --holiday-dot: #a8adb5;
+  /* The light string's bulbs: warm white when no holiday is chosen. */
+  --bulb-1: #ffd9a0;
+  --bulb-2: #fff4dc;
+  --bulb-3: #ffc46b;
 
-  /* Feedback */
-  --danger: #9b2c22;
-  --danger-soft: #f8e7e3;
-  --notice: #7a5a12;
-  --notice-soft: #f7efd9;
+  /* Feedback: text in ink or the error red, state shown by a small dot. */
+  --danger: #b3261e;
+  --danger-soft: #fafbfc;
+  --notice: #4a4a4f;
+  --notice-soft: #fafbfc;
+  --dot-success: #5ee19a;
+  --dot-error: #ff6b6b;
 
   /* Shape and depth */
-  --radius-xs: 6px;
+  --radius-xs: 4px;
   --radius-s: 10px;
-  --radius-m: 16px;
-  --radius-l: 24px;
-  --radius-xl: 32px;
+  --radius-m: 10px;
+  --radius-l: 10px;
+  --radius-xl: 10px;
   --radius-pill: 999px;
-  --shadow-soft: 0 1px 2px rgb(34 28 23 / 0.05), 0 8px 24px -10px rgb(34 28 23 / 0.18);
-  --shadow-card:
-    0 1px 1px rgb(34 28 23 / 0.04), 0 2px 6px rgb(34 28 23 / 0.05),
-    0 24px 48px -24px rgb(34 28 23 / 0.32);
-  --shadow-lift: 0 2px 4px rgb(34 28 23 / 0.06), 0 30px 70px -24px rgb(34 28 23 / 0.42);
-  --ring: 0 0 0 3px var(--paper), 0 0 0 5px var(--accent);
+  --shadow-panel: 0 1px 0 rgb(29 29 31 / 0.02), 0 12px 40px -16px rgb(29 29 31 / 0.12);
+  --shadow-primary: 0 1px 2px rgb(0 0 0 / 0.12), 0 8px 24px rgb(0 0 0 / 0.14);
+  --shadow-primary-hover: 0 2px 4px rgb(0 0 0 / 0.16), 0 14px 34px rgb(0 0 0 / 0.2);
+  --shadow-soft: var(--shadow-panel);
+  --shadow-card: var(--shadow-panel);
+  --shadow-lift: var(--shadow-panel);
+  --ring: 0 0 0 3px var(--paper), 0 0 0 5px var(--ink);
 
   /* Space */
   --space-1: 4px;
@@ -86,7 +124,9 @@
   --space-8: 64px;
   --space-9: 96px;
   --gutter: 16px;
-  --measure: 34rem;
+  --measure: 45rem;
+  --content-text: 47.5rem;
+  --content-picture: 68.75rem;
   --content-wide: 72rem;
 
   /* Targets */
@@ -95,17 +135,28 @@
   --control-height: 52px;
 
   /* Motion */
-  --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
   --dur-fast: 140ms;
   --dur-med: 280ms;
+  --dur-hover: 300ms;
   --dur-slow: 560ms;
   --dur-reveal: 1000ms;
+  --dur-rise: 1000ms;
+  /* The hero photograph's slow drift, played once. */
+  --dur-drift: 24s;
 
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
   --safe-right: env(safe-area-inset-right, 0px);
+}
+
+@media (max-width: 599px) {
+  :root {
+    --header-height: 56px;
+    --stage-peek: 88px;
+  }
 }
 
 @media (min-width: 600px) {
@@ -120,35 +171,32 @@
   }
 }
 
-/* Seasonal accents. Each accent keeps white text at 4.5:1 or better. */
+/* Holiday colours: the dot beside the holiday's name, and the three bulb colours of the light
+   string (the dot brightened to glow on ink, and two companions). */
 [data-holiday='halloween'] {
-  --accent: #a8431a;
-  --accent-strong: #84340f;
-  --accent-soft: #f6e4d8;
-  --accent-glow: rgb(214 104 40 / 0.28);
-  --accent-secondary: #3a2f57;
+  --holiday-dot: #f2711c;
+  --bulb-1: #ff8a2a;
+  --bulb-2: #a970ff;
+  --bulb-3: #ffe9c4;
 }
 
 [data-holiday='thanksgiving_us'] {
-  --accent: #96402a;
-  --accent-strong: #76301e;
-  --accent-soft: #f4e3d6;
-  --accent-glow: rgb(196 120 52 / 0.26);
-  --accent-secondary: #8a6a2c;
+  --holiday-dot: #b8692e;
+  --bulb-1: #ffb347;
+  --bulb-2: #e8703a;
+  --bulb-3: #ffe2b0;
 }
 
 [data-holiday='christmas'] {
-  --accent: #1f5a43;
-  --accent-strong: #154532;
-  --accent-soft: #e1ede6;
-  --accent-glow: rgb(212 172 92 / 0.3);
-  --accent-secondary: #9c7631;
+  --holiday-dot: #2f9e62;
+  --bulb-1: #ff5a52;
+  --bulb-2: #3ccf7e;
+  --bulb-3: #ffd27a;
 }
 
 [data-holiday='new_years_eve'] {
-  --accent: #7a5c1a;
-  --accent-strong: #5e4612;
-  --accent-soft: #f2ead6;
-  --accent-glow: rgb(214 182 102 / 0.32);
-  --accent-secondary: #1d2540;
+  --holiday-dot: #d4a72c;
+  --bulb-1: #ffc93c;
+  --bulb-2: #ffe9b0;
+  --bulb-3: #cfdcff;
 }

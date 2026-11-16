@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import type {
   CardPrice,
@@ -7,10 +7,13 @@ import type {
   Project,
   ProductRelationship,
   Variant,
-} from '@holiday/core';
+} from '@hailiday/core';
 import { analytics } from '../../analytics';
 import { createClick, getProducts } from '../../api/endpoints';
+import { inlineMessage } from '../../api/present';
 import { holidayName, t, tDynamic, type CopyKey } from '../../copy';
+import { useAppStore } from '../../state/appStore';
+import { Disclosure } from '../../ui/Disclosure';
 import { Icon } from '../../ui/Icon';
 import './shop.css';
 
@@ -83,7 +86,8 @@ function Card({ card }: { card: ProductCard }) {
   );
 }
 
-function Disclosure({ panel }: { panel: ProductsPanel }) {
+/** The affiliate and paid-link disclosure, before any card. */
+function AffiliateDisclosure({ panel }: { panel: ProductsPanel }) {
   const keys = panel.disclosure.copyKeys;
   if (keys.length === 0) return null;
   return (
@@ -103,37 +107,24 @@ function Disclosure({ panel }: { panel: ProductsPanel }) {
   );
 }
 
+interface PanelProps {
+  data: ProductsPanel;
+  jobId: string;
+  variant: Variant;
+  project: Project;
+}
+
 /**
- * Shop the look beneath the result: the panel state comes from the server. `active` shows the
- * disclosure first, then cards in our own words and the fit note; `no_offers` and `off_season`
- * show one line without links; `hidden` renders nothing (for example beside Google imagery
- * without a covering grant). There is never an empty panel of cards.
+ * The panel's content from the server: `active` shows the disclosure first, then cards in our
+ * own words and the fit note (or one line when nothing matched, never an empty panel of cards);
+ * `no_offers` and `off_season` show one line without links.
  */
-export function ShopTheLook({ variant, project }: { variant: Variant; project: Project }) {
-  const id = useId();
-  const [panel, setPanel] = useState<{ jobId: string; data: ProductsPanel } | null>(null);
-  const sectionRef = useRef<HTMLElement>(null);
-  const jobId = variant.renderJobId;
+function ShopPanel({ data, jobId, variant, project }: PanelProps) {
+  const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    let active = true;
-    getProducts(jobId)
-      .then((data) => {
-        if (active) setPanel({ jobId, data });
-      })
-      .catch(() => {
-        if (active) setPanel(null);
-      });
-    return () => {
-      active = false;
-    };
-  }, [jobId]);
-
-  const data = panel?.jobId === jobId ? panel.data : null;
-
-  useEffect(() => {
-    const element = sectionRef.current;
-    if (!data || data.panelState !== 'active' || !element || viewedPanels.has(jobId)) return;
+    const element = panelRef.current;
+    if (data.panelState !== 'active' || !element || viewedPanels.has(jobId)) return;
     const report = () => {
       if (viewedPanels.has(jobId)) return;
       viewedPanels.add(jobId);
@@ -168,31 +159,22 @@ export function ShopTheLook({ variant, project }: { variant: Variant; project: P
     return () => observer.disconnect();
   }, [data, jobId, variant.holidayId, project.sceneType, project.activeSource?.kind]);
 
-  if (!data || data.panelState === 'hidden') return null;
-  if (data.panelState === 'active' && data.items.length === 0) return null;
-
   const organic = data.items.filter((item) => !item.sponsored);
   const sponsored = data.items.filter((item) => item.sponsored);
+  const noCards =
+    data.panelState === 'no_offers' || (data.panelState === 'active' && data.items.length === 0);
 
   return (
-    <section
-      ref={sectionRef}
-      className="shop"
-      aria-labelledby={`${id}-heading`}
-      data-state={data.panelState}
-    >
-      <h2 id={`${id}-heading`} className="shop__heading">
-        {t('shop.heading')}
-      </h2>
-      {data.panelState === 'active' ? <Disclosure panel={data} /> : null}
-      {data.panelState === 'no_offers' ? <p className="lede">{t('commerce.noOffers')}</p> : null}
+    <div ref={panelRef} className="shop" data-state={data.panelState}>
+      {noCards ? <p className="lede">{t('commerce.noOffers')}</p> : null}
       {data.panelState === 'off_season' ? (
         <p className="lede">
           {t('commerce.offSeason', { holiday: holidayName(variant.holidayId) })}
         </p>
       ) : null}
-      {data.panelState === 'active' ? (
+      {data.panelState === 'active' && data.items.length > 0 ? (
         <>
+          <AffiliateDisclosure panel={data} />
           <ul className="shop__cards">
             {organic.map((card) => (
               <Card key={card.clickToken} card={card} />
@@ -211,6 +193,100 @@ export function ShopTheLook({ variant, project }: { variant: Variant; project: P
           <p className="fine shop__fit">{t('commerce.panel.fitNote')}</p>
         </>
       ) : null}
-    </section>
+    </div>
+  );
+}
+
+type PanelLoad =
+  | { jobId: string; data: ProductsPanel; error: null }
+  | { jobId: string; data: null; error: string };
+
+/**
+ * "Shop the look" as a collapsed row under the result. Its products are requested only once the
+ * row has been opened (then for each preview shown), and its summary counts the cards once they
+ * are known; the panel is marked busy while they load. Where the server hides the panel (for
+ * example beside Google imagery without a covering grant) the row is left out, except when the
+ * answer comes while the row is open or holds keyboard focus: then the row stays with one line
+ * saying nothing matched, so it does not vanish under the person's focus. It is left out
+ * entirely when commerce is off.
+ */
+export function ShopTheLook({
+  variant,
+  project,
+  className,
+}: {
+  variant: Variant;
+  project: Project;
+  className?: string;
+}) {
+  const commerce = useAppStore((state) => state.experience?.capabilities.commerce ?? true);
+  const [wanted, setWanted] = useState(false);
+  const [load, setLoad] = useState<PanelLoad | null>(null);
+  /** The preview whose hidden panel arrived while the row was open, so the row stays. */
+  const [keptHiddenFor, setKeptHiddenFor] = useState<string | null>(null);
+  const openRef = useRef(false);
+  const focusedRef = useRef(false);
+  const jobId = variant.renderJobId;
+
+  useEffect(() => {
+    if (!wanted) return;
+    let active = true;
+    getProducts(jobId)
+      .then((data) => {
+        if (!active) return;
+        if (data.panelState === 'hidden' && (openRef.current || focusedRef.current)) {
+          setKeptHiddenFor(jobId);
+        }
+        setLoad({ jobId, data, error: null });
+      })
+      .catch((failure: unknown) => {
+        if (active) {
+          setLoad({ jobId, data: null, error: inlineMessage(failure).message });
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [jobId, wanted]);
+
+  const current = load?.jobId === jobId ? load : null;
+  const data = current?.data ?? null;
+  const hidden = data?.panelState === 'hidden';
+  if (!commerce || (hidden && keptHiddenFor !== jobId)) return null;
+  const loading = wanted && !current;
+  const count = data?.panelState === 'active' ? data.items.length : 0;
+  const summary =
+    count === 0 ? null : count === 1 ? t('shop.summaryOne') : t('shop.summary', { n: count });
+
+  return (
+    <Disclosure
+      label={t('shop.heading')}
+      summary={summary}
+      className={className}
+      busy={loading}
+      onFocusWithin={(inside) => {
+        focusedRef.current = inside;
+      }}
+      onToggle={(open) => {
+        openRef.current = open;
+        if (open) setWanted(true);
+      }}
+    >
+      {hidden ? <p className="lede">{t('commerce.noOffers')}</p> : null}
+      {data && !hidden ? (
+        <ShopPanel data={data} jobId={jobId} variant={variant} project={project} />
+      ) : null}
+      {current?.error ? (
+        <p className="message message--error" role="alert">
+          {current.error}
+        </p>
+      ) : null}
+      {!current ? (
+        <>
+          <div className="indeterminate" aria-hidden="true" />
+          <span className="sr-only">{t('common.loading')}</span>
+        </>
+      ) : null}
+    </Disclosure>
   );
 }

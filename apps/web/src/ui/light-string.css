@@ -1,0 +1,159 @@
+/*
+ * The light string: holiday lights along a stage's top edge while a look is being made. The
+ * geometry is drawn by LightString from ui/stringGeometry.ts; this file holds its look and motion.
+ * The bulbs wear --bulb-1..3 of the holiday on the string's own root (warm white without one);
+ * everything else is white or the scrim, so the wire reads on a white ceiling and on ink.
+ */
+
+.light-string {
+  display: block;
+  inline-size: 100%;
+  animation: string-in 480ms var(--ease-out) backwards;
+}
+
+.light-string__svg {
+  display: block;
+  overflow: visible;
+}
+
+@keyframes string-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+.light-string__under,
+.light-string__wire {
+  fill: none;
+  stroke-linecap: round;
+}
+
+.light-string__under {
+  stroke: rgb(var(--scrim-rgb) / 0.5);
+  stroke-width: 3;
+}
+
+.light-string__wire {
+  stroke: rgb(255 255 255 / 0.62);
+  stroke-width: 1.25;
+}
+
+.light-string__pin {
+  fill: rgb(255 255 255 / 0.7);
+}
+
+.light-string__hanger-under {
+  stroke: rgb(var(--scrim-rgb) / 0.5);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+}
+
+.light-string__hanger-wire {
+  stroke: rgb(255 255 255 / 0.62);
+  stroke-width: 1;
+  stroke-linecap: round;
+}
+
+/* The bulbs answer the pointer; the rest of the string lets it through to the picture. */
+.bulb {
+  pointer-events: auto;
+  cursor: default;
+}
+
+.bulb__hit {
+  fill: transparent;
+}
+
+.bulb__socket {
+  fill: rgb(var(--scrim-rgb) / 0.85);
+  stroke: rgb(255 255 255 / 0.35);
+  stroke-width: 0.5;
+}
+
+/* The twinkle: a wave that travels along the string, 120ms per bulb. */
+.bulb__glow {
+  opacity: 0.5;
+  animation: bulb-glow 2.4s var(--ease-in-out) infinite;
+  animation-delay: calc(var(--i) * -120ms);
+}
+
+.bulb__body {
+  opacity: 0.82;
+  stroke: rgb(var(--scrim-rgb) / 0.4);
+  stroke-width: 0.75;
+  transition: fill 200ms var(--ease-out);
+  animation: bulb-body 2.4s var(--ease-in-out) infinite;
+  animation-delay: calc(var(--i) * -120ms);
+}
+
+.bulb__shine {
+  fill: rgb(255 255 255 / 0.75);
+}
+
+@keyframes bulb-glow {
+  0%,
+  100% {
+    opacity: 0.28;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes bulb-body {
+  0%,
+  100% {
+    opacity: 0.72;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* The ripple after a poke: each neighbour flashes a little later and a little fainter. */
+.bulb__flash {
+  opacity: 0;
+  pointer-events: none;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: bulb-flash 520ms var(--ease-out) both;
+  animation-delay: calc(var(--d) * 45ms);
+}
+
+@keyframes bulb-flash {
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  25% {
+    opacity: calc(var(--a) * 0.85);
+    transform: scale(1.25);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+
+/* Reduced motion: the bulbs are lit and still, and a poke changes a colour only. */
+@media (prefers-reduced-motion: reduce) {
+  .light-string {
+    animation: none;
+  }
+
+  .bulb__glow {
+    animation: none;
+    opacity: 0.8;
+  }
+
+  .bulb__body {
+    animation: none;
+    opacity: 1;
+    transition: none;
+  }
+
+  .bulb__flash {
+    display: none;
+  }
+}

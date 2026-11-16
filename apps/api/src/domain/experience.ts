@@ -18,9 +18,9 @@ import {
   type Rendition,
   type SceneType,
   type SceneTypeOffer,
-} from '@holiday/core';
-import { capabilityMode, type Audience } from '@holiday/server/capabilities';
-import type { HeroAsset, HeroCropJson } from '@holiday/server/db';
+} from '@hailiday/core';
+import { capabilityMode, type Audience } from '@hailiday/server/capabilities';
+import type { HeroAsset, HeroCropJson } from '@hailiday/server/db';
 import type { ApiDeps } from '../deps.js';
 import {
   currentOccurrence,
@@ -180,6 +180,9 @@ export async function publicExperience(
       uploadAcceptedTypes: [...UPLOAD_ACCEPTED_CONTENT_TYPES],
       pollRenderMs: await deps.settings.get('poll.render_ms'),
       pollUploadMs: await deps.settings.get('poll.upload_ms'),
+      retention: {
+        timeBasedDeletion: await deps.settings.get('retention.time_based_deletion'),
+      },
     },
     legal: {
       termsVersion: TERMS_VERSION,

@@ -1,12 +1,17 @@
-import { useEffect, useRef } from 'react';
-import { Link, useLocation, useParams } from 'react-router';
+import { useEffect, useRef, useState } from 'react';
+import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import { t } from '../../copy';
 import { currentHolidayId, useAppStore } from '../../state/appStore';
-import { useProjectStore } from '../../state/projectStore';
+import {
+  makingLook,
+  noteLocked,
+  selectedCandidate,
+  useProjectStore,
+} from '../../state/projectStore';
 import { HolidayChip } from '../../ui/HolidayPicker';
 import { useHolidayTheme } from '../../ui/holidaySelection';
 import { PageShell } from '../../ui/Layout';
-import { UploadPanel } from '../upload/UploadPanel';
+import { UploadPanel, type UploadSurface } from '../upload/UploadPanel';
 import type { ProjectRouteState } from '../address/useResolveAddress';
 import { ConfirmPlace } from './ConfirmPlace';
 import {
@@ -17,9 +22,12 @@ import {
   openProject,
 } from './controller';
 import { ProjectInlineError } from './InlineError';
+import { LOCK_HINT_ID, LookAnnouncer } from './LookProgress';
 import { holidaysForScene } from './looks';
 import { NoStreetView } from './NoStreetView';
 import { projectPageTitle } from './pageTitle';
+import { routeStateAfterOpen } from './routeState';
+import { projectTone } from './pageTone';
 import { RenderError } from './RenderError';
 import { Result } from './Result';
 import { Waiting } from './Waiting';
@@ -52,7 +60,7 @@ export function NotFoundContent({ forbidden }: { forbidden?: boolean }) {
       <h1 ref={headingRef} tabIndex={-1} className="title-section">
         {t('notFound.heading')}
       </h1>
-      <p className="lede">{t(forbidden ? 'error.FORBIDDEN' : 'error.NOT_FOUND')}</p>
+      <p className="lede">{t(forbidden ? 'error.FORBIDDEN' : 'notFound.body')}</p>
       <Link to="/" className="button button--primary">
         {t('common.backHome')}
       </Link>
@@ -82,29 +90,50 @@ function LoadError({ projectId }: { projectId: string }) {
   );
 }
 
-function UploadStep() {
+/** The upload step owns the page: its dock on the holiday's photograph, then the photo's stage. */
+function UploadStep({ onSurfaceChange }: { onSurfaceChange: (surface: UploadSurface) => void }) {
   const project = useProjectStore((state) => state.project);
   const canCancel = useProjectStore((state) => state.uploadReturnPhase !== null);
   if (!project) return null;
   return (
-    <section className="container container--narrow project-single stack">
-      <ProjectInlineError />
-      <UploadPanel project={project} onAttached={(next) => void onUploadAttached(next)} />
-      {canCancel ? (
-        <button type="button" className="button button--quiet" onClick={cancelUpload}>
-          {t('common.cancel')}
-        </button>
-      ) : null}
-    </section>
+    <UploadPanel
+      project={project}
+      layout="screen"
+      lead={<ProjectInlineError />}
+      trail={
+        canCancel ? (
+          <button type="button" className="button button--quiet" onClick={cancelUpload}>
+            {t('common.cancel')}
+          </button>
+        ) : null
+      }
+      onSurfaceChange={onSurfaceChange}
+      onAttached={(next) => void onUploadAttached(next)}
+    />
   );
 }
 
-/** `/p/:projectId`: one project; the screen follows the project and render job state. */
+/**
+ * `/p/:projectId`: mounts the project page once per place, so going from one place straight to
+ * another (a link, Back or Forward) opens the new place from its own history entry.
+ */
+export function ProjectRoute() {
+  const { projectId } = useParams();
+  return <ProjectPage key={projectId} />;
+}
+
+/**
+ * One project; the screen follows the project and render job state. It reads the history entry
+ * it was opened from once, so it is mounted per place (see `ProjectRoute`).
+ */
 export function ProjectPage() {
   const { projectId } = useParams();
   const location = useLocation();
+  const navigate = useNavigate();
   const routeState = (location.state as ProjectRouteState | null) ?? null;
   const routeStateRef = useRef(routeState);
+  const locationRef = useRef(location);
+  const [uploadSurface, setUploadSurface] = useState<UploadSurface>('photo');
   const phase = useProjectStore((state) => state.phase);
   const projectHoliday = useProjectStore(
     (state) => state.look?.holidayId ?? state.variant?.holidayId ?? null,
@@ -112,6 +141,11 @@ export function ProjectPage() {
   const selected = useAppStore(currentHolidayId);
   const sceneType = useProjectStore((state) => state.project?.sceneType ?? null);
   const hasVariant = useProjectStore((state) => state.variant !== null);
+  const hasSourcePicture = useProjectStore((state) =>
+    Boolean(state.project?.activeSource?.displayUrl),
+  );
+  const hasCandidate = useProjectStore((state) => selectedCandidate(state) !== null);
+  const locked = useProjectStore(makingLook);
   const variantHoliday = useProjectStore((state) => state.variant?.holidayId ?? null);
   const pickerIds = useAppStore((state) => state.pickerHolidayIds);
   const holidays = useAppStore((state) => state.experience?.holidays ?? null);
@@ -124,8 +158,16 @@ export function ProjectPage() {
   useEffect(() => {
     if (!projectId) return;
     void openProject(projectId, routeStateRef.current);
+    const opened = locationRef.current;
+    const kept = routeStateAfterOpen(opened.state);
+    if (kept !== undefined) {
+      void navigate(
+        { pathname: opened.pathname, search: opened.search, hash: opened.hash },
+        { replace: true, state: kept },
+      );
+    }
     return () => closeProject();
-  }, [projectId]);
+  }, [projectId, navigate]);
 
   let content;
   switch (phase) {
@@ -145,10 +187,10 @@ export function ProjectPage() {
       content = <ConfirmPlace />;
       break;
     case 'nosv':
-      content = <NoStreetView />;
+      content = <NoStreetView onSurfaceChange={setUploadSurface} />;
       break;
     case 'upload':
-      content = <UploadStep />;
+      content = <UploadStep onSurfaceChange={setUploadSurface} />;
       break;
     case 'starting':
     case 'waiting':
@@ -165,16 +207,28 @@ export function ProjectPage() {
   return (
     <PageShell
       title={projectPageTitle(phase, variantHoliday)}
+      tone={projectTone({ phase, uploadSurface, hasVariant, hasSourcePicture, hasCandidate })}
       headerEnd={
         <HolidayChip
           surface="result"
           holidayIds={chipHolidayIds}
           shown={showsLook ? projectHoliday : undefined}
           onChange={changeHoliday}
+          locked={locked}
+          onLockedPress={noteLocked}
+          describedBy={LOCK_HINT_ID}
         />
       }
     >
-      <div className="project">{content}</div>
+      <div className="project">
+        {content}
+        <LookAnnouncer />
+        {locked ? (
+          <p id={LOCK_HINT_ID} hidden>
+            {t('controls.locked')}
+          </p>
+        ) : null}
+      </div>
     </PageShell>
   );
 }

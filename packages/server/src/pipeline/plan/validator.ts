@@ -19,7 +19,7 @@ import {
   type SceneSection,
   type SceneType,
   type Style,
-} from '@holiday/core';
+} from '@hailiday/core';
 import { shrinkToAllowed } from './geometry.js';
 import {
   FORBIDDEN_PATTERNS,
@@ -43,6 +43,28 @@ const ATTACHED_TO_SURFACE: readonly AttachmentIntent[] = [
  * objects in front of the furniture count toward its occlusion but leave the top surface usable.
  */
 export const SURFACE_MAX_OCCLUSION = 0.6;
+
+/** Preserve regions that carry text: nothing is placed over them. */
+const TEXT_MARK_KINDS: readonly string[] = ['house_number', 'sign', 'logo'];
+
+/** How far a placement stays from a text mark, as a fraction of the image on every side. */
+export const TEXT_MARK_CLEARANCE = 0.01;
+
+/**
+ * The share of its region a placement must keep after it is shrunk clear of a text mark. A
+ * decoration beside a house number keeps nearly all of it; one that wraps the thing the number
+ * is on (a garland on that column) would lose more and is removed.
+ */
+export const TEXT_MARK_MIN_KEEP = 0.6;
+
+/**
+ * Whether an existing decoration constrains where new ones go. Indoors it does: nothing covers a
+ * vase or a centerpiece. Outside a house a decoration may take the place of a removable one (a
+ * door wreath, a planter, a hanging basket), so existing decorations do not move a placement.
+ */
+export function existingDecorationsConstrain(sceneType: SceneType): boolean {
+  return sceneType !== 'house_exterior';
+}
 
 /** The anchor floors that apply to one anchor category under one placement rule. */
 export function floorsFor(
@@ -168,12 +190,15 @@ export function checkPlacement(
     region = clamped;
   }
 
-  // Existing decorations are preserved: nothing covers them. The region is shrunk clear of
-  // them (a table keeps its free part beside a vase), else the placement is removed.
-  const decorBoxes = [
-    ...analysis.existingDecorations.boxes,
-    ...analysis.preserveRegions.filter((r) => r.kind === 'existing_decor').map((r) => r.box),
-  ];
+  // Existing decorations are preserved where they constrain the scene: nothing covers them. The
+  // region is shrunk clear of them (a table keeps its free part beside a vase), else the
+  // placement is removed.
+  const decorBoxes = existingDecorationsConstrain(ctx.sceneType)
+    ? [
+        ...analysis.existingDecorations.boxes,
+        ...analysis.preserveRegions.filter((r) => r.kind === 'existing_decor').map((r) => r.box),
+      ]
+    : [];
   if (regionOverlapFraction(region, decorBoxes) > limits.overlapTolerance) {
     const clear = shrinkToAllowed(region, decorBoxes, limits.overlapTolerance);
     if (!clear) return remove('existing_decorations');
@@ -181,10 +206,31 @@ export function checkPlacement(
     region = clear;
   }
 
-  // Preserve and access regions: at most the tolerance; shrink, else remove.
+  // House numbers, signs and logos: nothing covers them or touches their clearance. The region
+  // is shrunk clear of them (cut on one side, or on both when a mark sits at each end) when it
+  // keeps most of itself, else the placement is removed.
+  const textMarks = analysis.preserveRegions
+    .filter((r) => TEXT_MARK_KINDS.includes(r.kind))
+    .map((r) => expandBox(r.box, TEXT_MARK_CLEARANCE))
+    .filter((box): box is NormalizedBox => box !== null);
+  if (textMarks.some((box) => intersectBoxes(region, box) !== null)) {
+    const clear = shrinkToAllowed(region, textMarks, 0, TEXT_MARK_MIN_KEEP, 2);
+    if (!clear) return remove('preserve_and_access', 'text_mark');
+    events.push({
+      rule: 'preserve_and_access',
+      action: 'shrunk',
+      placementKey: candidate.key,
+      detail: 'text_mark',
+    });
+    region = clear;
+  }
+
+  // Other preserve regions and access regions: at most the tolerance; shrink, else remove.
   const surfaceAttached = ATTACHED_TO_SURFACE.includes(candidate.attachment);
   const blockers = [
-    ...analysis.preserveRegions.filter((r) => r.kind !== 'existing_decor').map((r) => r.box),
+    ...analysis.preserveRegions
+      .filter((r) => r.kind !== 'existing_decor' && !TEXT_MARK_KINDS.includes(r.kind))
+      .map((r) => r.box),
     ...analysis.accessRegions
       .filter((r) => !(surfaceAttached && r.kind === 'door'))
       .map((r) => r.box),

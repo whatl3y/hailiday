@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { dailySaltedHash } from '@holiday/server/ids';
+import { dailySaltedHash } from '@hailiday/server/ids';
 import { trustProxyHops } from './server.js';
 import { createHarness, type Harness } from './test/harness.js';
 

@@ -32,7 +32,7 @@ describe('implicit session creation', () => {
         .client()
         .get('/v1/experience', { 'x-turnstile-token': 'fixture-pass' });
       expect(response.statusCode).toBe(200);
-      expect(response.cookies.some((cookie) => cookie.name === 'holiday_session')).toBe(true);
+      expect(response.cookies.some((cookie) => cookie.name === 'hailiday_session')).toBe(true);
     }
     const refused = await harness
       .client()
@@ -42,7 +42,7 @@ describe('implicit session creation', () => {
       code: 'RATE_LIMITED',
       details: { scope: 'sessions' },
     });
-    expect(refused.cookies.some((cookie) => cookie.name === 'holiday_session')).toBe(false);
+    expect(refused.cookies.some((cookie) => cookie.name === 'hailiday_session')).toBe(false);
     const explicit = await harness
       .client()
       .post('/v1/sessions', { turnstileToken: 'fixture-pass' });

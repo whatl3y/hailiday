@@ -67,12 +67,26 @@ export function canTransitionRenderJob(from: RenderJobState, to: RenderJobState)
   return RENDER_JOB_TRANSITIONS[from].includes(to);
 }
 
-/** Copy keys of the waiting-screen stage labels. */
+/**
+ * What the worker is doing inside a state when the state alone does not say it: `framing` (state
+ * `preparing`: a Street View frame is fetched again zoomed in on the home), `enhancing` (state
+ * `analyzing`: the Street View frame is redrawn sharper before planning) and `relight` (states
+ * `planning` and `rendering` of a relight attempt).
+ */
+export const RENDER_SUB_STAGES = ['framing', 'enhancing', 'relight'] as const;
+export const RenderSubStageSchema = z.enum(RENDER_SUB_STAGES);
+export type RenderSubStage = z.infer<typeof RenderSubStageSchema>;
+
+/** Copy keys of the waiting-screen stage labels, in the order a job can show them. */
 export const STAGE_LABEL_KEYS = [
   'stage.preparing',
+  'stage.framing',
+  'stage.enhancing',
   'stage.planning',
   'stage.rendering',
   'stage.checking',
+  'stage.eveningLight',
+  'stage.brightLight',
   'stage.review',
 ] as const;
 export const StageLabelKeySchema = z.enum(STAGE_LABEL_KEYS);
@@ -94,6 +108,26 @@ export const RENDER_STATE_STAGE_LABEL_KEYS: Readonly<
 /** The stage label key for a state, or null for terminal states. */
 export function stageLabelKeyFor(state: RenderJobState): StageLabelKey | null {
   return isTerminalRenderJobState(state) ? null : RENDER_STATE_STAGE_LABEL_KEYS[state];
+}
+
+/**
+ * The stage label key for a job: the sub-stage's label where it applies (`framing` in
+ * `preparing`; `enhancing` in `analyzing`; `relight` in `planning` or `rendering` of an `evening`
+ * or `bright` job), else the state's label. Null for terminal states.
+ */
+export function stageLabelKeyOf(job: {
+  state: RenderJobState;
+  subStage?: RenderSubStage | null;
+  lightingMode?: LightingMode | null;
+}): StageLabelKey | null {
+  if (isTerminalRenderJobState(job.state)) return null;
+  if (job.subStage === 'framing' && job.state === 'preparing') return 'stage.framing';
+  if (job.subStage === 'enhancing' && job.state === 'analyzing') return 'stage.enhancing';
+  if (job.subStage === 'relight' && (job.state === 'planning' || job.state === 'rendering')) {
+    if (job.lightingMode === 'evening') return 'stage.eveningLight';
+    if (job.lightingMode === 'bright') return 'stage.brightLight';
+  }
+  return RENDER_STATE_STAGE_LABEL_KEYS[job.state];
 }
 
 /** Why a job ended `failed`. */
@@ -175,6 +209,19 @@ export const JUDGE_DECISIONS = ['pass', 'reject', 'uncertain'] as const;
 export const JudgeDecisionSchema = z.enum(JUDGE_DECISIONS);
 export type JudgeDecision = z.infer<typeof JudgeDecisionSchema>;
 
+/**
+ * Image-edit attempt numbers of one render job. A job makes at most two attempts (an attempt and
+ * its repair), except a relit look (`evening`, `bright`) that decorates its own base first: the
+ * base, the relight, and one repair of either, so at most three. A job is repaired at most once.
+ */
+export const RENDER_ATTEMPT_NUMBERS = [1, 2, 3] as const;
+export const RenderAttemptNumberSchema = z.union([z.literal(1), z.literal(2), z.literal(3)]);
+export type RenderAttemptNumber = (typeof RENDER_ATTEMPT_NUMBERS)[number];
+/** The most image-edit attempts any render job makes. */
+export const MAX_RENDER_ATTEMPTS = 3;
+/** The most image-edit attempts of a job that is not a relit look decorating its own base. */
+export const STANDARD_RENDER_ATTEMPTS = 2;
+
 /** Outcome of one render attempt. */
 export const ATTEMPT_OUTCOMES = [
   'pending',
@@ -199,8 +246,11 @@ export const FIDELITY_MODES = ['composite_additive', 'global_relight'] as const;
 export const FidelityModeSchema = z.enum(FIDELITY_MODES);
 export type FidelityMode = z.infer<typeof FidelityModeSchema>;
 
+/** `global_relight` for the relit modes (`evening`, `bright`); `composite_additive` otherwise. */
 export function fidelityModeFor(lightingMode: LightingMode): FidelityMode {
-  return lightingMode === 'evening' ? 'global_relight' : 'composite_additive';
+  return lightingMode === 'evening' || lightingMode === 'bright'
+    ? 'global_relight'
+    : 'composite_additive';
 }
 
 /** Review mode per scene type. */

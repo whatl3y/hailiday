@@ -15,10 +15,12 @@ import {
   checkSpend,
   consumeDisplayLoads,
   deviceBackstop,
+  displayLoadsRemaining,
   isRelightBaseCompanion,
   isUnsentAttempt,
   lockOwnerAllowance,
   recordAllowanceResidue,
+  resetExpiredDisplayLoads,
   spendSince,
   variantAllowance,
 } from './index.js';
@@ -313,6 +315,52 @@ describe('allowance counters', () => {
       code: 'RATE_LIMITED',
       details: { scope: 'viewpoints', retryAfterSeconds: null },
     });
+  });
+
+  it('opens a new display budget window 24 hours after the first view of the last one', async () => {
+    const owner = await factories.owner(db);
+    const project = await factories.project(db, { ownerId: owner.id, kind: 'address' });
+    const propertyId = project.propertyId!;
+    const opened = new Date('2026-11-10T12:00:00.000Z');
+    const at = (ms: number) => new Date(opened.getTime() + ms);
+    const stored = () =>
+      db
+        .selectFrom('properties')
+        .select(['displayLoadsIssued', 'displayLoadsWindowStartedAt'])
+        .where('id', '=', propertyId)
+        .executeTakeFirstOrThrow();
+    for (let issued = 1; issued <= 6; issued += 1) {
+      const now = at(issued * HOUR_MS);
+      expect(await consumeDisplayLoads(db, { propertyId, limit: 6, now })).toBe(6 - issued);
+    }
+    // The window opened with the first view, an hour after `opened`.
+    expect(await stored()).toEqual({
+      displayLoadsIssued: 6,
+      displayLoadsWindowStartedAt: at(HOUR_MS),
+    });
+    expect(displayLoadsRemaining(await stored(), 6, at(20 * HOUR_MS))).toBe(0);
+    await expect(
+      consumeDisplayLoads(db, { propertyId, limit: 6, now: at(25 * HOUR_MS - 1) }),
+    ).rejects.toMatchObject({ code: 'RATE_LIMITED', details: { scope: 'viewpoints' } });
+    expect(await resetExpiredDisplayLoads(db, { propertyId, now: at(25 * HOUR_MS - 1) })).toBe(
+      false,
+    );
+    // A day after the window opened, the seventh view is issued and opens the next window.
+    expect(displayLoadsRemaining(await stored(), 6, at(25 * HOUR_MS))).toBe(6);
+    expect(await consumeDisplayLoads(db, { propertyId, limit: 6, now: at(25 * HOUR_MS) })).toBe(5);
+    expect(await stored()).toEqual({
+      displayLoadsIssued: 1,
+      displayLoadsWindowStartedAt: at(25 * HOUR_MS),
+    });
+    // A count only exists while its window is open; a reader can clear an expired one.
+    expect(await resetExpiredDisplayLoads(db, { propertyId, now: at(48 * HOUR_MS) })).toBe(false);
+    expect(await resetExpiredDisplayLoads(db, { propertyId, now: at(49 * HOUR_MS) })).toBe(true);
+    expect(await stored()).toEqual({ displayLoadsIssued: 0, displayLoadsWindowStartedAt: null });
+    expect(displayLoadsRemaining(null, 6, at(0))).toBe(6);
+    // A count larger than the budget is still refused in a fresh window.
+    await expect(
+      consumeDisplayLoads(db, { propertyId, limit: 6, count: 7, now: at(50 * HOUR_MS) }),
+    ).rejects.toMatchObject({ code: 'RATE_LIMITED' });
   });
 });
 

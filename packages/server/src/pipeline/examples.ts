@@ -3,13 +3,16 @@ import sharp from 'sharp';
 import {
   SCENE_ANALYSIS_SCHEMA_VERSION,
   SpecAttributesSchema,
+  isRelightLightingMode,
+  type LightingMode,
+  type LocalizedAdditionRecord,
   type BuildingForm,
   type NormalizedBox,
   type Placement,
   type RoomType,
   type SceneAnalysis,
   type SpecAttributes,
-} from '@holiday/core';
+} from '@hailiday/core';
 import type { ImageEditSettings } from '../config/index.js';
 import type { Content, ExampleContent } from '../content/load.js';
 import type { Db } from '../db/client.js';
@@ -30,18 +33,13 @@ import type { Storage } from '../storage/client.js';
 import { CARD_CACHE_CONTROL } from '../storage/client.js';
 import { compileRelightRequest, compilerProviderFor } from './compile/compiler.js';
 import type { PhotometricRecord } from './imaging/composite.js';
-import {
-  buildCompositeMask,
-  compositeProtection,
-  dilationHang,
-  placementMaskParts,
-  type CompositeMask,
-} from './imaging/mask.js';
+import type { CompositeMask } from './imaging/mask.js';
 import { checksumOf, encodeMaskPng, encodePng, type Raster } from './imaging/raster.js';
 import type { AlignmentRecord } from './imaging/registration.js';
+import { medianLuma } from './imaging/relight.js';
 import { prepareWorkingImage, type WorkingImage } from './imaging/working.js';
 import { planAndCompile, type PlanDraft } from './plan/index.js';
-import { localizedKeepMask } from './render/mask.js';
+import { protectedCompositing, renderCompositeMask, type TextMarkModeOf } from './render/mask.js';
 import {
   callLocalizer,
   compositeAndCheck,
@@ -123,13 +121,13 @@ export interface ExampleRenderDeps {
    */
   imageEdit?: Partial<ImageEditSettings>;
   /**
-   * Daylight composites already rendered in this run, by photo, holiday, scene and style: an
-   * evening example relights the daylight example of the same photo instead of rendering it again.
+   * Daylight composites already rendered in this run, by photo, holiday, scene and style: a relit
+   * example relights the daylight example of the same photo instead of rendering it again.
    */
   daylight?: Map<string, ExampleDaylight>;
 }
 
-/** The daylight (`source`) composite of an example photo, the base of its evening relight. */
+/** The daylight (`source`) composite of an example photo, the base of its relight. */
 export interface ExampleDaylight {
   candidate: Raster;
   plan: PlanDraft;
@@ -149,10 +147,12 @@ function daylightKey(example: ExampleContent, photo: LibraryPhoto): string {
  * exact anchors when vision runs in fixture mode), the pack's plan and the request compiled with
  * the configured settings (`imageEdit`), the edit, registration, localization of the added
  * decorations, the keep-mask (the plan's shapes united with the localized boxes), photometric
- * alignment and paste-back. An evening example relights that daylight composite with the compiled
- * relight request (no mask) and registers the relit output to it, as the evening variant of a
- * render job does. Returns JPEG bytes of the before and after images at the example's size, and
- * for an evening example the daylight composite it relit (JPEG at the same size) with its plan.
+ * alignment and paste-back. A relit example (`evening`, `bright`) relights that daylight composite
+ * with the compiled relight request for its target (no mask) and registers the relit output to
+ * it, as a render job's relight does; a bright example of a photo that is already bright (the
+ * render job's skip rule) keeps the composite as photographed. Returns JPEG bytes of the before
+ * and after images at the example's size, and for a relit example the daylight composite it relit
+ * (JPEG at the same size) with its plan.
  */
 export async function renderExamplePair(
   deps: ExampleRenderDeps,
@@ -208,35 +208,28 @@ export async function renderExamplePair(
   const windows = analysis.anchors
     .filter((a) => a.category === 'window_frame' || a.category === 'interior_window')
     .map((a) => a.box);
+  // The render job's composite mask (a window's own garland is a band, so its interior is
+  // protected below the band dilation); text marks are grown unless the decisions of the edited
+  // output say otherwise.
   const maskFor = (
     placements: readonly Pick<Placement, 'anchorId' | 'placementRule' | 'region' | 'maskShapes'>[],
-  ): CompositeMask => {
-    // A window's own garland is a band, so its interior is protected below the band dilation.
-    const protection = compositeProtection(
+    textMarks?: readonly TextMarkModeOf[],
+  ): CompositeMask =>
+    renderCompositeMask({
       analysis,
       placements,
-      dilationHang(PIPELINE_DEFAULTS.bandDilationFraction, working.width, working.height),
-    );
-    return buildCompositeMask({
       width: working.width,
       height: working.height,
-      ...placementMaskParts(placements),
+      padRegions: working.padRegions,
+      attributionRegions: [],
       dilationFraction: PIPELINE_DEFAULTS.dilationFraction,
       bandDilationFraction: PIPELINE_DEFAULTS.bandDilationFraction,
       featherFraction: PIPELINE_DEFAULTS.featherFraction,
-      exclusions: [
-        ...analysis.preserveRegions
-          .filter((region) => ['house_number', 'sign', 'logo'].includes(region.kind))
-          .map((region) => region.box),
-        ...working.padRegions,
-        ...protection.exclusions,
-      ],
-      access: protection.keepOuts,
+      ...(textMarks ? { textMarks } : {}),
     });
-  };
   const fixtureContext = (
     placements: readonly Placement[],
-    lightingMode: 'source' | 'evening',
+    lightingMode: LightingMode,
   ): { fixture: FixtureEditContext } | Record<string, never> =>
     deps.imageEditor.mode === 'fixture'
       ? {
@@ -352,8 +345,7 @@ export async function renderExamplePair(
         outcome.image,
       );
     }
-    let mask = planMask;
-    let keptRegions: NormalizedBox[] = [];
+    let items: LocalizedAdditionRecord[] | null = null;
     try {
       const localized = await callLocalizer({
         vision: deps.vision,
@@ -364,21 +356,28 @@ export async function renderExamplePair(
         timeoutMs: PIPELINE_DEFAULTS.localizationTimeoutMs,
         signal: new AbortController().signal,
       });
-      const keep = localizedKeepMask({
-        planMask,
-        items: localizationRecords(
-          localized.result,
-          plan.placements.map((placement) => placement.id),
-        ).items,
-        analysis,
-        attributionRegions: [],
-        padRegions: working.padRegions,
-      });
-      mask = keep.mask;
-      keptRegions = keep.kept.map((item) => item.box);
+      items = localizationRecords(
+        localized.result,
+        plan.placements.map((placement) => placement.id),
+      ).items;
     } catch {
       // As in the render job: a localization that fails keeps the plan mask.
     }
+    // As in the render job, the surroundings of each text mark and the decorations found on it
+    // decide how it is composited; the keep-mask follows the decisions.
+    const protection = protectedCompositing({
+      working: working.raster,
+      aligned: registration.registered.aligned,
+      analysis,
+      padRegions: working.padRegions,
+      attributionRegions: [],
+      planMask,
+      items,
+      placements: plan.placements,
+      buildMask: ({ textMarks }) => maskFor(plan.placements, textMarks),
+    });
+    const mask = protection.keep?.mask ?? protection.mask;
+    const keptRegions: NormalizedBox[] = (protection.keep?.kept ?? []).map((item) => item.box);
     const composite = await compositeAndCheck({
       working,
       rawBytes: outcome.image,
@@ -388,6 +387,7 @@ export async function renderExamplePair(
       analysis,
       mask,
       keptRegions,
+      openHouseNumbers: protection.openHouseNumbers,
       attributionRegion: null,
       glowRegions: windows,
     });
@@ -404,11 +404,17 @@ export async function renderExamplePair(
   let candidate = daylight.candidate;
   let alignment = daylight.alignment;
   let photometric = daylight.photometric;
-  if (example.lightingMode === 'evening') {
-    // The evening example: the editor relights the daylight composite (no mask), and the relit
+  const target = isRelightLightingMode(example.lightingMode) ? example.lightingMode : null;
+  const relit =
+    target === 'evening' ||
+    (target === 'bright' &&
+      medianLuma(working.raster, working.contentBox) < PIPELINE_DEFAULTS.brightMedianLuma);
+  if (target && relit) {
+    // A relit example: the editor relights the daylight composite (no mask), and the relit
     // output is registered to it and restored at the padding like the render job's relight.
     const png = await encodePng(daylight.candidate);
     const request = compileRelightRequest({
+      target,
       basePlan: daylight.plan,
       provider,
       ...(deps.imageEdit ? { settings: deps.imageEdit } : {}),
@@ -418,8 +424,8 @@ export async function renderExamplePair(
     });
     const outcome = await edit(
       request,
-      { image: png, ...fixtureContext(daylight.plan.placements, 'evening') },
-      'evening',
+      { image: png, ...fixtureContext(daylight.plan.placements, target) },
+      target,
     );
     const relight = await compositeAndCheck({
       working,
@@ -428,7 +434,7 @@ export async function renderExamplePair(
       requested: { width: working.width, height: working.height },
       plan: {
         ...daylight.plan,
-        lightingMode: 'evening',
+        lightingMode: target,
         fidelityMode: 'global_relight',
       },
       analysis,
@@ -455,7 +461,7 @@ export async function renderExamplePair(
     placements: daylight.plan.placements.length,
     alignment,
     photometric,
-    ...(example.lightingMode === 'evening'
+    ...(target && relit
       ? {
           relightBase: {
             image: await encode(

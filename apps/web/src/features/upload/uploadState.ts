@@ -2,11 +2,11 @@ import {
   DEFAULT_SCENE_TYPE_AUTO_ACCEPT,
   type SourceAssetState,
   type UploadStatus,
-} from '@holiday/core';
+} from '@hailiday/core';
 import type { CopyKey } from '../../copy';
 import type { PrepareFailureReason } from './prepare';
 
-export type { PresignedPost, UploadStatus } from '@holiday/core';
+export type { PresignedPost, UploadStatus } from '@hailiday/core';
 
 /** States after which polling stops. */
 export function isTerminalSourceUploadState(state: SourceAssetState): boolean {

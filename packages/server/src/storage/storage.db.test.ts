@@ -5,11 +5,15 @@ import { initializeBuckets } from '../storage-init.js';
 import { createStorage, type LifecycleRule } from './client.js';
 import { isHeldKey, keys } from './keys.js';
 import { lifecycleRulesFor } from './lifecycle.js';
+import {
+  SERVER_TEST_BUCKETS,
+  emptyTestBuckets,
+  isTestBucket,
+  testBucketSuffixFrom,
+} from './testing.js';
 
 const config = testConfig();
-const storage = createStorage(config, {
-  buckets: { private: 'test-holiday-private', public: 'test-holiday-public' },
-});
+const storage = createStorage(config, { buckets: { ...SERVER_TEST_BUCKETS.storage } });
 
 beforeAll(async () => {
   for (const bucket of [storage.buckets.private, storage.buckets.public]) {
@@ -178,5 +182,56 @@ describe('bucket lifecycle backstop', () => {
     expect((storage.cdn as unknown as { purged: string[] }).purged).toContain(
       'cards/AbCdEfGhIjKlMnOpQrStUv.jpg',
     );
+  });
+});
+
+describe('test bucket cleanup', () => {
+  const body = Buffer.from('test-object');
+  const provenance = { sourceKind: 'upload' } as const;
+
+  it('empties a test bucket, held objects included, and leaves the bucket in place', async () => {
+    const original = keys.original(uuidv7(), uuidv7());
+    const held = keys.held(uuidv7(), original);
+    expect(isHeldKey(held)).toBe(true);
+    for (const key of [original, held]) {
+      await storage.put({ bucket: 'private', key, body, contentType: 'image/jpeg', provenance });
+    }
+
+    const removed = await emptyTestBuckets([storage.buckets.private], config);
+
+    expect(removed).toBeGreaterThanOrEqual(2);
+    expect(await storage.list('private', '')).toEqual([]);
+    expect(await storage.bucketExists(storage.buckets.private)).toBe(true);
+  });
+
+  it('refuses a bucket without the test prefix and deletes nothing', async () => {
+    const key = keys.original(uuidv7(), uuidv7());
+    await storage.put({ bucket: 'private', key, body, contentType: 'image/jpeg', provenance });
+
+    expect(isTestBucket(config.storage.privateBucket)).toBe(false);
+    expect(isTestBucket('test-')).toBe(false);
+    await expect(emptyTestBuckets([config.storage.privateBucket], config)).rejects.toThrow(
+      RangeError,
+    );
+    await expect(
+      emptyTestBuckets([storage.buckets.private, config.storage.privateBucket], config),
+    ).rejects.toThrow(/not a test bucket/);
+
+    expect(await storage.head('private', key)).not.toBeNull();
+  });
+
+  it('skips a test bucket that does not exist', async () => {
+    expect(await emptyTestBuckets(['test-never-created'], config)).toBe(0);
+  });
+
+  it('takes a bucket name suffix for a second checkout and refuses an unsafe one', () => {
+    expect(testBucketSuffixFrom(undefined)).toBe('');
+    expect(testBucketSuffixFrom('-copy2')).toBe('-copy2');
+    expect(() => testBucketSuffixFrom('Copy_2')).toThrow(RangeError);
+    expect(() => testBucketSuffixFrom('/etc')).toThrow(RangeError);
+    for (const pair of Object.values(SERVER_TEST_BUCKETS)) {
+      expect(isTestBucket(pair.private)).toBe(true);
+      expect(isTestBucket(pair.public)).toBe(true);
+    }
   });
 });

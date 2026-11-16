@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { HolidayChangeSurface, HolidayId } from '@holiday/core';
+import type { HolidayChangeSurface, HolidayId } from '@hailiday/core';
 import { holidayName, t } from '../copy';
 import { currentHolidayId, useAppStore } from '../state/appStore';
 import { Icon } from './Icon';
@@ -80,18 +80,38 @@ export function HolidayOptions({
 
 export interface HolidayChipProps {
   surface: HolidayChangeSurface;
-  /** Glass style for use over a photograph. */
-  onPhoto?: boolean;
   onChange?: (holidayId: HolidayId) => void;
   /** Limits the picker to these holidays (for example those the project's scene supports). */
   holidayIds?: readonly HolidayId[];
   /** Overrides the holiday the chip names (for example the look on screen). */
   shown?: HolidayId | null;
+  /**
+   * Locked while a look is being made: the chip stays focusable but does not open, and a picker
+   * that is open closes.
+   */
+  locked?: boolean;
+  /** Called when the locked chip is pressed, so the page can say why nothing opened. */
+  onLockedPress?: () => void;
+  /** The ID of the text that explains the lock. */
+  describedBy?: string;
 }
 
-/** The header chip: reads the current holiday and opens the picker sheet. */
-export function HolidayChip({ surface, onPhoto, onChange, holidayIds, shown }: HolidayChipProps) {
+/**
+ * The header picker: a quiet label with the current holiday's dot and name that opens the
+ * picker sheet.
+ */
+export function HolidayChip({
+  surface,
+  onChange,
+  holidayIds,
+  shown,
+  locked = false,
+  onLockedPress,
+  describedBy,
+}: HolidayChipProps) {
   const [open, setOpen] = useState(false);
+  // A look that starts while the picker is open closes it, and it stays closed after the look.
+  if (locked && open) setOpen(false);
   const current = useAppStore(currentHolidayId);
   const hasPickerHolidays = useAppStore((state) => state.pickerHolidayIds.length > 0);
   const selected = shown === undefined ? current : shown;
@@ -102,16 +122,26 @@ export function HolidayChip({ surface, onPhoto, onChange, holidayIds, shown }: H
     <>
       <button
         type="button"
-        className={onPhoto ? 'chip chip--glass' : 'chip'}
+        className="holiday-chip"
+        data-holiday={selected ?? undefined}
         aria-haspopup="dialog"
-        onClick={() => setOpen(true)}
+        aria-expanded={open && !locked}
+        aria-disabled={locked || undefined}
+        aria-describedby={locked ? describedBy : undefined}
+        onClick={() => {
+          if (locked) {
+            onLockedPress?.();
+            return;
+          }
+          setOpen(true);
+        }}
       >
-        {selected ? <span className="chip__swatch" aria-hidden="true" /> : null}
+        {selected ? <span className="holiday-chip__dot" aria-hidden="true" /> : null}
         <span className="sr-only">{t('landing.pickerLabel')}: </span>
         {selected ? holidayName(selected) : t('landing.chooseHoliday')}
         <Icon name="chevronDown" />
       </button>
-      {open ? (
+      {open && !locked ? (
         <Sheet title={t('landing.pickerHeading')} onClose={() => setOpen(false)}>
           <HolidayOptions
             selected={selected}

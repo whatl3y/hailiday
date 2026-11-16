@@ -1,16 +1,28 @@
 import { expect, test } from '@playwright/test';
-import { COPY, resultFromUpload } from './support';
+import { COPY, openResultRow, resultFromUpload } from './support';
 
 test('Shop the look shows its disclosure before any product link', async ({ page, context }) => {
   await resultFromUpload(page, 'e2e-shop-front-porch.jpg');
 
+  // Shop the look starts collapsed; its products are requested when it opens.
+  const products = page.waitForResponse((response) =>
+    /\/v1\/renders\/[^/]+\/products$/.test(new URL(response.url()).pathname),
+  );
+  await openResultRow(page, COPY.shopHeading);
+  await products;
   const panel = page.getByRole('region', { name: COPY.shopHeading });
   await expect(panel).toBeVisible({ timeout: 30_000 });
+  await expect(panel.locator('.indeterminate')).toHaveCount(0);
+  await expect(panel).not.toHaveAttribute('aria-busy', 'true');
   const cards = panel.getByRole('link').filter({ hasText: /at / });
   const cardCount = await cards.count();
 
   if (cardCount === 0) {
+    // A panel with nothing to show, or one the server hides, keeps its row with one line.
     await expect(panel.getByText(COPY.noOffers).or(panel.getByText(COPY.offSeason))).toBeVisible();
+    await expect(
+      page.locator('.disclosure__toggle').filter({ hasText: /^Shop the look/ }),
+    ).toHaveCount(1);
     return;
   }
 

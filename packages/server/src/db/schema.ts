@@ -24,7 +24,9 @@ import type {
   FailureKind,
   FeedbackVerdict,
   FidelityMode,
+  FailureCode,
   HolidayId,
+  JobEnhancementRecord,
   JudgeDecision,
   KitStatus,
   LedgerCategory,
@@ -35,6 +37,7 @@ import type {
   LinkMode,
   MatchClass,
   MerchantProgramStatus,
+  NormalizedBox,
   OfferLifecycleStatus,
   OwnerKind,
   PackVersionStatus,
@@ -52,6 +55,7 @@ import type {
   ProviderWatermark,
   RejectionReason,
   RenderJobState,
+  RenderSubStage,
   ReportPriority,
   ReportReason,
   ReportStatus,
@@ -72,7 +76,7 @@ import type {
   UploadDeclineReasonClass,
   UserRole,
   VerificationMethod,
-} from '@holiday/core';
+} from '@hailiday/core';
 import type { AllowanceResidueKind } from '../limits/residue.js';
 
 /** `timestamptz NOT NULL` without a default. Read as Date; written as Date or ISO string. */
@@ -238,6 +242,8 @@ export interface PropertiesTable extends Mutable {
   attachedFacade: WithDefault<boolean>;
   structureType: 'BUILDING' | 'GROUNDS' | null;
   displayLoadsIssued: WithDefault<number>;
+  /** When the current 24-hour display budget window opened; null when none is open. */
+  displayLoadsWindowStartedAt: NullableTimestamp;
   ownerBlurDetectedAt: NullableTimestamp;
   targetLat: NullableNumeric;
   targetLng: NullableNumeric;
@@ -259,6 +265,10 @@ export interface ProjectsTable extends Mutable {
   buildingForm: BuildingForm | null;
   roomType: RoomType | null;
   holidayId: HolidayId;
+  /**
+   * The current look; set from the pack defaults when the scene type is set or changes (indoor
+   * scene types start in `bright`, which migration 0013 allows).
+   */
   style: WithDefault<Style>;
   lightingMode: WithDefault<LightingMode>;
   savedAt: NullableTimestamp;
@@ -303,7 +313,46 @@ export interface AssetPoliciesTable extends Mutable {
   createdBy: string;
 }
 
-/** Street View refetch descriptor stored on a source asset. */
+/**
+ * How a Street View source's frame was zoomed in on the home at the look that recorded it.
+ * `framedAt` is the database's time of the record: a look created before it was made from the
+ * wide frame, a look created at or after it from the recorded frame. `framed`: the
+ * stored frame is the view `heading`, `pitch` and `fov` from the same panorama, aimed at the home
+ * the vision model boxed (`box`, normalized on the wide frame) with `zoom` the gain over the wide
+ * view; `displayIssuedAt`, once set, is when the framed view's display URL was first counted
+ * against the property's display budget and ledgered (the browser loads it from the provider when
+ * no stored frame may be shown), which happens once per source. `kept`: the source keeps its wide
+ * frame for good, because no single home was found, the answer was ambiguous or not confident
+ * enough, zooming in would gain too little, or the scene analysis refused the framed frame of the
+ * look that recorded it (`refused_framed`: the wide frame was fetched and stored again).
+ */
+export type ViewpointFraming =
+  | {
+      status: 'framed';
+      heading: number;
+      pitch: number;
+      fov: number;
+      box: NormalizedBox;
+      zoom: number;
+      displayIssuedAt?: string;
+      promptVersion: string;
+      model: string;
+      framedAt: string;
+    }
+  | {
+      status: 'kept';
+      reason: 'no_home' | 'ambiguous' | 'small_gain' | 'refused_framed';
+      box: NormalizedBox | null;
+      promptVersion: string;
+      model: string;
+      framedAt: string;
+    };
+
+/**
+ * Street View refetch descriptor stored on a source asset. `heading`, `pitch` and `fov` are the
+ * confirmed candidate's view and the viewpoint's identity (`viewpoint_key`); `framing`, once
+ * recorded, says which view the stored frame actually shows.
+ */
 export interface ViewpointJson {
   panoId: string;
   heading: number;
@@ -316,6 +365,7 @@ export interface ViewpointJson {
   captureGranularity: 'month' | 'year' | 'none';
   fetchedAt: string | null;
   sourceCheckedAt: string | null;
+  framing?: ViewpointFraming;
 }
 
 export interface SourceAssetsTable extends Mutable {
@@ -661,7 +711,12 @@ export interface RenderJobsTable extends Mutable {
   failureCodes: string[] | null;
   idempotencyKey: string;
   requestHash: string;
+  /**
+   * Image-edit attempts made so far: at most 2, or 3 for a relit look that decorates its own base
+   * (migration 0014).
+   */
   attemptCount: WithDefault<number>;
+  /** Whether the job used its one repair. */
   repairUsed: WithDefault<boolean>;
   reviewMode: ReviewMode;
   supersededByJobId: string | null;
@@ -679,10 +734,67 @@ export interface RenderJobsTable extends Mutable {
   reviewCompletedAt: NullableTimestamp;
   succeededAt: NullableTimestamp;
   terminalAt: NullableTimestamp;
+  /**
+   * What the worker is doing inside the state when the state alone does not say it (migrations
+   * 0018 and 0019): `framing` in `preparing`, `enhancing` in `analyzing`, `relight` in `planning`
+   * and `rendering` of a relight.
+   */
+  subStage: RenderSubStage | null;
+  /** The outcome of the Street View enhancement step; null for other sources (migration 0018). */
+  enhancement: NullableJson<JobEnhancementRecord>;
+}
+
+/** Status of a Street View enhancement row. */
+export type SourceEnhancementStatus = 'pending' | 'accepted' | 'rejected' | 'failed';
+
+/**
+ * One Street View enhancement per (source, stored-frame checksum, compiler version): the image
+ * editor's redraw of the frame, its checks and verdict, and the accepted picture (migration 0018).
+ */
+export interface SourceEnhancementsTable extends Mutable {
+  sourceAssetId: string;
+  frameChecksumSha256: string;
+  compilerVersion: string;
+  workingWidth: number;
+  workingHeight: number;
+  status: SourceEnhancementStatus;
+  reason: string | null;
+  failureCodes: WithDefault<FailureCode[]>;
+  /** Set on `failed`: whether a later job may try once more. */
+  retryable: WithDefault<boolean>;
+  /** Edits sent to the provider for this row (0 to 2). */
+  editCount: WithDefault<number>;
+  jobId: string | null;
+  provider: string | null;
+  providerMode: ProviderMode | null;
+  modelSnapshot: string | null;
+  settingsHash: string | null;
+  request: NullableJson<Record<string, unknown>>;
+  providerOperationId: string | null;
+  editSentAt: NullableTimestamp;
+  editCompletedAt: NullableTimestamp;
+  editLatencyMs: number | null;
+  providerUsage: NullableJson<Record<string, unknown>>;
+  providerWatermark: ProviderWatermark | null;
+  /** The provider's output, under the job's attempts prefix. */
+  rawObjectKey: string | null;
+  editLedgerEntryId: string | null;
+  judgeLedgerEntryId: string | null;
+  registration: NullableJson<Record<string, unknown>>;
+  checks: NullableJson<Record<string, unknown>>;
+  judge: NullableJson<Record<string, unknown>>;
+  judgeUsage: NullableJson<Record<string, unknown>>;
+  /** The accepted picture (PNG on the working grid) under `enhanced/`. */
+  objectKey: string | null;
+  /** SHA-256 of the accepted PNG bytes: the working checksum of the jobs that use it. */
+  enhancedChecksumSha256: string | null;
+  byteLength: NullableInt8;
+  decidedAt: NullableTimestamp;
 }
 
 export interface DecorationPlansTable extends Base {
   jobId: string;
+  /** 1 to 3 (`RenderAttemptNumber`). */
   attemptNo: number;
   sceneAnalysisId: string;
   packVersion: string;
@@ -695,7 +807,9 @@ export interface DecorationPlansTable extends Base {
 
 export interface RenderAttemptsTable extends Mutable {
   jobId: string;
+  /** 1 to 3 (`RenderAttemptNumber`); a third attempt is always a relight. */
   attemptNo: number;
+  /** Planned with repair constraints: never the first attempt, at most one per job. */
   isRepair: boolean;
   decorationPlanId: string;
   sceneAnalysisId: string;
@@ -1003,6 +1117,7 @@ export interface Database {
   usageLedger: UsageLedgerTable;
   sceneAnalyses: SceneAnalysesTable;
   renderJobs: RenderJobsTable;
+  sourceEnhancements: SourceEnhancementsTable;
   decorationPlans: DecorationPlansTable;
   renderAttempts: RenderAttemptsTable;
   judgeResults: JudgeResultsTable;
@@ -1035,6 +1150,7 @@ export type SourceAsset = Row<'sourceAssets'>;
 export type AssetPolicy = Row<'assetPolicies'>;
 export type PermissionEvaluation = Row<'permissionEvaluations'>;
 export type RenderJob = Row<'renderJobs'>;
+export type SourceEnhancement = Row<'sourceEnhancements'>;
 export type RenderAttempt = Row<'renderAttempts'>;
 export type RenderAsset = Row<'renderAssets'>;
 export type UsageLedgerEntry = Row<'usageLedger'>;

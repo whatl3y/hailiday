@@ -6,6 +6,7 @@ import {
   kitInPriorityOrder,
   type ForbiddenItem,
   type HolidayPack,
+  type LightingMode,
   type MaskBudget,
   type MaskShape,
   type NormalizedBox,
@@ -13,7 +14,7 @@ import {
   type SceneType,
   type SpecAttributes,
   type Style,
-} from '@holiday/core';
+} from '@hailiday/core';
 import { PIPELINE_DEFAULTS } from '../versions.js';
 import { PLACEMENT_GEOMETRY, placementGeometry, roundBox, type Grid } from './geometry.js';
 import { FORBIDDEN_NEGATIVES } from './phrases.js';
@@ -32,7 +33,7 @@ import {
   type PlacementCheckContext,
 } from './validator.js';
 
-/** Raised when a plan cannot be built because content is missing or invalid (a Holiday defect). */
+/** Raised when a plan cannot be built because content is missing or invalid (a Hailiday defect). */
 export class PlanConfigurationError extends Error {
   readonly reason: 'missing_scene_section' | 'forbidden_list';
   readonly detail: string[];
@@ -70,9 +71,13 @@ export function planKitItems(
 const EVENING_BLOCK =
   'Shift the whole scene to early dusk: deepen the sky and lower the ambient light moderately so the lit decorations read clearly. Keep every roof line, window, door, wall, material and color, and every neighboring building identical in shape and position. Windows that already exist may show a soft warm interior glow. Add no light sources other than the decorations.';
 
-/** The compiled lighting instruction for a plan (render spec, lighting modes). */
+/**
+ * The compiled lighting instruction for a plan (render spec, lighting modes). Decorate attempts
+ * are planned as photographed; a relit look (`evening`, `bright`) relights the decorated photo
+ * afterwards, so only the legacy combined `evening` plan carries the dusk block.
+ */
 export function lightingInstructionFor(input: {
-  lightingMode: 'source' | 'evening';
+  lightingMode: LightingMode;
   anyLit: boolean;
   lightsAllowed: boolean;
   eveningGuidance?: string | undefined;

@@ -6,8 +6,8 @@ import {
   type NormalizedBox,
   type ProviderMode,
   type ProviderWatermark,
-} from '@holiday/core';
-import { toJson, type Tx } from '../../db/client.js';
+} from '@hailiday/core';
+import { toJson, type DbOrTx, type Tx } from '../../db/client.js';
 import type {
   Project,
   ProvenanceJson,
@@ -30,6 +30,7 @@ import {
 } from '../imaging/label.js';
 import { encodeJpeg, toRect, type Raster } from '../imaging/raster.js';
 import { IPTC_DIGITAL_SOURCE_TYPE } from '../versions.js';
+import { placementsPutBack, restoredBoxesOf } from './last-resort.js';
 import { releaseRemaining } from './ledger.js';
 import { LostRaceError, transitionJob } from './transitions.js';
 
@@ -62,7 +63,7 @@ export function attributionLine(
 /**
  * Builds the delivered JPEG (quality 90, progressive, sRGB, IPTC digital source type and credit,
  * padding cropped out) and, when the variant is downloadable, the download file with the burned-in
- * "AI preview" corner mark (lower left on Street View-origin variants, lower right otherwise) and,
+ * "AI preview" corner mark (upper left on Street View-origin variants, lower right otherwise) and,
  * for Street View-origin variants, the attribution band.
  */
 export async function buildDeliverables(input: {
@@ -91,7 +92,8 @@ export async function buildDeliverables(input: {
   const attributionText = attributionLine(input.source, input.permission);
   let download: Buffer | null = null;
   if (downloadable) {
-    // Street View-origin images carry the burned-in credit lower right, so the mark goes left.
+    // Street View-origin images carry burned-in attribution in both lower corners, so the mark
+    // goes to the upper left.
     let image: Buffer = input.downloadMark
       ? await burnPreviewMark(delivered, { corner: previewMarkCorner(input.source.kind) })
       : delivered;
@@ -113,7 +115,44 @@ export async function buildDeliverables(input: {
   };
 }
 
-/** Product links for an accepted variant: one per kit item the plan placed (commerce spec). */
+/** The working grid a job's normalized boxes are measured on when the job did not record one. */
+const DEFAULT_GRID = { width: 1024, height: 1024 };
+
+/**
+ * The placements of `plan` that spots put back from the original took out of the published
+ * picture: the attempt whose pixels are published (for a relight, the base it relit) recorded a
+ * restore (`composite_mask.restored`), and the placement keeps less than
+ * `lastResort.minPlacementShare` of its region outside the restored boxes (`placementsPutBack`,
+ * on the job's working grid).
+ */
+async function placementsTakenOut(
+  db: DbOrTx,
+  input: {
+    job: Pick<RenderJob, 'workingWidth' | 'workingHeight'>;
+    plan: DecorationPlan;
+    attempt: Pick<RenderAttempt, 'id'>;
+  },
+): Promise<Set<string>> {
+  const attemptId = input.plan.relightOf?.baseAttemptId ?? input.attempt.id;
+  const row = await db
+    .selectFrom('renderAttempts')
+    .select('compositeMask')
+    .where('id', '=', attemptId)
+    .executeTakeFirst();
+  const boxes = restoredBoxesOf(row?.compositeMask);
+  if (boxes.length === 0) return new Set();
+  const grid =
+    input.job.workingWidth && input.job.workingHeight
+      ? { width: input.job.workingWidth, height: input.job.workingHeight }
+      : DEFAULT_GRID;
+  return new Set(placementsPutBack({ ...grid, placements: input.plan.placements, boxes }));
+}
+
+/**
+ * Product links for an accepted variant: one per kit item the plan placed (commerce spec). A link
+ * is hidden (`not_present`) when the judge found its placement absent, or when spots put back
+ * from the original took out every placement of its kit item (`takenOut`).
+ */
 async function insertProductLinks(
   trx: Tx,
   input: {
@@ -123,6 +162,7 @@ async function insertProductLinks(
     adherence?: Readonly<
       Record<string, { category: boolean; colorFamily: boolean; count: boolean }>
     >;
+    takenOut?: ReadonlySet<string>;
     now: Date;
   },
 ): Promise<void> {
@@ -141,6 +181,10 @@ async function insertProductLinks(
     if (!item?.currentProductId) continue;
     rank += 1;
     const judged = input.judge?.placements.find((p) => p.placementId === placement.id) ?? null;
+    const takenOut = input.plan.placements
+      .filter((other) => other.kitItemId === placement.kitItemId)
+      .every((other) => input.takenOut?.has(other.id) ?? false);
+    const absent = (judged !== null && !judged.present) || takenOut;
     const human = input.adherence?.[placement.id];
     const failedCriteria = human
       ? (['category', 'colorFamily', 'count'] as const).filter((key) => !human[key])
@@ -148,8 +192,7 @@ async function insertProductLinks(
     const status = human ? (failedCriteria.length === 0 ? 'pass' : 'fail') : 'not_checked';
     // `described` needs a recorded human pass; a failed category hides the item.
     const relationship = status === 'pass' ? 'described' : 'similar';
-    const hidden =
-      (judged && !judged.present) || (human !== undefined && !human.category) ? input.now : null;
+    const hidden = absent || (human !== undefined && !human.category) ? input.now : null;
     await trx
       .insertInto('renderProductLinks')
       .values({
@@ -175,15 +218,22 @@ async function insertProductLinks(
         }),
         rankPosition: rank,
         hiddenAt: hidden,
-        hiddenReason: hidden
-          ? judged && !judged.present
-            ? 'not_present'
-            : 'adherence_failed'
-          : null,
+        hiddenReason: hidden ? (absent ? 'not_present' : 'adherence_failed') : null,
       })
       .onConflict((oc) => oc.columns(['renderAssetId', 'kitItemId']).doNothing())
       .execute();
   }
+}
+
+/**
+ * The stored expiry of a new render asset: the project's expiry while time-based deletion is on;
+ * none while it is off, so the variant cache never treats a kept rendering as expired.
+ */
+async function renderAssetExpiry(
+  deps: Pick<PipelineDeps, 'settings'>,
+  project: Pick<Project, 'expiresAt'>,
+): Promise<Date | null> {
+  return (await deps.settings.get('retention.time_based_deletion')) ? project.expiresAt : null;
 }
 
 export interface AcceptInput {
@@ -227,6 +277,7 @@ export async function publishAccepted(
 ): Promise<RenderAsset> {
   const now = deps.clock.now();
   const fidelityMode = input.fidelityMode ?? input.plan.fidelityMode;
+  const expiresAt = await renderAssetExpiry(deps, input.project);
   const renderAssetId = newId();
   const outputKey = keys.output(input.job.ownerId, renderAssetId, 'full.jpg');
   const downloadKey = input.deliverables.download
@@ -250,7 +301,7 @@ export async function publishAccepted(
       key: downloadKey,
       body: input.deliverables.download,
       contentType: 'image/jpeg',
-      contentDisposition: 'attachment; filename="holiday-preview.jpg"',
+      contentDisposition: 'attachment; filename="hailiday-preview.jpg"',
       provenance,
     });
   }
@@ -277,14 +328,7 @@ export async function publishAccepted(
         failureCodes: null,
       },
       within: async (trx, job) => {
-        // One accepted variant per owner and key: an older copy is retired.
-        await trx
-          .updateTable('renderAssets')
-          .set({ deletedAt: now })
-          .where('ownerId', '=', job.ownerId)
-          .where('variantKey', '=', job.variantKey)
-          .where('deletedAt', 'is', null)
-          .execute();
+        // An earlier rendering of the same key stays: every rendering is kept.
         asset = await trx
           .insertInto('renderAssets')
           .values({
@@ -314,7 +358,7 @@ export async function publishAccepted(
             downloadable: input.deliverables.downloadable,
             downloadObjectKey: downloadKey,
             existingDecorConflict: input.plan.existingDecorConflict,
-            expiresAt: input.project.expiresAt,
+            expiresAt,
           })
           .returningAll()
           .executeTakeFirstOrThrow();
@@ -328,6 +372,7 @@ export async function publishAccepted(
           plan: input.plan,
           judge: input.judge,
           ...(input.adherence ? { adherence: input.adherence } : {}),
+          takenOut: await placementsTakenOut(trx, input),
           now,
         });
         if (!input.keepAttemptOutcome) {
@@ -357,8 +402,9 @@ export async function publishAccepted(
       fixture: input.providerMode === 'fixture',
       properties: {
         latencyMs: Math.max(0, (qaPassedAt?.getTime() ?? now.getTime()) - startInstant),
-        attempts: input.attempt.attemptNo,
-        repaired: (input.plan.repairConstraints?.length ?? 0) > 0,
+        // Every attempt the job made, also when an earlier attempt's base is what is delivered.
+        attempts: Math.max(job.attemptCount, input.attempt.attemptNo),
+        repaired: job.repairUsed || (input.plan.repairConstraints?.length ?? 0) > 0,
         reviewMode: job.reviewMode,
         reviewWaitMs:
           input.patch.reviewCompletedAt && job.qaPassedAt
@@ -416,6 +462,7 @@ export async function publishBaseVariant(
   if (existing) return existing;
 
   const now = deps.clock.now();
+  const expiresAt = await renderAssetExpiry(deps, input.project);
   const renderAssetId = newId();
   const companionJobId = newId();
   const outputKey = keys.output(input.job.ownerId, renderAssetId, 'full.jpg');
@@ -440,7 +487,7 @@ export async function publishBaseVariant(
       key: downloadKey,
       body: input.deliverables.download,
       contentType: 'image/jpeg',
-      contentDisposition: 'attachment; filename="holiday-preview.jpg"',
+      contentDisposition: 'attachment; filename="hailiday-preview.jpg"',
       provenance,
     });
   }
@@ -482,6 +529,7 @@ export async function publishBaseVariant(
           workingWidth: evening.workingWidth,
           workingHeight: evening.workingHeight,
           workingChecksumSha256: evening.workingChecksumSha256,
+          enhancement: evening.enhancement ? toJson(evening.enhancement) : null,
           resampler: evening.resampler,
           workingCropBox: evening.workingCropBox ? toJson(evening.workingCropBox) : null,
           workingPadBox: evening.workingPadBox ? toJson(evening.workingPadBox) : null,
@@ -503,14 +551,7 @@ export async function publishBaseVariant(
         })
         .returning(['id', 'variantKey'])
         .executeTakeFirstOrThrow();
-      // One accepted variant per owner and key: an older copy is retired.
-      await trx
-        .updateTable('renderAssets')
-        .set({ deletedAt: now })
-        .where('ownerId', '=', evening.ownerId)
-        .where('variantKey', '=', companion.variantKey)
-        .where('deletedAt', 'is', null)
-        .execute();
+      // An earlier daylight rendering of the same key stays: every rendering is kept.
       const asset = await trx
         .insertInto('renderAssets')
         .values({
@@ -540,7 +581,7 @@ export async function publishBaseVariant(
           downloadable: input.deliverables.downloadable,
           downloadObjectKey: downloadKey,
           existingDecorConflict: input.plan.existingDecorConflict,
-          expiresAt: input.project.expiresAt,
+          expiresAt,
         })
         .returningAll()
         .executeTakeFirstOrThrow();
@@ -553,6 +594,7 @@ export async function publishBaseVariant(
         renderAssetId,
         plan: input.plan,
         judge: input.judge,
+        takenOut: await placementsTakenOut(trx, { ...input, job: evening }),
         now,
       });
       return asset;
@@ -565,6 +607,26 @@ export async function publishBaseVariant(
     if (raced) return raced;
     throw error;
   }
+}
+
+/**
+ * The newest rendering of each variant key, newest first (by `createdAt`, then `id`). An owner
+ * keeps every rendering, so a key may have several live rows; a list of a project's looks shows
+ * one per look.
+ */
+export function newestPerVariantKey<T extends Pick<RenderAsset, 'id' | 'variantKey' | 'createdAt'>>(
+  assets: readonly T[],
+): T[] {
+  const ordered = [...assets].sort(
+    (a, b) =>
+      b.createdAt.getTime() - a.createdAt.getTime() || (a.id < b.id ? 1 : a.id > b.id ? -1 : 0),
+  );
+  const seen = new Set<string>();
+  return ordered.filter((asset) => {
+    if (seen.has(asset.variantKey)) return false;
+    seen.add(asset.variantKey);
+    return true;
+  });
 }
 
 /** Object keys of the held candidate and download of an attempt awaiting review. */
@@ -636,4 +698,149 @@ export async function holdForReview(
     }
     throw error;
   }
+}
+
+/**
+ * The daylight base of an evening job held for pre-delivery review, staged by
+ * `holdBaseVariant`: its files are written, its companion job is not inserted yet.
+ */
+export interface StagedBaseVariant {
+  /** The companion of an earlier call (nothing was written), or null. */
+  existing: RenderJob | null;
+  /**
+   * Inserts the companion job in `trx`, the transaction that ends the evening job (the evening
+   * row is no longer active there, so the companion can be the project's active job). When it
+   * inserts nothing, the held files are deleted and the result is the companion of a concurrent
+   * call that inserted it first, or null (another job of the project is active).
+   */
+  insert(trx: Tx): Promise<RenderJob | null>;
+  /** Deletes the held files (the transaction that was to insert the companion failed). */
+  discard(): Promise<void>;
+}
+
+/**
+ * Holds the daylight base of an evening job that ended without its relight in pre-delivery review
+ * (render spec, lighting modes): the base's delivered and download files are stored unpublished
+ * under a companion job of the same project and key inputs in `source` lighting, created in
+ * `needs_review` (no attempts of its own; `input_snapshot.relightBaseOf` names the evening job and
+ * the base attempt, and the held files sit under `heldKeys(companion, base attempt)`). A reviewer's
+ * approval publishes it as the daylight variant. This writes the files and returns the staged
+ * hold; the caller inserts the companion (`insert`) in the same transaction that ends the evening
+ * job, so the job never ends without its companion, and deletes the files (`discard`) when that
+ * transaction fails. Idempotent per evening job: the companion of an earlier
+ * call is returned as `existing`, with nothing written.
+ */
+export async function holdBaseVariant(
+  deps: PipelineDeps,
+  input: {
+    job: RenderJob;
+    source: SourceAsset;
+    attempt: RenderAttempt;
+    deliverables: Deliverables;
+    permission: AssetPermission;
+    qaPassed: boolean;
+  },
+): Promise<StagedBaseVariant> {
+  const idempotencyKey = relightBaseIdempotencyKey(input.job.id);
+  const findExisting = async (db: DbOrTx) =>
+    (await db
+      .selectFrom('renderJobs')
+      .selectAll()
+      .where('ownerId', '=', input.job.ownerId)
+      .where('idempotencyKey', '=', idempotencyKey)
+      .executeTakeFirst()) ?? null;
+  const existing = await findExisting(deps.db);
+  if (existing) {
+    return { existing, insert: async () => existing, discard: async () => undefined };
+  }
+
+  const companionJobId = newId();
+  const held = heldKeys(companionJobId, input.attempt.id);
+  const provenance = {
+    sourceKind: input.source.kind,
+    permission: input.permission,
+    derivative: true,
+  };
+  const discard = async () => {
+    await deps.storage.delete('private', held.delivered).catch(() => undefined);
+    await deps.storage.delete('private', held.download).catch(() => undefined);
+  };
+  try {
+    await deps.storage.put({
+      bucket: 'private',
+      key: held.delivered,
+      body: input.deliverables.delivered,
+      contentType: 'image/jpeg',
+      provenance,
+    });
+    if (input.deliverables.download) {
+      await deps.storage.put({
+        bucket: 'private',
+        key: held.download,
+        body: input.deliverables.download,
+        contentType: 'image/jpeg',
+        provenance,
+      });
+    }
+  } catch (error) {
+    await discard();
+    throw error;
+  }
+  const now = deps.clock.now();
+  const insert = async (trx: Tx): Promise<RenderJob | null> => {
+    const evening = await trx
+      .selectFrom('renderJobs')
+      .selectAll()
+      .where('id', '=', input.job.id)
+      .executeTakeFirstOrThrow();
+    // A conflict on the one-active-job index (another job of the project is active) or on the
+    // idempotency key (a concurrent call inserted the companion) inserts nothing.
+    const inserted = await trx
+      .insertInto('renderJobs')
+      .values({
+        id: companionJobId,
+        ownerId: evening.ownerId,
+        projectId: evening.projectId,
+        projectVersion: evening.projectVersion,
+        sourceAssetId: evening.sourceAssetId,
+        holidayId: evening.holidayId,
+        style: evening.style,
+        lightingMode: 'source',
+        holidayPackVersion: evening.holidayPackVersion,
+        compilerVersion: evening.compilerVersion,
+        inputSnapshot: toJson({
+          ...((evening.inputSnapshot as Record<string, unknown> | null) ?? {}),
+          relightBaseOf: { jobId: evening.id, attemptId: input.attempt.id },
+        }),
+        permissionEvaluationId: input.attempt.permissionEvaluationId,
+        sceneAnalysisId: evening.sceneAnalysisId,
+        workingWidth: evening.workingWidth,
+        workingHeight: evening.workingHeight,
+        workingChecksumSha256: evening.workingChecksumSha256,
+        enhancement: evening.enhancement ? toJson(evening.enhancement) : null,
+        resampler: evening.resampler,
+        workingCropBox: evening.workingCropBox ? toJson(evening.workingCropBox) : null,
+        workingPadBox: evening.workingPadBox ? toJson(evening.workingPadBox) : null,
+        scaleFactor: evening.scaleFactor,
+        workingObjectKey: null,
+        state: 'needs_review',
+        idempotencyKey,
+        requestHash: evening.requestHash,
+        reviewMode: evening.reviewMode,
+        correlationId: evening.correlationId,
+        requestedAt: evening.requestedAt,
+        sourceReadyAt: evening.sourceReadyAt,
+        startedAt: evening.startedAt,
+        renderStartedAt: evening.renderStartedAt,
+        renderCompletedAt: evening.renderCompletedAt,
+        qaPassedAt: input.qaPassed ? now : null,
+      })
+      .onConflict((oc) => oc.doNothing())
+      .returningAll()
+      .executeTakeFirst();
+    if (inserted) return inserted;
+    await discard();
+    return findExisting(trx);
+  };
+  return { existing: null, insert, discard };
 }

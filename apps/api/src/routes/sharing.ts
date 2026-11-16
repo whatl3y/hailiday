@@ -11,23 +11,30 @@ import {
   type ReferrerClass,
   type ShareRevokedReason,
   type ShareView,
-} from '@holiday/core';
+} from '@hailiday/core';
 import type { FastifyRequest } from 'fastify';
-import { DAY_MS, MINUTE_MS, addMs } from '@holiday/server/clock';
-import { isUniqueViolation, type ShareGrant } from '@holiday/server/db';
-import { AppError, forbidden, notFound, validationFailed } from '@holiday/server/errors';
-import { newId, randomToken, sha256Hex } from '@holiday/server/ids';
-import { deleteSharePublicObjects } from '@holiday/server/pipeline';
-import { EnqueueConflictError } from '@holiday/server/queue';
-import { keys } from '@holiday/server/storage';
-import { verifyTurnstile } from '@holiday/server/turnstile';
+import { DAY_MS, MINUTE_MS, addMs } from '@hailiday/server/clock';
+import { isUniqueViolation, type ShareGrant } from '@hailiday/server/db';
+import { AppError, forbidden, notFound, validationFailed } from '@hailiday/server/errors';
+import { newId, randomToken, sha256Hex } from '@hailiday/server/ids';
+import { deleteSharePublicObjects } from '@hailiday/server/pipeline';
+import { permissionSettingsOf, policyAllowsUse } from '@hailiday/server/policy';
+import { EnqueueConflictError } from '@hailiday/server/queue';
+import { keys } from '@hailiday/server/storage';
+import { verifyTurnstile } from '@hailiday/server/turnstile';
 import type { ApiDeps } from '../deps.js';
 import type { App } from '../http/types.js';
 import { enforceEndpointLimit, enforceLimits } from '../auth/limits.js';
 import { currentAuth, ipHashOf, requireSession } from '../auth/session.js';
+import { ANONYMOUS_AUDIENCE } from '@hailiday/server/capabilities';
 import { emitEvent } from '../domain/events.js';
 import { loadSource } from '../domain/projects.js';
-import { capabilityModeFor, evaluateFor } from '../domain/sources.js';
+import {
+  capabilityModeFor,
+  evaluateFor,
+  refreshStreetViewPolicyOf,
+  streetViewCreditOf,
+} from '../domain/sources.js';
 import { idempotencyKeyOf } from './renders.js';
 
 /** Default share lifetime (privacy retention schedule; configuration). */
@@ -68,7 +75,11 @@ export type ShareLookup =
  * share-card job has made it, a short-lived signed URL until then), the before image only for an
  * upload-origin grant that includes it, attribution for Street View-origin images. No address,
  * owner or products. A variant that is no longer distributable (or whose source became
- * private-only) answers `gone`.
+ * private-only) answers `gone`, as does a Street View-origin variant whose source's policy (brought
+ * up to the current use policy) no longer permits distribution. When the policy itself denies
+ * distribution, the grant is revoked and its public copies deleted, so the link stays gone
+ * whatever the use policy becomes later; when only the Street View AI capability does not permit
+ * it (a missing row), nothing is written and the link works again once the capability is back.
  */
 export async function lookupShare(deps: ApiDeps, token: string): Promise<ShareLookup> {
   const hash = sha256Hex(token);
@@ -99,6 +110,42 @@ export async function lookupShare(deps: ApiDeps, token: string): Promise<ShareLo
   const source = await loadSource(deps, asset.sourceAssetId);
   // A lineage made private after the grant (people kept in the photo) is never shown.
   if (!asset.distributable || source?.privateOnly) return { status: 'gone', reason: 'revoked' };
+  if (source?.kind === 'street_view') {
+    const policy = await refreshStreetViewPolicyOf(deps, deps.db, source.assetPolicyId);
+    const evaluated = {
+      policy,
+      kind: 'street_view' as const,
+      isGoogleImagery: source.isGoogleImagery,
+      copyright: source.copyright,
+    };
+    const { permission, capabilityState } = await evaluateFor(deps, {
+      ...evaluated,
+      policyId: null,
+      audience: ANONYMOUS_AUDIENCE,
+    });
+    if (!permission.distributeDerivative) {
+      const policyDenies = !policyAllowsUse(
+        {
+          ...evaluated,
+          sourceKind: 'street_view',
+          capabilityState,
+          ...permissionSettingsOf(deps.config),
+          now: deps.clock.now(),
+        },
+        'distributeDerivative',
+      );
+      if (policyDenies) {
+        await deps.db
+          .updateTable('shareGrants')
+          .set({ revokedAt: deps.clock.now() })
+          .where('id', '=', grant.id)
+          .where('revokedAt', 'is', null)
+          .execute();
+        await deleteSharePublicObjects(deps, grant.shareCardObjectKey);
+      }
+      return { status: 'gone', reason: 'revoked' };
+    }
+  }
   const afterKey = keys.shared(token, 'after');
   const afterCopy = await deps.storage.head('public', afterKey);
   const imageUrl = afterCopy
@@ -129,7 +176,11 @@ export async function lookupShare(deps: ApiDeps, token: string): Promise<ShareLo
       labelKey: AI_PREVIEW_LABEL_KEY,
       attribution:
         source?.kind === 'street_view'
-          ? { required: true, text: asset.attributionText ?? 'Google Maps', logo: 'google_maps' }
+          ? {
+              required: true,
+              text: streetViewCreditOf(asset.attributionText, source),
+              logo: 'google_maps',
+            }
           : null,
       createdAt: grant.createdAt.toISOString(),
       expiresAt: grant.expiresAt.toISOString(),
@@ -228,10 +279,15 @@ export function registerSharingRoutes(app: App, deps: ApiDeps): void {
         throw forbidden('distribution_not_permitted');
       }
       if (source) {
+        // A Street View policy follows the current use policy before it is evaluated.
+        if (source.kind === 'street_view') {
+          await refreshStreetViewPolicyOf(deps, deps.db, source.assetPolicyId);
+        }
         const { permission } = await evaluateFor(deps, {
           policyId: source.assetPolicyId,
           kind: source.kind,
           isGoogleImagery: source.isGoogleImagery,
+          copyright: source.copyright,
           audience: auth.audience,
         });
         if (!asset.distributable || !permission.distributeDerivative) {

@@ -9,7 +9,7 @@ import {
 } from './prepare';
 import { minimumCropSpan, moveCorner, cropMeetsMinimum } from './crop';
 import { declineMessage, prepareFailureMessage, uploadOutcome } from './uploadState';
-import type { UploadStatus } from '@holiday/core';
+import type { UploadStatus } from '@hailiday/core';
 
 function file(name: string, type: string, size = 1000): File {
   const blob = new File([new Uint8Array(Math.min(size, 16))], name, { type });

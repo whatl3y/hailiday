@@ -1,10 +1,12 @@
 import { useId, useRef, useState, type FormEvent } from 'react';
-import { MagicLinkRequestSchema } from '@holiday/core';
+import { MagicLinkRequestSchema } from '@hailiday/core';
 import { requestMagicLink } from '../../api/endpoints';
 import { presentError } from '../../api/present';
 import { t } from '../../copy';
+import { useRetentionText } from '../../copy/retention';
 import { DISPLAY_VALUES } from '../../config/values';
 import { Sheet } from '../../ui/Sheet';
+import './account.css';
 
 type SaveState = { kind: 'form' } | { kind: 'sending' } | { kind: 'sent'; email: string };
 
@@ -18,6 +20,7 @@ export function SaveForm({ returnTo, autoFocus }: { returnTo: string; autoFocus?
   const [state, setState] = useState<SaveState>({ kind: 'form' });
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const body = useRetentionText('save');
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
@@ -62,7 +65,7 @@ export function SaveForm({ returnTo, autoFocus }: { returnTo: string; autoFocus?
 
   return (
     <form className="stack" onSubmit={(event) => void onSubmit(event)} noValidate>
-      <p className="lede">{t('save.body', { savedRetention: DISPLAY_VALUES.savedRetention })}</p>
+      <p className="lede">{body}</p>
       <div className="field">
         <label className="field__label" htmlFor={`${id}-email`}>
           {t('save.emailLabel')}
