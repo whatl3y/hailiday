@@ -3,12 +3,13 @@ import { useAppStore } from '../state/appStore';
 
 export type ImageOrigin = 'street_view' | 'generated' | 'example_after' | 'photo';
 
-const GOOGLE_STREET_VIEW_HOST = 'maps.googleapis.com';
+/** The path under which the API serves the fixture stand-ins of Street View frames. */
+const FIXTURE_STREET_VIEW_PATH = '/fixture/';
 
-function hostOf(url: string | null | undefined): string | null {
+function pathOf(url: string | null | undefined): string | null {
   if (!url) return null;
   try {
-    return new URL(url, window.location.href).host;
+    return new URL(url, window.location.href).pathname;
   } catch {
     return null;
   }
@@ -17,8 +18,9 @@ function hostOf(url: string | null | undefined): string | null {
 /**
  * Whether an image comes from an integration in fixture mode, so it carries the development
  * "Fixture" badge and is never mistaken for real imagery. Signals: the experience's fixture
- * capability list; a `fixture` source kind; and, for Street View, a display URL that is not
- * served by Google.
+ * capability list; a `fixture` source kind; and, for Street View, a display URL of the API's own
+ * fixture stand-ins. A frame served by the provider or from the app's storage (the stored frame
+ * a look was made from) is real imagery.
  */
 export function isFixtureImage(
   origin: ImageOrigin,
@@ -29,8 +31,7 @@ export function isFixtureImage(
   switch (origin) {
     case 'street_view': {
       if (fixtureCapabilities.includes('street_view_display')) return true;
-      const host = hostOf(options.url);
-      return host !== null && host !== GOOGLE_STREET_VIEW_HOST;
+      return pathOf(options.url)?.startsWith(FIXTURE_STREET_VIEW_PATH) ?? false;
     }
     case 'generated':
     case 'example_after':

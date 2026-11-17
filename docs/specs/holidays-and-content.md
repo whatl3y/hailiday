@@ -17,9 +17,9 @@ This specification defines what Hailiday knows about holidays and what it is all
 | Holiday pack | Versioned, reviewed content for one holiday and region: scene sections, styles, lighting policy, kit archetypes, prompt fragments, forbidden list, hero and example references, review record. | `packId` = `<holidayId>.<region>`, for example `christmas.US`; `version` is `MAJOR.MINOR.PATCH` ([Holiday packs](#holiday-packs)). |
 | Scene section | A pack's rules for one scene type: allowed anchor categories, placement rules, access and preserve rules, styles with quantity rules, kit, prompt fragments. | Keyed by scene type. |
 | Scene type | What kind of place the source photo shows. | `house_exterior` (attribute `buildingForm`: `detached`, `attached`, `other`), `apartment_entry` (unit door, stoop or hallway), `balcony` (balcony, patio or terrace), `interior` (attribute `roomType`: `dining_room`, `living_room`, `entryway`, `kitchen`, `bedroom`, `other`). |
-| Style | How much decor a scene section places; a tier inside the section, not a separate pack. | `subtle`, `classic`, `abundant`; default `abundant` in every pack and scene type (owner decision 2026-11-10, [D-10](../decisions.md#d-10); core `DEFAULT_STYLE`). |
+| Style | How much decor a scene section places; a tier inside the section, not a separate pack. `abundant` is the lavish tier: on a house exterior it is described as a whole by the section's lavish description ([The lavish description](#the-lavish-description)). | `subtle`, `classic`, `abundant`; default `abundant` in every pack and scene type (owner decisions 2026-11-10 and 2026-11-16, [D-10](../decisions.md#d-10); core `DEFAULT_STYLE`). |
 | Lighting mode | Whether the photo keeps its own light or is relit. | `source` (UI label "As photographed"), `evening` (UI label "Evening"), `bright` (UI label "Bright"); defaults per [Lighting policy](#lighting-policy). |
-| Style kit | The set of product archetypes a scene section can place, each with an in-house spec; styles select subsets. | `kitId` = `<holidayId>.<sceneType>`; archetypes are `kitItemId`s ([Style kits](#style-kits)). |
+| Style kit | The set of product archetypes a scene section can place, each with an in-house spec; styles select subsets. On a house exterior in `abundant` the placements it yields are an advisory list of typical items, not the instruction. | `kitId` = `<holidayId>.<sceneType>`; archetypes are `kitItemId`s ([Style kits](#style-kits)). |
 | Content cell | One combination (holiday, scene type, style, lighting mode) that a pack offers. A request for a combination the pack does not offer fails validation. | Derived from the pack; no stored identifier. |
 | Brief | Editorial prose that precedes a pack (subject, mood, coverage, climate guidance, forbidden symbols). | Never consumed by code. |
 
@@ -57,8 +57,8 @@ Proposed ([D-08](../decisions.md#d-08)): three packs are in the US Release; New 
 | `holidayId` | Display name | Status in the US Release | Tradition notes (secular by default) | Scene types with sections | Journey emphasis | Exterior expectation |
 | --- | --- | --- | --- | --- | --- | --- |
 | `halloween` | Halloween | In the US Release | Playful and autumnal: pumpkins and jack-o'-lanterns, cobwebs, bats, lanterns, harvest plants, orange and purple light. No gore, no realistic weapons or corpses, no cartoon or licensed characters. | all four | `exterior` | Lit jack-o'-lanterns and cobwebs on the porch; a clear change in `source`, strongest in `evening`. |
-| `thanksgiving_us` | Thanksgiving | In the US Release | Harvest and gathering: wreaths of autumn leaves, garland, pumpkins and gourds, chrysanthemums, a set table with candlelight indoors. No Pilgrim, Native American or other costume or caricature imagery; no electric lights outdoors. | all four | `interior` (dining room; the hero scene) | A harvest porch in daylight: wreath, rail garland, pumpkin groups, mums. A modest, tasteful change; the example gallery sets this expectation ([Hero and example art](#hero-and-example-art)). |
-| `christmas` | Christmas | In the US Release | Evergreen and light: wreaths, garland, warm-white string lights, bows, lanterns, a decorated tree indoors. No religious symbols (nativity, crosses, angels), no Santa or snowman figures, no inflatables. | all four | `balanced` | Warm-white lights on eaves and rail, door wreath, garland; strongest in `evening`. |
+| `thanksgiving_us` | Thanksgiving | In the US Release | Harvest and gathering: wreaths of autumn leaves, garland, pumpkins and gourds, chrysanthemums, a set table with candlelight indoors. No Pilgrim, Native American or other costume or caricature imagery; no electric lights outdoors except the warm-white lights of the `abundant` description of a house exterior. | all four | `interior` (dining room; the hero scene) | A harvest porch in daylight: wreath, rail garland, pumpkin groups, mums. `classic` is a modest, tasteful change and the example gallery sets that expectation ([Hero and example art](#hero-and-example-art)); `abundant` is, on a house exterior, a lavish harvest display with warm-white lights. |
+| `christmas` | Christmas | In the US Release | Evergreen and light: wreaths, garland, warm-white string lights, bows, lanterns, a decorated tree indoors. No religious symbols (nativity, crosses, angels), no Santa or snowman figures, no inflatables; warm-white lit wireframe reindeer only in the `abundant` description. | all four | `balanced` | Warm-white lights on eaves and rail, door wreath, garland; strongest in `evening`; on a house exterior in `abundant`, every roof edge and window outlined in lights. |
 | `new_years_eve` | New Year's Eve | Optional: enabled only if the pack passes the review checklist | Celebration in gold, silver and white: string lights, metallic garland, lanterns, a set table. No fireworks or sky effects, no alcohol branding, no clocks or numerals (text). | `house_exterior`, `balcony`, `interior` (no `apartment_entry`) | `balanced` | Warm-white and gold string lights with metallic accents; strongest in `evening`. |
 
 Religious sub-traditions (for example a Christmas pack with a nativity scene, or Hanukkah) are later packs that a user selects explicitly; the catalog never attaches them to a region or infers them. Other candidates for later expansion, in no committed order: Hanukkah, Diwali, Lunar New Year, Eid, Canadian Thanksgiving, Valentine's Day, Easter, Independence Day. Each needs its own occurrence rules (some depend on lunar or announced dates and need an annually reviewed calendar), its own pack and its own review before it is selectable.
@@ -97,7 +97,7 @@ The content-side contract for one occurrence. Column-level persistence is in [da
 | `commerceStart`, `commerceEnd`, `catalogRetireAt` | Offer eligibility; values and semantics owned by [commerce.md](commerce.md#seasonal-commerce-calendar) | per commerce spec |
 | `editorialPriority` | Tie-break for overlapping windows (lower wins) | `10` |
 | `heroAssetId` | Hero for this occurrence ([Hero and example art](#hero-and-example-art)) | `hero.thanksgiving_us.dining_room.v2` |
-| `packId`, `packVersion` | Pack in force while this occurrence is current | `thanksgiving_us.US`, `2.0.0` |
+| `packId`, `packVersion` | Pack in force while this occurrence is current | `thanksgiving_us.US`, `2.1.0` |
 | `enabled` | False until the pack and hero pass review; a disabled occurrence is treated as absent | `true` |
 | `reviewedAt`, `reviewedBy` | Annual calendar review ([Content authoring and review](#content-authoring-and-review)) | `2026-08-20`, design and editorial lead |
 
@@ -192,7 +192,7 @@ A holiday pack is the only place decoration content lives. The scene analysis fi
 | Climate rule | Source precedence for climate, snow rule, cold-climate-only items | Plan builder |
 | Existing-decoration policy | `preserve_and_complement` and the notice trigger | Plan builder, experience |
 | Forbidden list | Enumerated items the plan may never place and the compiler always negates | Plan validator, compiler, QA judge |
-| Scene sections | Per scene type: allowed anchor categories, form or room rules, preserve and keep-clear rules, placement limits, kit archetypes with placement rule, priority and quantity rules per style, prompt fragments | Plan builder, validator, compiler, shop panel |
+| Scene sections | Per scene type: allowed anchor categories, form or room rules, preserve and keep-clear rules, placement limits, kit archetypes with placement rule, priority and quantity rules per style, prompt fragments (with the optional lavish description) | Plan builder, validator, compiler, shop panel |
 | Hero and example references | Which hero assets and example before/after pairs belong to the pack | Experience projection |
 | Review record | Checklist version, approvers, approval date, golden run reference | Release process only |
 
@@ -212,9 +212,9 @@ Rule of thumb: anything that can change a decoration plan or a compiled instruct
 
 - **Files.** One directory per pack in the server package (`@hailiday/server`), holding `pack.yaml`; large scene sections may be split into one file per scene type and merged at load. Pack files never ship in `@hailiday/core` or in the browser bundle ([architecture.md](../architecture.md#packages-and-boundaries)).
 - **Schema.** A zod schema in `@hailiday/core` (`HolidayPack`, with the enums `HolidayId`, `SceneType`, `BuildingForm`, `RoomType`, `Style`, `LightingMode`, `AnchorCategory`, `AttachmentIntent`, `PlacementRule`, `ForbiddenItem`), including each kit archetype's `placementRule` and `priority` and each scene section's `limits`. Core exports the enums so the web app, the scene-analysis schema and the pack share one vocabulary.
-- **Validation.** Every pack file is validated in CI and again at server start; an invalid pack stops the process. Cross-field rules: scene section keys are scene types; every anchor named in a section is allowed for that scene type ([Anchor categories](#anchor-categories)); every kit archetype anchor is in the section's anchor list; every `formRules` and `roomRules` anchor is in the section's anchor list; every kit archetype has a `placementRule`, and `priority` values are unique within a section; quantity minimums are not above maximums; `required` styles have a minimum of at least 1; `limits.maxPlacements` never decreases from `subtle` to `classic` to `abundant` and, for each style, is at least the number of archetypes that list the style in `required`; the forbidden list contains the baseline set; `lightingPolicy.bySceneType.<sceneType>.default` is in `offered`; `heroRefs` and `exampleRefs` resolve to approved assets; `kitId` equals `<holidayId>.<sceneType>`.
+- **Validation.** Every pack file is validated in CI and again at server start; an invalid pack stops the process. Cross-field rules: scene section keys are scene types; every anchor named in a section is allowed for that scene type ([Anchor categories](#anchor-categories)); every kit archetype anchor is in the section's anchor list; every `formRules` and `roomRules` anchor is in the section's anchor list; every kit archetype has a `placementRule`, and `priority` values are unique within a section; quantity minimums are not above maximums; `required` styles have a minimum of at least 1; `limits.maxPlacements` never decreases from `subtle` to `classic` to `abundant` and, for each style, is at least the number of archetypes that list the style in `required`; the forbidden list contains the baseline set; `lightingPolicy.bySceneType.<sceneType>.default` is in `offered`; `heroRefs` and `exampleRefs` resolve to approved assets; `kitId` equals `<holidayId>.<sceneType>`; a lavish description is within its limits and passes the text scans ([The lavish description](#the-lavish-description)), and so does every kit item's `specText` and every section's `scene` fragment against the pack's own forbidden list.
 - **Publication.** A version is published by deploying the file, inserting a `holiday_pack_versions` row (`holidayId`, `region`, `version`, `contentRef`, `contentSha256`, `reviewRecord`) and setting its `status` to `published` (`publishedAt`); the previously published row becomes `retired` (columns in [data-and-api.md](data-and-api.md#entities)). The API resolves the published version for (`holidayId`, `region`) on the server, and each enabled occurrence pins the version it uses. Rollback sets the previous row back to `published` and retires the current one, so previous MAJOR.MINOR files stay in the repository until no occurrence references them. Packs are not editable in a database without a deploy: they change rarely, and schema validation plus golden renders are the safety net.
-- **Kit seeding.** On publication the kit archetypes of each scene section are upserted into `style_kits` and `kit_items` by `kitItemId`, so the commerce side can map products to them ([commerce.md](commerce.md#style-kits-and-products)). Product columns on those rows are owned by the commerce spec.
+- **Kit seeding.** On publication the kit archetypes of each scene section are upserted into `style_kits` and `kit_items` by `kitItemId`, so the commerce side can map products to them ([commerce.md](commerce.md#style-kits-and-products)). Product columns on those rows are owned by the commerce spec. Seeding adds rows and does not overwrite them: a kit item already published keeps its stored `spec_text` until the seed runs with a refresh or the kit version is bumped, while the plan always reads the pack's own text.
 - **Public projection.** `GET /v1/experience` exposes, per holiday: `holidayId`, `displayName`, `isDefault`, `journeyEmphasis`, hero, examples and, per scene type, `styles`, `defaultStyle`, `lightingModes` (offered) and `defaultLightingMode`. It never exposes prompt fragments, forbidden lists, kit spec text, quantity rules or review records (payload in [data-and-api.md](data-and-api.md#http-api)).
 - **Request validation.** A render request whose (`holidayId`, `style`, `lightingMode`) is not an offered content cell for the project's scene type fails with `VALIDATION_FAILED` ([data-and-api.md](data-and-api.md#error-codes)).
 
@@ -226,7 +226,7 @@ The annotated skeleton below is the normative shape; the zod schema in core mirr
 
 ```yaml
 id: christmas.US                      # <holidayId>.<region>
-version: 2.0.0                        # MAJOR.MINOR.PATCH, see Versioning
+version: 2.1.0                        # MAJOR.MINOR.PATCH, see Versioning
 holidayId: christmas                  # HolidayId enum
 region: US                            # ISO 3166-1 alpha-2, optional subdivision suffix later
 displayName: Christmas
@@ -294,7 +294,35 @@ sceneSections:
     promptFragments:
       scene: a tasteful US Christmas display added to the confirmed target home
       preserve: keep the same camera position, crop, roof outline, doors, windows, siding color, steps, landscaping, sky, time of day and neighboring buildings
-      negative: no snow or frost unless present in the source, no Santa or snowman figures, no inflatables, no religious symbols, no text, no people, no new structures
+      negative: no snow or frost unless present in the source, no Santa, snowman or reindeer figures, no inflatables, no religious symbols, no text, no people, no new structures
+      lavish:
+        scene: >-
+          a lavish, over-the-top American Christmas display covering the target home and its
+          yard: the house that wins the neighborhood lighting contest and looks like the set of
+          a holiday movie
+        decorations: >-
+          Decorate only what this photo shows of the house: each sentence below applies only where
+          the photo already shows the thing it names, and is skipped where it does not. Outline
+          every roof edge, gable, eave and ridge of the target house with warm-white C9 bulb string
+          lights, closely and evenly spaced, and hang drop-string curtain lights along the eaves.
+          Outline every window with warm-white mini lights and hang an evergreen wreath with a red
+          bow in every window. If a front door is visible, outline its frame with mini lights and
+          hang a large evergreen wreath with a big red velvet bow on it, leaving the door itself as
+          it is. On railings, posts and columns that are already there, swag thick evergreen garland
+          woven with warm-white lights and red bows. Lay warm-white net lights over shrubs and
+          bushes that are already there, and wrap the trunks of trees that are already in its yard
+          with warm-white string lights. On open lawn or bare ground of its own yard, stand a group
+          of warm-white lit wireframe reindeer and several oversized lit gift boxes; along a path
+          that is already there, line both sides with lit candy-cane stakes. Beside steps and an
+          entry that are already there, set clusters of large red and gold ornament balls, lit
+          potted evergreen trees and tall lanterns, without hiding or replacing what stands there.
+          Add no door, steps, railing, porch, path, wall, window, shrub, hedge or tree of your own:
+          only decorations.
+        negative: >-
+          no snow or frost unless present, no Santa or snowman figures, no inflatables, no
+          cartoon figures, no religious symbols, no text, no people, no new structures, nothing
+          on neighboring homes, on the sidewalk, on the street or in the sky
+        lit: true   # optional; the description of the `abundant` style, see The lavish description
   interior:
     roomTypes: [dining_room, living_room, entryway, kitchen, bedroom, other]
     anchors: [mantel, dining_table, sideboard, interior_window, wall, floor_area, shelf, banister]
@@ -309,7 +337,7 @@ sceneSections:
     keepClear: [doorways, circulation paths, stair treads, stove and sink, seating surfaces]
     kitId: christmas.interior
     kit: []                           # see Example packs
-    promptFragments: { scene: ..., preserve: ..., negative: ... }
+    promptFragments: { scene: ..., preserve: ..., negative: ..., lavish: ... }
 heroRefs:
   - { heroAssetId: hero.christmas.exterior.v1, orientation: landscape }
   - { heroAssetId: hero.christmas.exterior.v1, orientation: portrait }
@@ -387,6 +415,58 @@ Attachment intents: `hung`, `wrapped`, `draped`, `strung`, `standing`, `placed`,
 
 **One vocabulary, three consumers.** The scene-analysis prompt lists exactly the categories allowed for the scene type, each with the box extent above (the [render spec's placement geometry](render-pipeline.md#placement-geometry) reads those extents: lights follow the bottom edge of `eaves` and `roofline` boxes, garlands the top edge of rails, frames, mantels and shelves, `on_surface` items the top of tables, sideboards, mantels and shelves). Every pack section's `anchors`, `roomRules` lists and archetype `anchors` use only categories allowed for the scene type, every archetype anchor appears in its section's list, and a test checks the three agree. For the surface anchors (`dining_table`, `sideboard`, `mantel`, `shelf`) analysis reports occlusion of the top surface only, and the planner accepts up to 0.6 occlusion for `on_surface` placements on them, because chairs in front of a table hide its sides, not its top.
 
+### The lavish description
+
+`abundant` is the lavish tier (owner decision of 2026-11-16, [D-10](../decisions.md#d-10)): a home that looks like the set of a holiday film, with the number of lights and decorations to match. The tier is described as a whole instead of item by item. A scene section may carry `promptFragments.lavish`, a description of the entire display in prose, and the image model receives that description in place of one sentence per placement ([render-pipeline.md](render-pipeline.md#prompt-compilation) owns how it is compiled). `subtle` and `classic` are unchanged, and so are the kit, the quantities and `maxPlacements` of `abundant`: they still produce the plan's placements, but in a lavish plan those placements are an advisory list of typical items of the look. The judge reads them as examples, none of them is required, the last resort measures what is left of the decoration against the spots they mark and the shop panel lists their kit items ([commerce.md](commerce.md#style-kits-and-products)); the relight request names none of them.
+
+**Which scene types use it.** The descriptions exist for all 15 sections of the four packs, but the pipeline applies them to house exteriors only, for now: `PIPELINE_DEFAULTS.lavishSceneTypes` is `['house_exterior']`. The `abundant` look of a room, an apartment entry or a balcony is planned, compiled, localized and pasted back the ordinary way, with the placements of its kit, exactly as before the tier existed; the descriptions of those 11 sections are kept in the packs and are not used yet. The reason is a measurement on real photos. The image model kept the home intact in 6 of 9 house exteriors and in none of 4 rooms, entries and balconies (furniture replaced, a door blocked, a wall rebuilt), and a stricter instruction and the higher quality setting did not change that. The judge catches what it is confident of, and a repair re-rolls the same dice, so the tier is limited to the scene type where it holds up. Adding a scene type to the constant turns its description on; no pack text changes.
+
+| Field | What it is for | Limit (`LAVISH_TEXT_LIMITS` in core) |
+| --- | --- | --- |
+| `scene` | What the picture shows. It stands in the request's scope sentence in place of the section's `scene` fragment. | 1 to 300 characters |
+| `decorations` | The paragraph, in full sentences, that says what is added and where: the roof edges and windows outlined in lights, the wreaths, garland, shrubs and trunks, the yard and the path, the entry. For a house exterior it follows the rule for authors below. | 200 to 2,000 characters |
+| `negative` | What must not appear. It stands in place of the section's `negative` fragment in the request and in the plan's list of what must not appear. | 1 to 600 characters |
+| `lit` | Whether the description asks for electric lights. It decides the lighting sentences of the request and of the relight ([Lighting policy](#lighting-policy)). | `true` or `false`; required |
+
+The block is optional and strict: an unknown key, a missing or non-boolean `lit` and a text over or under its limit each stop the load. A section without it compiles `abundant` as before, with the plan's placements and one sentence each, and so does a section whose scene type is not in `lavishSceneTypes`. All 15 sections of the four packs carry one, and all 15 are `lit: true`; the Christmas house exterior's reads:
+
+```yaml
+      lavish:
+        scene: >-
+          a lavish, over-the-top American Christmas display covering the target home and its
+          yard: the house that wins the neighborhood lighting contest and looks like the set of
+          a holiday movie
+        decorations: >-
+          Decorate only what this photo shows of the house: each sentence below applies only where
+          the photo already shows the thing it names, and is skipped where it does not. Outline
+          every roof edge, gable, eave and ridge of the target house with warm-white C9 bulb string
+          lights, closely and evenly spaced, and hang drop-string curtain lights along the eaves.
+          Outline every window with warm-white mini lights and hang an evergreen wreath with a red
+          bow in every window. If a front door is visible, outline its frame with mini lights and
+          hang a large evergreen wreath with a big red velvet bow on it, leaving the door itself as
+          it is. On railings, posts and columns that are already there, swag thick evergreen garland
+          woven with warm-white lights and red bows. Lay warm-white net lights over shrubs and
+          bushes that are already there, and wrap the trunks of trees that are already in its yard
+          with warm-white string lights. On open lawn or bare ground of its own yard, stand a group
+          of warm-white lit wireframe reindeer and several oversized lit gift boxes; along a path
+          that is already there, line both sides with lit candy-cane stakes. Beside steps and an
+          entry that are already there, set clusters of large red and gold ornament balls, lit
+          potted evergreen trees and tall lanterns, without hiding or replacing what stands there.
+          Add no door, steps, railing, porch, path, wall, window, shrub, hedge or tree of your own:
+          only decorations.
+        negative: >-
+          no snow or frost unless present, no Santa or snowman figures, no inflatables, no
+          cartoon figures, no religious symbols, no text, no people, no new structures, nothing
+          on neighboring homes, on the sidewalk, on the street or in the sky
+        lit: true
+```
+
+**A rule for authors of a house-exterior description.** The image model reads the description as a list of things to add, and it will add what the description names even where the photo has none of it. Measured on real photos, a description that named a front door, steps, a railing and shrubs unconditionally made the model invent them: a side view of a house got an entrance with steps, and a lawn got hedges. Written conditionally, the same photos came out lavish with the home intact. So every house-exterior description opens "Decorate only what this photo shows of the house: each sentence below applies only where the photo already shows the thing it names, and is skipped where it does not.", names doors, railings, posts, columns, shrubs, trees, steps, paths and lawn only conditionally ("If a front door is visible", "On railings, posts and columns that are already there", "On open lawn or bare ground of its own yard", "Beside steps and an entry that are already there"), and ends "Add no door, steps, railing, porch, path, wall, window, shrub, hedge or tree of your own: only decorations." The four house-exterior descriptions are written this way, in the pack version `2.1.0` that had not been published before. The 11 descriptions of the other scene types are unchanged; they are not used yet, and a description that is turned on for its scene type follows the same rule.
+
+**When it applies.** All four hold: the plan's scene type is in `lavishSceneTypes` (the plan builder takes this as `options.lavish`, which the render job and the example renderer set from the constant; it defaults to true), the plan's effective style is `abundant`, the section has the description, and the plan is decorated as photographed. The effective style steps down for a home that already shows many decorations ([Existing decorations](#existing-decorations)): the plan then uses `classic` quantities and the ordinary `classic` prompt, and keeps `style: abundant` on the plan document. An `evening` look decorates as photographed and is relit afterwards, so its decorate step is lavish and its relight is worded for a lavish base. The plan carries a mark (`lavish: { lit }`) when the description applies, and every later stage reads the mark from the stored plan, never from the style. A plan without the mark is the ordinary one in every stage. One more case plans without the mark: the repair of a lavish attempt that the judge rejected for a critical finding is planned the ordinary way ([render-pipeline.md](render-pipeline.md#decision-policy)).
+
+**What the load scans.** `scene` and `decorations` reach the model as written, so a pack with a text that names anything on its own forbidden list, or snow, frost or icicles, stops the load and a read by reference, with the file, section, field and forbidden item in the message. The texts are scanned with whitespace collapsed, so an item split across a line break is found, against the same pattern list the plan validator uses and against the snow words. `negative` lists what must not appear and is not scanned. The load also scans every kit item's `specText` and every section's `scene` fragment against the forbidden list (no snow rule for these: a kit item is left out of a plan for a photo without snow), because a text that matches fails every plan that places the item or states the fragment. At plan time a lavish text that names a forbidden item, or a snow word on a photo that shows no snow, fails the plan (`forbidden_list`, [render-pipeline.md](render-pipeline.md#validator-rules)). The scans are word checks against the pattern list, not a guarantee: a text can pass and still describe something the list does not name (a snowman by name, lettering written as a "message", a character called by its name, a sky effect, a decoration on a neighbor's fence), so the review checklist reads every lavish text ([Review checklist](#review-checklist)).
+
 ### Forbidden items
 
 | Item | Baseline (every pack) | Meaning for the plan and the QA judge |
@@ -408,9 +488,11 @@ Attachment intents: `hung`, `wrapped`, `draped`, `strung`, `standing`, `placed`,
 
 The QA codes in parentheses are the failure codes in [render-pipeline.md](render-pipeline.md#quality-checks) that each item maps to.
 
+The list is the same in every style, the lavish tier included. One thing is new and allowed, only in the Christmas `abundant` description: warm-white lit wireframe reindeer (a sculpture of light on the lawn or the balcony floor, never a character). Still out of every look: inflatables, cartoon or licensed characters, Santa and snowman figures, text, snow unless the source shows it, sky effects, religious symbols and anything on a neighboring home. The ordinary `classic` and `subtle` Christmas fragments name reindeer figures among what is left out; only the `abundant` description of the house exterior asks for the lit wireframe ones. A lavish description may be as dense as it likes but never names an item of the list; the Halloween house exterior's stylized skeleton item reads "clean and undamaged" for that reason (an earlier wording matched the gore pattern and failed every plan that placed it).
+
 ## Example packs
 
-Excerpts of the US Release packs. They show real content at the level the pack files carry; attributes for each archetype are in [Style kits](#style-kits). All excerpts assume the baseline forbidden list and the preserve and keep-clear rules shown in the schema.
+Excerpts of the US Release packs. They show real content at the level the pack files carry; attributes for each archetype are in [Style kits](#style-kits). All excerpts assume the baseline forbidden list and the preserve and keep-clear rules shown in the schema. Every `lavish` block shown is copied from the pack; the house-exterior blocks are the ones the pipeline uses, and the interior, apartment-entry and balcony blocks are descriptions that are kept for later and not used yet ([The lavish description](#the-lavish-description)).
 
 ### Christmas, `house_exterior` (detached)
 
@@ -445,7 +527,35 @@ sceneSections:
     promptFragments:
       scene: a tasteful US Christmas display added to the confirmed target home
       preserve: keep the same camera position, crop, roof outline, doors, windows, siding color, steps, landscaping, sky, time of day and neighboring buildings
-      negative: no snow or frost unless present, no Santa or snowman figures, no inflatables, no religious symbols, no text, no people, no new structures, nothing on neighboring homes
+      negative: no snow or frost unless present, no Santa, snowman or reindeer figures, no inflatables, no religious symbols, no text, no people, no new structures, nothing on neighboring homes
+      lavish:
+        scene: >-
+          a lavish, over-the-top American Christmas display covering the target home and its
+          yard: the house that wins the neighborhood lighting contest and looks like the set of
+          a holiday movie
+        decorations: >-
+          Decorate only what this photo shows of the house: each sentence below applies only where
+          the photo already shows the thing it names, and is skipped where it does not. Outline
+          every roof edge, gable, eave and ridge of the target house with warm-white C9 bulb string
+          lights, closely and evenly spaced, and hang drop-string curtain lights along the eaves.
+          Outline every window with warm-white mini lights and hang an evergreen wreath with a red
+          bow in every window. If a front door is visible, outline its frame with mini lights and
+          hang a large evergreen wreath with a big red velvet bow on it, leaving the door itself as
+          it is. On railings, posts and columns that are already there, swag thick evergreen garland
+          woven with warm-white lights and red bows. Lay warm-white net lights over shrubs and
+          bushes that are already there, and wrap the trunks of trees that are already in its yard
+          with warm-white string lights. On open lawn or bare ground of its own yard, stand a group
+          of warm-white lit wireframe reindeer and several oversized lit gift boxes; along a path
+          that is already there, line both sides with lit candy-cane stakes. Beside steps and an
+          entry that are already there, set clusters of large red and gold ornament balls, lit
+          potted evergreen trees and tall lanterns, without hiding or replacing what stands there.
+          Add no door, steps, railing, porch, path, wall, window, shrub, hedge or tree of your own:
+          only decorations.
+        negative: >-
+          no snow or frost unless present, no Santa or snowman figures, no inflatables, no
+          cartoon figures, no religious symbols, no text, no people, no new structures, nothing
+          on neighboring homes, on the sidewalk, on the street or in the sky
+        lit: true
 ```
 
 The 640×640 input size of Street View sources ([render-pipeline.md](render-pipeline.md#compositing-and-resolution)) is why exterior archetypes are large, high-contrast items (light runs, a full wreath, garland) rather than small ornaments.
@@ -483,11 +593,32 @@ sceneSections:
       scene: a tasteful US Christmas interior added to the room in the photo
       preserve: keep walls, windows, doors, flooring, ceiling, furniture positions, artwork, photographs and existing light fixtures unchanged
       negative: no religious figures, no cartoon characters or toys, no text, no people or pets, no open flames, no new furniture, no changed wall color
+      lavish:
+        scene: >-
+          a lavish, over-the-top American Christmas interior, the room dressed like the set of a
+          holiday movie
+        decorations: >-
+          Where there is open floor, stand a tall, full Christmas tree covered in warm-white lights,
+          red and gold ornaments and ribbon, with a generous pile of wrapped gifts under it. Drape
+          thick evergreen garland woven with warm-white lights, red bows and ornaments along the
+          mantel, the shelves, the window frames, the door frames and any stair rail. Hang a row of
+          knit stockings on the mantel and a wreath with a red bow in each window and on free wall
+          space. Set flameless candles, lanterns, small lit tabletop trees, nutcracker figures and
+          bowls of ornaments on the mantel, the sideboard, the shelves and the side tables. Dress
+          any dining table with a long evergreen runner, a full centerpiece and flameless candles,
+          and add red and green pillows and throws to the seating. Use what this room has and skip
+          what it has no place for; every piece of furniture stays where it is and in view, and
+          floor pieces go only on free floor.
+        negative: >-
+          no religious figures, no Santa or snowman figures, no cartoon figures or toys, no text, no
+          people or pets, no open flames, no new furniture, no changed wall color, nothing blocking
+          a doorway
+        lit: true
 ```
 
 The tree appears only when analysis reports a `floor_area` anchor large enough for its footprint with circulation clear; a living room without one gets the mantel and window placements only. In the dining room the table centerpiece is the lead item and there is no tree.
 
-### Thanksgiving, `house_exterior` (harvest porch, no electric lights)
+### Thanksgiving, `house_exterior` (harvest porch, no electric lights in the kit)
 
 ```yaml
 sceneSections:
@@ -518,9 +649,34 @@ sceneSections:
       scene: a tasteful US Thanksgiving harvest display added to the confirmed target home in its existing daylight
       preserve: keep the same camera position, crop, roof outline, doors, windows, siding color, steps, landscaping, sky, time of day and neighboring buildings
       negative: no electric lights, no Christmas or Halloween items, no Pilgrim or Native American figures or costume imagery, no text, no people, no snow, no new structures
+      lavish:
+        scene: >-
+          a lavish, over-the-top American Thanksgiving harvest display covering the target home and
+          its yard, glowing with warm light
+        decorations: >-
+          Decorate only what this photo shows of the house: each sentence below applies only where
+          the photo already shows the thing it names, and is skipped where it does not. Outline the
+          roof edges and eaves of the target house with warm-white string lights, and swag thick
+          garlands of autumn leaves, berries and wheat, woven with warm-white lights, around every
+          window, with a small wreath of autumn leaves, wheat and small gourds in every window. If a
+          front door is visible, swag the same garland around its frame and hang a large matching
+          wreath on it, leaving the door itself as it is. On railings, posts and columns that are
+          already there, swag the garland, wrap warm-white lights and tie tall corn stalks. Beside
+          steps, a porch and a path that are already there, crowd heaps of pumpkins and gourds in
+          orange, white and green, hay bales, baskets of apples, pots of bronze, yellow and rust
+          chrysanthemums and tall lanterns with flameless candles, without hiding or replacing what
+          stands there. On open lawn or bare ground of its own yard, build more harvest groups
+          around hay bales and wheat sheaves, and lay warm-white net lights over shrubs that are
+          already there. Add no door, steps, railing, porch, path, wall, window, shrub, hedge or
+          tree of your own: only decorations.
+        negative: >-
+          no Christmas or Halloween items, no carved or glowing pumpkin faces, no Pilgrim or Native
+          American figures or costume imagery, no text, no people, no snow unless present, no new
+          structures, nothing on neighboring homes, on the sidewalk or on the street
+        lit: true
 ```
 
-The kit adds no electric lights. `lightingPolicy.bySceneType.house_exterior` is `{ default: evening, offered: [source, evening] }` like every pack ([Lighting policy](#lighting-policy)): in `evening` the existing porch light, the glow in the existing windows and any lanterns and flameless candles named in the placements carry the scene.
+The kit adds no electric lights, and the placements of a Thanksgiving exterior stay unlit in every style. The `abundant` description is the exception: it asks for warm-white string lights on the roof edges and eaves, warm-white lights woven into the garlands and wrapped on the posts and columns, and net lights on shrubs that are already there, and is `lit: true`. `lightingPolicy.bySceneType.house_exterior` is `{ default: evening, offered: [source, evening] }` like every pack ([Lighting policy](#lighting-policy)): in `classic` and `subtle` the `evening` look is carried by the existing porch light, the glow in the existing windows and any lanterns and flameless candles named in the placements; in `abundant` the warm-white lights of the description glow as well.
 
 ### Thanksgiving, `interior` (dining room, the hero scene)
 
@@ -555,6 +711,27 @@ sceneSections:
       scene: a warm US Thanksgiving table and room added to the existing dining room
       preserve: keep walls, windows, doors, flooring, ceiling, furniture positions, chairs, artwork, photographs and existing light fixtures unchanged
       negative: no open flames, no Christmas items, no text, no people or pets, no new furniture, no food unless already on the table
+      lavish:
+        scene: >-
+          a lavish, over-the-top American Thanksgiving setting for the room in the photo, warm and
+          abundant
+        decorations: >-
+          Dress any dining table for a feast without food: a long runner, a full centerpiece of
+          pumpkins, gourds, autumn leaves, wheat and berries running the length of the table, many
+          flameless candles of different heights, and a place setting with a folded napkin and a
+          small gourd at every seat. Drape thick garlands of autumn leaves woven with warm-white
+          lights along the mantel, the shelves, the window frames and any stair rail, and hang
+          autumn wreaths in the windows and on free wall space. Fill the mantel, the sideboard, the
+          shelves and the side tables with heaps of pumpkins and gourds, vases of wheat and
+          branches, lanterns and flameless candles, and stand tall pumpkins and baskets of leaves on
+          open floor where there is room. Use what this room has and skip what it has no place for;
+          every piece of furniture stays where it is and in view, and floor pieces go only on free
+          floor.
+        negative: >-
+          no open flames, no Christmas or Halloween items, no Pilgrim or Native American figures or
+          costume imagery, no text, no people or pets, no new furniture, no food unless already on
+          the table, no changed wall color, nothing blocking a doorway
+        lit: true
 ```
 
 `lightingPolicy.bySceneType.interior` is `{ default: bright, offered: [bright] }` ([Lighting policy](#lighting-policy)): the decorated room is relit to a bright, airy version of itself, with the lit decorations (flameless candles, lamps) staying lit.
@@ -587,15 +764,41 @@ sceneSections:
           specText: potted chrysanthemums in rust and gold with a bundle of dried corn stalks,
           quantity: { subtle: [0, 1], classic: [1, 1], abundant: [1, 2] }, required: [] }
       - { kitItemId: halloween.house_exterior.skeleton_stylized, anchors: [lawn, porch_steps], attachment: standing, placementRule: beside,
-          specText: one stylized bone-white plastic skeleton seated or standing beside the steps or on the lawn, no blood or damage,
+          specText: one stylized bone-white plastic skeleton seated or standing beside the steps or on the lawn, clean and undamaged,
           quantity: { subtle: [0, 0], classic: [0, 0], abundant: [0, 1] }, required: [] }
     promptFragments:
       scene: a playful, tasteful US Halloween display added to the confirmed target home
       preserve: keep the same camera position, crop, roof outline, doors, windows, siding color, steps, landscaping, sky, time of day and neighboring buildings
       negative: no gore, blood, weapons or corpses, no cartoon or licensed characters, no inflatables, no text, no people, no fog or sky effects, no new structures, nothing on neighboring homes
+      lavish:
+        scene: >-
+          a lavish, over-the-top American Halloween display covering the target home and its yard:
+          the house the whole neighborhood comes to see
+        decorations: >-
+          Decorate only what this photo shows of the house: each sentence below applies only where
+          the photo already shows the thing it names, and is skipped where it does not. Outline
+          every roof edge, eave and gable of the target house and every window with orange and
+          purple string lights, closely spaced. Stretch thick white cobwebs with large black spiders
+          across the corners of the windows and the walls, and across a porch, railings, columns and
+          shrubs that are already there, and set one giant black spider on the wall or roof. If a
+          front door is visible, outline its frame with the lights and hang a black wreath with an
+          orange bow on it, leaving the door itself as it is, with flocks of black bat silhouettes
+          on the walls around it. Beside steps, a porch and a path that are already there, crowd
+          carved jack-o'-lanterns of many sizes, all glowing from inside, with piles of pumpkins and
+          gourds, hay bales, corn stalks tied to columns that are already there and pots of orange
+          and purple mums, without hiding or replacing what stands there. On open lawn or bare
+          ground of its own yard, stand several posed plastic skeletons and a few white sheet ghosts
+          on stakes among more glowing pumpkins, and hang small ghosts and lanterns from the
+          branches of trees that are already there. Add no door, steps, railing, porch, path, wall,
+          window, shrub, hedge or tree of your own: only decorations.
+        negative: >-
+          no gore, blood, weapons, corpses or tombstones, no cartoon or licensed characters, no
+          inflatables, no sugar skulls, no text, no people, no fog or sky effects, no snow unless
+          present, no new structures, nothing on neighboring homes, on the sidewalk or on the street
+        lit: true
 ```
 
-Halloween content stays within the limits in [privacy-safety-legal.md](privacy-safety-legal.md#content-policy-and-admission): friendly or classic jack-o'-lantern faces, no frightening figures below `abundant`, and the skeleton only as an optional `abundant` item.
+Halloween content stays within the limits in [privacy-safety-legal.md](privacy-safety-legal.md#content-policy-and-admission): friendly or classic jack-o'-lantern faces, no frightening figures below `abundant`, and the skeleton only as an optional `abundant` item. The `abundant` description of the exterior adds posed plastic skeletons and sheet ghosts on stakes where the home has open lawn or bare ground of its own, still without gore, blood, weapons, corpses or tombstones; the balcony description, which seats one posed skeleton in a corner, is not used yet.
 
 ### Halloween, `balcony`
 
@@ -629,6 +832,21 @@ sceneSections:
       scene: a playful, tasteful US Halloween display on the user's own balcony
       preserve: keep the railing, floor, door, wall, the view beyond the railing and every neighboring balcony exactly as photographed
       negative: no items on the railing top edge, nothing on neighboring balconies or railings, no gore or weapons, no cartoon characters, no text, no people
+      lavish:
+        scene: >-
+          a lavish, over-the-top American Halloween display filling the user's own balcony
+        decorations: >-
+          Wrap the whole balcony railing in orange and purple string lights and stretch thick white
+          cobwebs with large black spiders across its face and up the wall. Hang a black wreath with
+          an orange bow on the balcony door or the wall beside it and flocks of black bat
+          silhouettes on the wall and the door glass. Crowd the balcony floor with glowing
+          jack-o'-lanterns of many sizes, pumpkins and gourds, pots of orange and purple mums, corn
+          stalks in the corners and lanterns with flameless candles, and sit one posed plastic
+          skeleton in a corner where there is room.
+        negative: >-
+          no items on the railing top edge, nothing on neighboring balconies or railings, no gore or
+          weapons, no cartoon characters, no inflatables, no text, no people, no sky effects
+        lit: true
 ```
 
 Nothing may sit on the railing top edge (fall hazard) and nothing crosses to a neighbor's railing; both are keep-clear rules the validator enforces with the analysis regions.
@@ -662,6 +880,24 @@ sceneSections:
       scene: a tasteful Christmas welcome at the user's own apartment door
       preserve: keep the door, its number and hardware, the corridor, neighboring doors, lighting and signage exactly as photographed
       negative: nothing on neighboring doors, nothing in the corridor path, no religious symbols, no text, no people, no inflatables
+      lavish:
+        scene: >-
+          a lavish, over-the-top Christmas welcome at the user's own apartment door, as festive as a
+          door can be
+        decorations: >-
+          Hang a large, full evergreen wreath with a big red velvet bow, pinecones and warm-white
+          lights on the door. Frame the whole door with thick evergreen garland woven with
+          warm-white lights, red bows and red and gold ornaments, running up both sides and across
+          the top of the door frame. Stand a lit potted evergreen tree with red bows on each side of
+          the door, close to the wall, with a tall lantern holding a flameless candle and a stack of
+          wrapped gift boxes beside each. Lay a plain red and green doormat at the door, and wind
+          lit garland along the banister where there is one. Keep everything tight to this door and
+          its wall so the corridor stays clear.
+        negative: >-
+          nothing on neighboring doors, nothing in the corridor path, nothing on light fixtures,
+          signage or fire equipment, no religious symbols, no Santa or snowman figures, no
+          inflatables, no cartoon figures, no text, no people
+        lit: true
 ```
 
 Floor items appear only when analysis reports a `floor_area` in the door's own alcove; a flat corridor wall with no alcove gets the wreath and frame garland only. `apartment_entry` offers `bright` lighting only.
@@ -674,7 +910,7 @@ A style kit is the content side of Shop the look (Proposed, [D-24](../decisions.
 
 - One kit per (holiday, scene type): `kitId` = `<holidayId>.<sceneType>`, 4 to 6 archetypes, authored inside the pack's scene section and seeded into `style_kits` and `kit_items` at publication ([Holiday packs](#holiday-packs)). Styles are subsets of the same kit through `quantity` and `required`, so the catalog stays small.
 - Spec text and attributes are written in-house from a product's public attributes. Merchant titles, bullets, descriptions and images never appear in prompts, spec text or pack files.
-- An archetype whose anchors are absent from the analysis is dropped from the plan and from the shop panel for that render; the panel never shows an item the plan did not place.
+- An archetype whose anchors are absent from the analysis is dropped from the plan and from the shop panel for that render; the panel never shows an item the plan did not place. In a lavish plan (a house exterior in `abundant`) the plan's placements are the advisory list of typical items ([The lavish description](#the-lavish-description)), and the panel still lists exactly those.
 - Changing an archetype's spec text or attributes is a pack MINOR bump; replacing the product behind an unchanged archetype is a commerce operation that does not touch the pack.
 - The same real product may back archetypes in several kits (warm-white string lights in the Christmas and New Year's Eve exterior kits); each kit keeps its own `kitItemId`.
 - Spec attributes are the structured fields the adherence check and product matching use: `category`, `sizeRange`, `material`, `colorFamily`, `lit` (and `lightColor` when lit), `indoorOutdoor`, `countRange`. The quality rubric's plan-adherence score judges renders against the same spec text ([quality-and-benchmark.md](quality-and-benchmark.md#review-rubric)).
@@ -744,7 +980,7 @@ A style kit is the content side of Shop the look (Proposed, [D-24](../decisions.
 
 ## Lighting policy
 
-Owner decision 2026-11-10 ([D-10](../decisions.md#d-10)). Three modes exist. `source` keeps the photo's own light and renders electric decor switched on with a modest glow consistent with the existing exposure. `evening` relights the decorated scene to dusk so lit decor reads clearly. `bright` relights the decorated scene to a bright, airy, cheerful version of the same room. Definitions, the relight instructions, why compositing is disabled in the relit modes and how QA judges a relit image are in [render-pipeline.md](render-pipeline.md#lighting-modes). This section says which modes each content cell offers and what `evening` means for each holiday.
+Owner decision 2026-11-10 ([D-10](../decisions.md#d-10)). Three modes exist. `source` keeps the photo's own light and renders electric decor switched on with a modest glow consistent with the existing exposure (in a lavish house exterior every light of the description is on and visibly glowing, still in the photo's own light). `evening` relights the decorated scene to dusk so lit decor reads clearly. `bright` relights the decorated scene to a bright, airy, cheerful version of the same room. Definitions, the relight instructions, why compositing is disabled in the relit modes and how QA judges a relit image are in [render-pipeline.md](render-pipeline.md#lighting-modes). This section says which modes each content cell offers and what `evening` means for each holiday.
 
 ### Defaults and offered modes
 
@@ -753,7 +989,7 @@ The policy is the same in every pack. Exteriors start in `evening` and offer `so
 | Holiday | `house_exterior` | `apartment_entry` | `balcony` | `interior` |
 | --- | --- | --- | --- | --- |
 | `halloween` | default `evening`; offered `source`, `evening` | default `bright`; offered `bright` | default `evening`; offered `source`, `evening` | default `bright`; offered `bright` |
-| `thanksgiving_us` | default `evening`; offered `source`, `evening` (no electric lights are added) | default `bright`; offered `bright` | default `evening`; offered `source`, `evening` | default `bright`; offered `bright` |
+| `thanksgiving_us` | default `evening`; offered `source`, `evening` (the kit adds no electric lights; the `abundant` description adds warm-white lights) | default `bright`; offered `bright` | default `evening`; offered `source`, `evening` | default `bright`; offered `bright` |
 | `christmas` | default `evening`; offered `source`, `evening` | default `bright`; offered `bright` | default `evening`; offered `source`, `evening` | default `bright`; offered `bright` |
 | `new_years_eve` (optional) | default `evening`; offered `source`, `evening` | not offered (no section) | default `evening`; offered `source`, `evening` | default `bright`; offered `bright` |
 
@@ -763,7 +999,7 @@ Rules:
 - `bright` is a relit mode, with no lighting control. A request for `source` or `evening` on an `interior` or `apartment_entry` is refused with `VALIDATION_FAILED` (`content_cell_not_offered`).
 - `evening` is offered from the first render for exteriors and balconies. It is dropped from the project's offered set (and the default becomes `source`) only after scene analysis judges the source not to be daylight, and for a Street View source whose mode is display-only. An `evening` request for a photo already at dusk or night does not fail: the photo is decorated as photographed and delivered as the evening result ([render-pipeline.md](render-pipeline.md#lighting-modes)).
 - A bright look of a photo that is already bright is not relit; the decorated photo is the result ([render-pipeline.md](render-pipeline.md#lighting-modes)).
-- The table is the upper bound. A mode that fails golden-render approval ([Pack testing](#pack-testing)) is removed from the pack's `offered` list, which is a MINOR bump; a changed default is a MAJOR bump ([Versioning](#versioning)). The 2026-11-10 change of every default made the packs version `2.0.0`, and every kit's `packVersion` and every `examples.json` entry follow it.
+- The table is the upper bound. A mode that fails golden-render approval ([Pack testing](#pack-testing)) is removed from the pack's `offered` list, which is a MINOR bump; a changed default is a MAJOR bump ([Versioning](#versioning)). The 2026-11-10 change of every default made the packs version `2.0.0`, and the lavish descriptions of 2026-11-16 made them `2.1.0`; every kit's `packVersion` and every `examples.json` entry follow the pack.
 - The benchmark lighting arm and the interior lighting check ([quality-and-benchmark.md](quality-and-benchmark.md#statistics-and-decision-rules)) still measure the relit modes, but the defaults above are an owner decision, not a result of that arm. Reason for the evening default: the Christmas exterior kit centers on string lights, and a daylight render of unlit strings reads weakly. The cost is that an evening look relights every pixel and raises structural risk, which the checks in the render spec contain.
 - For Street View-origin sources, `evening` is offered when the source mode allows decoration (`persist` or `transient`; see [address-and-street-view.md](address-and-street-view.md#street-view-source-modes)).
 
@@ -777,6 +1013,8 @@ The `lightingPolicy.eveningGuidance` fragment each pack compiles when `lightingM
 | `halloween` | Jack-o'-lanterns glow from inside; orange and purple string lights cast a restrained colored glow on railings and walls; cooler ambient than Christmas; no fog, no colored sky. |
 | `new_years_eve` | Warm-white and gold string lights with gentle sparkle; metallic garland catches the light; no fireworks or sky effects. |
 | `thanksgiving_us` | Early dusk falls on the home: the existing porch light and a soft amber glow in the existing windows carry the scene, and any lanterns and flameless candles named in the placements are lit with warm, low light; the wreath, garland, pumpkins and mums take only that light; no electric lights are added and nothing is added to the sky. |
+
+**Lavish looks.** A lavish look ([The lavish description](#the-lavish-description)), which today means a house exterior in `abundant`, takes its lights from the description, not from these texts or from the placements' lit flags. When `lit` is true the request says every light on the decorations is switched on and visibly glowing, also where the holiday's ordinary kit has no electric lights outdoors (the Thanksgiving exterior: warm-white lights on the roof edges, in the harvest garland, on the columns and on the shrubs). When `lit` is false the request has no such sentence and, where the holiday allows no electric lights, says so. The `evening` look relights the decorated photo to a deep, luminous dusk in which the decorated home is the brightest thing in the picture: every bulb glows brightly and together they wash the surfaces around them, so the home stays clearly readable and not dark; the guidance texts above are compiled only by a combined evening plan, which the render job does not build (it decorates as photographed and relights), so a lavish look never uses them. A lavish base is relit with the lavish relight wording only while the base is lavish: when the judge rejects a lavish attempt for a critical finding and its repair is planned the ordinary way, the relight of that repair is the ordinary one and names the lit decorations of the placements again. The `bright` look is offered only for rooms and apartment entries, which are not lavish, so its relight keeps the ordinary wording; the compiler still has the lavish `bright` sentence, and the golden file covers it. The sentences are owned by [render-pipeline.md](render-pipeline.md#prompt-compilation).
 
 ## Climate, culture and existing decorations
 
@@ -792,7 +1030,7 @@ The `lightingPolicy.eveningGuidance` fragment each pack compiles when `lightingM
 - Religion is never inferred from an address, a name or an image, and the US Release packs are secular by default ([US holiday catalog](#us-holiday-catalog)). Religious sub-traditions are later packs that a user selects explicitly.
 - Thanksgiving packs use harvest imagery only: no Pilgrim, Native American or other costume or caricature imagery (`costume_caricature`).
 - Halloween packs contain no religious imagery and no imagery from other traditions: Día de los Muertos motifs (sugar skulls, ofrendas) are a distinct tradition and are not Halloween decor; no derogatory costumes or effigies.
-- Christmas packs contain no religious symbols and no Santa, snowman or reindeer figures; evergreen, light, bows and ornaments carry the look.
+- Christmas packs contain no religious symbols and no Santa or snowman figures; evergreen, light, bows and ornaments carry the look. The one figure allowed is the warm-white lit wireframe reindeer, only in the `abundant` description: a sculpture of light, not a character.
 - **Not directed to children** (Proposed, [D-17](../decisions.md#d-17)). No child-oriented characters, cartoon or animated figures, mascots, inflatables, toys, child models or child-targeted advertising appear in heroes, packs, kits, example art or copy. Animated characters, child models and child-oriented subject matter are among the factors the FTC lists for deciding whether a service is directed to children (FTC COPPA FAQ, https://www.ftc.gov/business-guidance/resources/complying-coppa-frequently-asked-questions, retrieved 2026-11-08). The audience policy and counsel review live in [privacy-safety-legal.md](privacy-safety-legal.md#audience-and-age); the content checklist applies the guardrail to every pack, hero and example.
 
 ### Existing decorations
@@ -800,7 +1038,7 @@ The `lightingPolicy.eveningGuidance` fragment each pack compiles when `lightingM
 - Scene analysis reports existing decorations (likely holiday, density) and the plan builder reads them ([render-pipeline.md](render-pipeline.md#scene-analysis)). The only policy in the US Release is `preserve_and_complement`: existing decorations are kept and complemented, and new items go on anchors that are still free. Indoors, in apartment entries and on balconies an existing decoration is never removed, moved or covered. Outside a house (`house_exterior`) a decoration of the chosen holiday may take the place of a removable seasonal item at its spot: an existing wreath or door hanger, a potted plant, flower pot, planter or urn, a hanging basket, a seasonal flag, a doormat. Furniture, fixtures, mailboxes, anything built, vehicles, bins and plants growing in the ground stay as they are, a removable item is never taken away with nothing in its place, a relight changes light only, and house numbers, signs and logos are never covered by a decoration or redrawn ([render-pipeline.md](render-pipeline.md#validator-rules); decision of 2026-11-11 in the [decision log](../decisions.md#d-07)).
 - When the existing decorations belong to the chosen holiday, the plan fills the free anchors and skips occupied ones.
 - When they belong to a different holiday (Halloween decor in an October Street View capture while Christmas is chosen), the render proceeds and the result screen shows a non-blocking notice that the photo already shows other decorations and that a current photo gives a cleaner result; the mixed result is honest, removal would not be (outside a house the chosen holiday's wreath may hang where the other holiday's wreath hung: that is a swap at the same spot, not a removal). Copy and placement are in [experience.md](experience.md#result-and-comparison).
-- When existing decoration density is high, the plan uses the quantities of the next-lower style (an `abundant` request places `classic` quantities and placement limits; [Placement fields](#placement-fields)) so the scene does not become cluttered.
+- When existing decoration density is high, the plan uses the quantities of the next-lower style (an `abundant` request places `classic` quantities and placement limits; [Placement fields](#placement-fields)) so the scene does not become cluttered. The request is then the ordinary `classic` one, not the lavish description ([The lavish description](#the-lavish-description)).
 
 ### Neighbors, access and occluders
 
@@ -822,7 +1060,7 @@ One approved hero per occurrence plus one neutral hero for the off-season. Heroe
 | Composition | The subject survives both crops; a quiet area for the headline is reserved (the lower left of the landscape crop and the top of the portrait crop, where the landing's content block rests) and recorded as a focal point and safe area per crop; the photograph fills the whole first viewport, and contrast for the headline comes from the image plus a light local scrim ([scrims](experience.md#scrims)), not a heavy dark overlay; still images only. |
 | Approval | Approved at desktop and mobile sizes by the content checklist ([Content authoring and review](#content-authoring-and-review)) before an occurrence that uses it can be enabled. |
 
-Art direction per holiday:
+Art direction per holiday. It governs the commissioned heroes and the example art only, not the looks the pipeline makes: the lavish tier changes the `abundant` renders of a visitor's own house exterior and leaves the heroes and the example pairs as they are.
 
 | Holiday | Art direction |
 | --- | --- |
@@ -910,11 +1148,13 @@ Applied to every pack version (text and golden renders), every hero and every ex
 10. Inspectability: the result stays bright enough to inspect; `evening` and `bright` renders keep the structure legible.
 11. Street View sources: attribution and any burned-in logo remain visible and unaltered (`attribution_altered`); existing blur regions are untouched ([address-and-street-view.md](address-and-street-view.md#before-image-and-attribution)).
 12. Consistency: the forbidden list contains the baseline; quantity rules never decrease from `subtle` to `classic` to `abundant`; prompt fragments agree with the forbidden list; every kit has 4 to 6 archetypes; lighting defaults match [Lighting policy](#lighting-policy).
+13. Lavish descriptions: every section's `lavish` text is read in full, because the load scans are word checks; it names no item of the forbidden list in any wording, no snowman or Santa figure, no lettering however phrased, no character by name, nothing on a neighbor, and no reindeer outside the Christmas description; it keeps the way to the door clear, tells the model to leave furniture where it is indoors, and asks for lights (`lit`) exactly where the pack's lighting policy allows them. A house-exterior description also follows the rule for authors: it opens with the sentence that limits it to what the photo shows, names doors, railings, posts, columns, shrubs, trees, steps, paths and lawn only conditionally, and ends with the sentence that adds no structure or plant of its own. The descriptions of the other scene types are read too, so that they are right when their scene type is turned on.
 
 ### Pack testing
 
 - **Schema and cross-field validation** in CI for every pack file; unknown anchor categories, forbidden items or scene types fail the build.
-- **Golden compiled instructions**: the render spec's golden-file test compiles a fixed set of synthetic scene analyses against every offered content cell; pack changes update the golden files deliberately in the same change ([render-pipeline.md](render-pipeline.md#prompt-compilation)).
+- **Golden compiled instructions**: the render spec's golden-file test compiles a fixed set of synthetic scene analyses against every offered content cell, the lavish request of every section, the relights of a lavish base and the repairs of a lavish Christmas house exterior included; pack changes update the golden files deliberately in the same change ([render-pipeline.md](render-pipeline.md#prompt-compilation)).
+- **Content scans**: for every cell of the four packs, in `abundant`, the plan of the first attempt and the repair plans pass validation on the golden analysis and on a sparse house, so no kit text or lavish text fails a plan with `forbidden_list`.
 - **Golden renders** on the tuning set for every MAJOR or MINOR change, limited to the affected cells; approvers compare the previous and new renders side by side and record `goldenRunId`. Cost is recorded like any other render ([economics.md](economics.md#cost-worksheet)).
 - **Benchmark relationship**: the formal benchmark measures the `classic`/`source` cells, the lighting arm and the interior lighting check ([quality-and-benchmark.md](quality-and-benchmark.md#formal-benchmark)); every other cell is offered on golden-render approval, not assumed from the benchmark.
 - **Calendar tests**: the worked-calendar rows and test vectors in this file are unit tests, re-run with each new year's occurrences.
@@ -927,6 +1167,7 @@ Applied to every pack version (text and golden renders), every hero and every ex
 4. The experience projection changes immediately; the cached landing shell keys roll ([architecture.md](../architecture.md#landing-and-share-page-delivery)).
 5. MAJOR or MINOR: cached variants with the previous `holidayPackVersion` are no longer returned; the next request renders anew ([render-pipeline.md](render-pipeline.md#variant-key-and-reuse)). PATCH: nothing is invalidated.
 6. Rollback: set the previous row back to `published` and retire the current one; the previous MAJOR.MINOR file is still deployed because files are kept until no occurrence references them.
+7. The release of 2026-11-16 (packs `2.1.0`, with the compiler release raised in the same change; the house-exterior descriptions are the conditional ones above) retired the cached looks of every style, not only `abundant`: the variant key carries both versions, so every look is made again at its next request, and every stored Street View enhancement is made once more because that is keyed by the compiler version too ([render-pipeline.md](render-pipeline.md#variant-key-and-reuse)). A job stamped with `2.0.0` that is still running at the deploy ends as an internal error (pack content unavailable). `examples.json` names `2.1.0` and no example picture is rendered again: the examples are `classic` and keep their pictures.
 
 Changes that touch a decision (catalog, windows, lighting defaults) are also recorded as dated entries in the [decision log](../decisions.md#decision-log). Pack releases themselves are content releases and are recorded only in `holiday_pack_versions`.
 

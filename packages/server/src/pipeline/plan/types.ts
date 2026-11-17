@@ -61,6 +61,12 @@ export interface RepairAdjustments {
    * decorate step's repair, so those pixels are the original's whatever the editor draws.
    */
   restoreBoxes?: NormalizedBox[];
+  /**
+   * The repair of a lavish attempt rejected for a critical finding: it is planned without the
+   * section's lavish description (no `lavish` mark), as the ordinary look of the same style, and
+   * its constraints are worded as for a plan without the mark.
+   */
+  ordinary?: boolean;
 }
 
 export interface RepairInput {
@@ -104,6 +110,11 @@ export interface BuildPlanInput {
     featherFraction?: number;
     countryCode?: string;
     locale?: string;
+    /**
+     * Whether the section's lavish description may decorate the plan (default true). When false
+     * the plan is built as for a section without a description: no `lavish` mark.
+     */
+    lavish?: boolean;
   };
 }
 

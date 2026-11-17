@@ -81,10 +81,17 @@ export function deterministicClassification(codes: readonly FailureCode[]): Judg
 /**
  * Critical codes a look may carry at uncertain confidence and still be delivered: doubts about a
  * detail of the home. A doubt about privacy, people, safety, the attribution, which home it is or
- * a neighbouring home is never delivered. A doubted `camera_changed` stays deliverable because the
- * registration that runs before the judge measures the camera itself and has passed by then: a
- * picture whose camera it finds moved carries its own deterministic `camera_changed` and is never
- * delivered.
+ * a neighbouring home is never delivered as it stands. The last resort may still put the judge's
+ * box for such a finding back from the original when the attempt has no repair after it (never
+ * for a code about the picture as a whole: `GLOBAL_FINDING_CODES`); a rejected lavish first
+ * attempt with a repair open has its objected spots put back at once only when every critical
+ * finding at or above the uncertainty floor has one of these codes, and is otherwise repaired
+ * the ordinary way. A doubted `camera_changed` is deliverable when the registration that runs
+ * before the judge measured the camera and passed: a picture whose camera it finds moved carries
+ * its own deterministic `camera_changed` and is never delivered. When the registration took a
+ * lavish output unwarped although its fit was poor (`poor_fit_ignored`), nothing measured the
+ * camera, and a verdict that doubts it is not deliverable (`AttemptVerdict.cameraUnmeasured`,
+ * `deliverableDoubt`).
  */
 export const UNCERTAIN_DELIVERABLE_CODES: readonly FailureCode[] = [
   'structure_changed',
@@ -112,6 +119,24 @@ export interface AttemptVerdict {
   codes: FailureCode[];
   /** Majors recorded on a passing attempt that has no repair after it. */
   recordedMajors: MajorFailureCode[];
+  /**
+   * Set on an uncertain verdict with `camera_changed` whose registration took the output unwarped
+   * although its fit was poor (`poor_fit_ignored`): nothing measured the camera the judge doubts.
+   */
+  cameraUnmeasured?: true;
+}
+
+/**
+ * Whether a verdict is a doubt a look may be delivered with, or kept with through a repair: an
+ * uncertain verdict whose critical codes are all deliverable (`uncertainDeliverable`) and whose
+ * doubted camera, if any, the registration measured (`cameraUnmeasured` not set).
+ */
+export function deliverableDoubt(verdict: AttemptVerdict): boolean {
+  return (
+    verdict.verdict === 'uncertain' &&
+    uncertainDeliverable(verdict.codes) &&
+    verdict.cameraUnmeasured !== true
+  );
 }
 
 /**
@@ -120,7 +145,9 @@ export interface AttemptVerdict {
  * attempt; an uncertain critical code (after escalation) is uncertain; confident majors fail an
  * attempt that still has a repair after it (the first attempt; also a relight that follows the
  * base a job decorated itself, while the job has not used its repair) and are only recorded on
- * an attempt that has none; otherwise the attempt passes.
+ * an attempt that has none; otherwise the attempt passes. An uncertain verdict that doubts the
+ * camera of an output the registration took unwarped for a poor fit (`poorFitIgnored`) carries
+ * `cameraUnmeasured`.
  */
 export function decideAttempt(input: {
   attemptNumber: RenderAttemptNumber;
@@ -130,6 +157,11 @@ export function decideAttempt(input: {
   judge: JudgeClassification | null;
   /** Deterministic codes that fail the attempt whatever the judge says and on any attempt. */
   decisive?: readonly FailureCode[];
+  /**
+   * The registration took the output unwarped although its fit was poor (`poor_fit_ignored`), so
+   * nothing measured the camera. Defaults to false.
+   */
+  poorFitIgnored?: boolean;
 }): AttemptVerdict {
   const deterministicCritical = input.deterministic.filter(isCritical);
   const deterministicMajor = input.deterministic.filter(
@@ -141,7 +173,14 @@ export function decideAttempt(input: {
   if (critical.length > 0 || (input.decisive?.length ?? 0) > 0)
     return { verdict: 'fail', codes: [...critical, ...majors], recordedMajors: [] };
   if (judge.uncertain.length > 0) {
-    return { verdict: 'uncertain', codes: [...judge.uncertain, ...majors], recordedMajors: [] };
+    return {
+      verdict: 'uncertain',
+      codes: [...judge.uncertain, ...majors],
+      recordedMajors: [],
+      ...(input.poorFitIgnored === true && judge.uncertain.includes('camera_changed')
+        ? { cameraUnmeasured: true as const }
+        : {}),
+    };
   }
   if (majors.length > 0) {
     return (input.repairLeft ?? input.attemptNumber === 1)
@@ -177,7 +216,8 @@ export interface RegisteredOutput {
  * decoded and registered to the reference image (the working image, or for a relight the decorated
  * base on the working grid) over pixels outside the placement shapes (the
  * composite mask in `source`; the dilated shapes and glowing windows otherwise), and warped into
- * alignment when the transform is within the limits.
+ * alignment when the transform is within the limits. A lavish decorate output (`lavish`, `source`)
+ * whose fit is poor is taken unwarped (`poor_fit_ignored`) instead of rejected.
  */
 export async function registerOutput(input: {
   working: WorkingImage;
@@ -190,6 +230,11 @@ export async function registerOutput(input: {
   /** More regions registration ignores (localized decorations of a relight's base). */
   extraExclusions?: readonly NormalizedBox[];
   thresholds?: Partial<Record<string, number>>;
+  /**
+   * The attempt is lavish (`isLavishPlan` of its plan): its dense decorations lower the fit, so in
+   * `source` mode a poor fit within the limits does not reject the output.
+   */
+  lavish?: boolean;
 }): Promise<RegisteredOutput> {
   const delivered = await decodeRaster(input.rawBytes);
   const reference = input.reference ?? input.working.raster;
@@ -211,6 +256,7 @@ export async function registerOutput(input: {
     fallbackPx:
       (input.thresholds?.maxTranslationFraction ??
         PIPELINE_DEFAULTS.checks.maxTranslationFraction) * long,
+    ...(input.lavish ? { acceptPoorFit: true } : {}),
   });
   return { delivered, registered };
 }
@@ -225,6 +271,12 @@ export async function registerOutput(input: {
  * also checked to be no darker than that base. Padding is restored verbatim from the reference in
  * both modes; the attribution rectangles verbatim in `source` mode and, in a relight, with the
  * reference's logo and copyright strokes kept over a relit ground (`restoreProtectedRectangles`).
+ * In a relight the people boxes and blur regions are put back from the reference first, with the
+ * exposure adapted to the relit picture around them, and the protected-region check knows them.
+ * A lavish attempt (`lavish`) keeps the whole frame minus the restored boxes, is not tone-matched,
+ * has its attribution rectangles restored the relight's way and its people boxes and blur regions
+ * copied back from the original after them, and is not checked for edges or seams. A lavish
+ * decorate attempt (`source`) must pass its `registration`: it throws without one.
  */
 export async function compositeAndCheck(input: {
   working: WorkingImage;
@@ -254,7 +306,22 @@ export async function compositeAndCheck(input: {
   attributionRegion: NormalizedBox | readonly NormalizedBox[] | null;
   glowRegions: readonly NormalizedBox[];
   thresholds?: Partial<Record<string, number>>;
+  /**
+   * The attempt is lavish (`isLavishPlan` of its plan): in `source` mode `mask` is the whole-frame
+   * keep-mask and a `registration` made over the pixels outside the plan mask is required, the
+   * output is pasted without photometric alignment, the attribution rectangles are restored and
+   * compared as in a relight and the people boxes and blur regions are copied back from the
+   * original after them; in every mode the drift, edge and seam checks are not run
+   * (`runDeterministicChecks`).
+   */
+  lavish?: boolean;
 }): Promise<CompositeResult> {
+  if (input.lavish && input.plan.lightingMode === 'source' && !input.registration) {
+    // Registering here would use the whole-frame keep-mask, which excludes nearly every pixel.
+    throw new Error(
+      'a lavish decorate attempt is composited with its registration over the plan mask',
+    );
+  }
   const reference = input.reference ?? input.working.raster;
   const mask = input.plan.lightingMode === 'source' ? input.mask : null;
   const registration =
@@ -268,8 +335,10 @@ export async function compositeAndCheck(input: {
       glowRegions: input.glowRegions,
       ...(input.keptRegions ? { extraExclusions: input.keptRegions } : {}),
       ...(input.thresholds ? { thresholds: input.thresholds } : {}),
+      ...(input.lavish ? { lavish: true } : {}),
     }));
   const long = Math.max(reference.width, reference.height);
+  const blurRegions = input.analysis.protectedBlurRegions.map((region) => region.box);
   const composite = await alignAndComposite({
     working: reference,
     delivered: registration.delivered,
@@ -283,6 +352,9 @@ export async function compositeAndCheck(input: {
     fallbackPx:
       (input.thresholds?.maxTranslationFraction ??
         PIPELINE_DEFAULTS.checks.maxTranslationFraction) * long,
+    // A whole-frame keep has no unedited ring to match the output's tone to.
+    ...(input.lavish ? { photometric: false as const, relitAttribution: true } : {}),
+    protectedBoxes: [...input.analysis.peopleBoxes, ...blurRegions],
   });
   const { raw, candidate, exposureMatched, attributionRestored } = composite;
   const open = input.openHouseNumbers ?? [];
@@ -303,7 +375,7 @@ export async function compositeAndCheck(input: {
     ],
     targetFacade: input.analysis.targetFacade ?? null,
     peopleBoxes: input.analysis.peopleBoxes,
-    blurRegions: input.analysis.protectedBlurRegions.map((region) => region.box),
+    blurRegions,
     houseNumberRegions: houseNumbers.filter((box) => !isOpen(box)),
     coveredHouseNumberRegions: houseNumbers.filter(isOpen),
     glowRegions: input.glowRegions,
@@ -312,6 +384,10 @@ export async function compositeAndCheck(input: {
     mask,
     alignment: composite.alignment,
     ...(input.thresholds ? { thresholds: input.thresholds } : {}),
+    ...(input.lavish ? { lavish: true } : {}),
+    ...(composite.protectedRestore
+      ? { restoredProtected: composite.protectedRestore.restored }
+      : {}),
   });
   deterministic.checks.compositing = {
     exposureMatched,
@@ -319,6 +395,7 @@ export async function compositeAndCheck(input: {
     attribution: composite.attribution,
     registrationApplied: composite.alignment.applied,
     photometric: composite.photometric,
+    ...(composite.protectedRestore ? { protectedRestore: composite.protectedRestore.record } : {}),
   };
   return {
     raw,

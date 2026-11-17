@@ -5,9 +5,13 @@
 # priority is omitted: list order is the placement priority (1 = first).
 # Spec attributes and product mapping for each kit item live in ../kits/new_years_eve.yaml.
 # Any change that can alter a decoration plan or compiled instruction is at least a MINOR version bump.
+# promptFragments.lavish (optional): the description the abundant style compiles in place of one
+# sentence per placement. scene: what the picture shows; decorations: the paragraph of what is
+# added; negative: in place of the section's negative; lit: whether it asks for electric lights.
+# scene and decorations may name nothing on the forbidden list and no snow, frost or icicles.
 
 id: new_years_eve.US
-version: 2.0.0
+version: 2.1.0
 holidayId: new_years_eve
 region: US
 displayName: New Year's Eve
@@ -128,6 +132,31 @@ sceneSections:
       scene: a festive, elegant US New Year's Eve display in gold, silver and warm white added to the confirmed target home
       preserve: keep the same camera position, crop, perspective and lens, the roof outline, doors, windows, siding color and texture, trim, steps, railings, landscaping, sky, time of day, parked vehicles and every neighboring building exactly as photographed
       negative: no fireworks, confetti or sky effects, no clocks, numerals or lettering, no bottles or glasses, no religious symbols, no text, no people, no snow unless present, no new structures, nothing on neighboring homes
+      lavish:
+        scene: >-
+          a lavish, over-the-top American New Year's Eve display in gold, silver and warm white
+          covering the target home and its yard, sparkling like a gala
+        decorations: >-
+          Decorate only what this photo shows of the house: each sentence below applies only where
+          the photo already shows the thing it names, and is skipped where it does not. Outline
+          every roof edge, gable and eave of the target house and every window with warm-white
+          string lights, closely spaced, hang shimmering curtain lights along the eaves, and hang a
+          wreath of gold and silver ornaments in every window. If a front door is visible, outline
+          its frame with the lights and hang a large matching wreath on it, leaving the door itself
+          as it is. On railings, posts and columns that are already there, swag thick gold and
+          silver metallic garland woven with warm-white lights. Beside steps and an entry that are
+          already there, set clusters of oversized gold, silver and white ornament balls, tall
+          brushed-gold lanterns with flameless candles and lit white potted trees, without hiding or
+          replacing what stands there. Lay warm-white net lights over shrubs that are already there
+          and wrap the trunks of trees that are already in its yard with lights. On open lawn or
+          bare ground of its own yard, and along a path that is already there, stand lit starburst
+          lights on stakes. Add no door, steps, railing, porch, path, wall, window, shrub, hedge or
+          tree of your own: only decorations.
+        negative: >-
+          no fireworks, confetti or sky effects, no clocks, numerals or lettering, no bottles or
+          glasses, no religious symbols, no text, no people, no snow unless present, no new
+          structures, nothing on neighboring homes, on the sidewalk or on the street
+        lit: true
   balcony:
     anchors: [balcony_railing, balcony_floor, door_frame, planter, wall]
     preserve:
@@ -182,6 +211,23 @@ sceneSections:
       scene: a festive, elegant New Year's Eve display in gold, silver and warm white on the user's own balcony
       preserve: keep the camera position and crop, the railing structure, floor, balcony door and glass, exterior wall, the view beyond the railing and every neighboring balcony and unit exactly as photographed
       negative: no items on the railing top edge, nothing on neighboring balconies or railings, no fireworks or sky effects, no clocks, numerals or lettering, no bottles or glasses, no text, no people
+      lavish:
+        scene: >-
+          a lavish, over-the-top New Year's Eve display in gold, silver and warm white filling the
+          user's own balcony
+        decorations: >-
+          Wrap the whole balcony railing in gold and silver metallic garland woven with warm-white
+          lights, fixed to the face of the railing, and hang shimmering warm-white curtain lights
+          down the wall and around the balcony door. Hang a large wreath of gold and silver
+          ornaments on the balcony door or the wall beside it. Crowd the balcony floor with tall
+          brushed-gold lanterns holding flameless candles, clusters of oversized gold, silver and
+          white ornament balls, lit white potted trees in the corners and lit starburst lights on
+          stakes in the planters.
+        negative: >-
+          no items on the railing top edge, nothing on neighboring balconies or railings, no
+          fireworks or sky effects, no clocks, numerals or lettering, no bottles or glasses, no
+          text, no people
+        lit: true
   interior:
     roomTypes: [dining_room, living_room, entryway, kitchen, bedroom, other]
     anchors:
@@ -274,6 +320,26 @@ sceneSections:
       scene: an elegant New Year's Eve setting in gold, silver and warm white added to the room in the photo
       preserve: keep the camera position and crop, walls and wall color, windows, doors, flooring, ceiling, furniture and its positions, chairs, rugs, artwork, photographs and existing light fixtures exactly as photographed
       negative: no fireworks, no clocks, numerals or lettering, no bottles, glasses or alcohol, no confetti, no text, no people or pets, no open flames, no new furniture, no changed wall color
+      lavish:
+        scene: >-
+          a lavish, over-the-top New Year's Eve party setting in gold, silver and warm white for the
+          room in the photo
+        decorations: >-
+          Drape gold and silver metallic garland woven with warm-white micro lights along the
+          mantel, the shelves, the window frames, the door frames and any stair rail, and hang
+          shimmering curtain lights in every window. Fill the mantel, the sideboard, the shelves and
+          the side tables with bowls and towers of gold, silver and white ornaments, mirrored
+          lanterns, many flameless candles of different heights and vases of white branches wound
+          with lights. Dress any dining table with a metallic runner, a full centerpiece of
+          ornaments and white flowers, flameless candles and gold place accents at every seat. Stand
+          tall floor vases of white branches wound with lights on open floor where there is room.
+          Use what this room has and skip what it has no place for; every piece of furniture stays
+          where it is and in view, and floor pieces go only on free floor.
+        negative: >-
+          no fireworks, no clocks, numerals or lettering, no bottles, glasses or alcohol, no
+          confetti, no text, no people or pets, no open flames, no new furniture, no changed wall
+          color, nothing blocking a doorway
+        lit: true
 heroRefs:
   - heroAssetId: hero.new_years_eve.table.v1
     orientation: landscape

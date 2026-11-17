@@ -26,6 +26,7 @@ import {
   type RunRecord,
 } from './bakeoff.js';
 import { findWorkspaceRoot } from './config/dotenv.js';
+import { LAVISH_ADDED } from './pipeline/compile/compiler.js';
 import { loadContent, type Content, type ExampleContent } from './content/load.js';
 import type { EditOutcome, ImageEditor, VisionModel } from './providers/types.js';
 
@@ -583,4 +584,32 @@ describe('runBakeoff', () => {
     }
     expect(lines.some((line) => line.startsWith('skip openai-sunburst-high'))).toBe(true);
   }, 180_000);
+
+  it('judges an abundant balcony against the plan the example renderer compiled, without the lavish mark', async () => {
+    const example = content.examples.find(
+      (candidate) => candidate.exampleId === 'example.christmas.balcony.classic.source.v1',
+    ) as ExampleContent;
+    const calls = { analyze: [] as string[], judge: [] as string[], relight: [] as string[] };
+    const requests: CompiledRequest[] = [];
+    const report = await runBakeoff({
+      content,
+      examples: [{ ...example, style: 'abundant' }],
+      arms: [resolveArm('gemini-2k-high')],
+      editorFor: () => stubEditor('gemini', requests, null),
+      vision: stubVision(calls),
+      judge: true,
+      out: path.join(out, 'abundant-balcony'),
+      concurrency: 1,
+      saveRaw: false,
+      keys: { openai: false, gemini: true, anthropic: true },
+      log: () => undefined,
+      now: () => new Date('2026-11-09T12:00:00Z'),
+    });
+    expect(requests).toHaveLength(1);
+    expect(requests[0]?.instructionText).not.toContain(LAVISH_ADDED);
+    expect(report.records).toHaveLength(1);
+    expect(report.records[0]).toMatchObject({ ok: true });
+    expect(report.records[0]?.judgeSkipped).toBeUndefined();
+    expect(calls.judge).toHaveLength(1);
+  }, 60_000);
 });

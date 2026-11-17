@@ -27,7 +27,11 @@ export const ROOM_TYPES = [
 export const RoomTypeSchema = z.enum(ROOM_TYPES);
 export type RoomType = z.infer<typeof RoomTypeSchema>;
 
-/** How much decoration a render adds. */
+/**
+ * How much decoration a render adds. `subtle` and `classic` place a few kit items one by one.
+ * `abundant` is the lavish tier: where a pack section carries a lavish description, the whole
+ * display is described in one paragraph and the kit placements are an advisory list.
+ */
 export const STYLES = ['subtle', 'classic', 'abundant'] as const;
 export const StyleSchema = z.enum(STYLES);
 export type Style = z.infer<typeof StyleSchema>;

@@ -28,6 +28,8 @@ import type {
   StyleKit,
 } from '@hailiday/core';
 import { sha256Hex } from '../ids/index.js';
+import { SNOW_PATTERN } from '../pipeline/plan/phrases.js';
+import { forbiddenViolations } from '../pipeline/plan/validator.js';
 
 /** Default content directory: `packages/server/content` (sibling of `src` and `dist`). */
 export const DEFAULT_CONTENT_DIR = fileURLToPath(new URL('../../content/', import.meta.url));
@@ -460,6 +462,59 @@ function crossCheckKit(
 }
 
 /**
+ * Problems in a pack's lavish descriptions. `scene` and `decorations` reach the prompt as
+ * written, so they may name nothing the pack forbids, and no snow, frost or icicles: a paragraph
+ * cannot be left out for a photo without snow the way a single kit item is. `negative` is a list
+ * of what must not appear and is not scanned.
+ */
+export function lavishTextIssues(pack: HolidayPack, where: string): string[] {
+  const issues: string[] = [];
+  for (const sceneType of SCENE_TYPES) {
+    const lavish = pack.sceneSections[sceneType]?.promptFragments.lavish;
+    if (!lavish) continue;
+    for (const field of ['scene', 'decorations'] as const) {
+      const text = lavish[field].replace(/\s+/g, ' ');
+      const at = `${where}: sceneSections.${sceneType}.promptFragments.lavish.${field}`;
+      for (const item of forbiddenViolations(pack.forbidden, [text])) {
+        issues.push(`${at}: names the forbidden item ${item}`);
+      }
+      if (SNOW_PATTERN.test(text)) issues.push(`${at}: names snow, frost or icicles`);
+    }
+  }
+  return issues;
+}
+
+/**
+ * Problems in a pack's ordinary prompt texts: each section's `scene` fragment and the spec text of
+ * each kit item reach a plan, and a plan that finds a forbidden item of the pack in them fails, so
+ * the load refuses them first. The snow rule does not apply here: a kit item that names snow is
+ * left out of a plan for a photo without snow.
+ */
+export function packTextIssues(pack: HolidayPack, where: string): string[] {
+  const issues: string[] = [];
+  for (const sceneType of SCENE_TYPES) {
+    const section = pack.sceneSections[sceneType];
+    if (!section) continue;
+    const texts = [
+      {
+        at: `sceneSections.${sceneType}.promptFragments.scene`,
+        text: section.promptFragments.scene,
+      },
+      ...section.kit.map((item, index) => ({
+        at: `sceneSections.${sceneType}.kit.${index}.specText (${item.kitItemId})`,
+        text: item.specText,
+      })),
+    ];
+    for (const { at, text } of texts) {
+      for (const item of forbiddenViolations(pack.forbidden, [text.replace(/\s+/g, ' ')])) {
+        issues.push(`${where}: ${at}: names the forbidden item ${item}`);
+      }
+    }
+  }
+  return issues;
+}
+
+/**
  * Reads and validates the server-only content: holiday packs (with cross-field rules), style
  * kits (checked against their packs), the commerce catalog, hero and example specifications and
  * the climate table. Every problem is collected and reported together in a `ContentError`.
@@ -484,6 +539,8 @@ export async function loadContent(options: { dir?: string } = {}): Promise<Conte
       continue;
     }
     const pack = parsed.data;
+    issues.push(...packTextIssues(pack, contentRef));
+    issues.push(...lavishTextIssues(pack, contentRef));
     if (pack.holidayId !== holidayId) {
       issues.push(`${contentRef}: holidayId ${pack.holidayId} does not match the file name`);
     }
@@ -672,5 +729,10 @@ export async function readPackByRef(
   }
   const parsed = HolidayPackSchema.safeParse(parseYaml(text, { uniqueKeys: true }));
   if (!parsed.success) throw new ContentError(zodIssues(contentRef, parsed.error));
+  const textIssues = [
+    ...packTextIssues(parsed.data, contentRef),
+    ...lavishTextIssues(parsed.data, contentRef),
+  ];
+  if (textIssues.length > 0) throw new ContentError(textIssues);
   return parsed.data;
 }

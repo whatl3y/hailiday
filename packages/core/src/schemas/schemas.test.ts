@@ -19,6 +19,10 @@ import {
   VerifyMagicLinkRequestSchema,
   VerifyMagicLinkResponseSchema,
   isVerifyConfirmationRequired,
+  isLavishPlan,
+  LAVISH_TEXT_LIMITS,
+  LavishFragmentSchema,
+  lavishFragmentFor,
   maskEmail,
   NormalizedBoxSchema,
   OfferContentSchema,
@@ -483,6 +487,13 @@ describe('discovery, uploads, products and experience', () => {
       nextAction: 'confirm_place',
     };
     expect(DiscoverySchema.parse(discovery).candidates).toHaveLength(2);
+    // A view from the road is a heading mode of its own; any other value is refused.
+    const withMode = (headingMode: string) => ({
+      ...discovery,
+      candidates: discovery.candidates.map((candidate) => ({ ...candidate, headingMode })),
+    });
+    expect(DiscoverySchema.safeParse(withMode('road')).success).toBe(true);
+    expect(DiscoverySchema.safeParse(withMode('api_default')).success).toBe(false);
     const skipped = {
       ...discovery,
       matchClass: 'skip_to_upload',
@@ -878,6 +889,24 @@ describe('render pipeline contracts', () => {
         preserve: { ...plan.preserve, attributionRegions: [[0.5, 0.5, 0.4, 0.6]] },
       }).success,
     ).toBe(false);
+
+    // The lavish mark: optional, exactly `{ lit }`, and what `isLavishPlan` reads.
+    const parsed = DecorationPlanSchema.parse(plan);
+    expect(parsed.lavish).toBeUndefined();
+    expect(isLavishPlan(parsed)).toBe(false);
+    for (const lit of [true, false]) {
+      const marked = DecorationPlanSchema.parse({ ...plan, lavish: { lit } });
+      expect(marked.lavish).toEqual({ lit });
+      expect(isLavishPlan(marked)).toBe(true);
+    }
+    for (const lavish of [{}, { lit: true, extra: 1 }, { lit: 'yes' }, null]) {
+      expect(
+        DecorationPlanSchema.safeParse({ ...plan, lavish }).success,
+        JSON.stringify(lavish),
+      ).toBe(false);
+    }
+    expect(isLavishPlan({})).toBe(false);
+    expect(isLavishPlan({ lavish: { lit: false } })).toBe(true);
   });
 
   it('restricts judge codes to the canonical enums', () => {
@@ -1227,6 +1256,87 @@ describe('holiday packs', () => {
     expect(StyleKitSchema.parse(kit).items).toHaveLength(2);
     expect(kit.kitKey).toBe('christmas.house_exterior');
     expect(kit.items[0]?.styleQuantities.classic).toEqual({ min: 1, max: 2 });
+  });
+});
+
+describe('lavish descriptions', () => {
+  const fragment = {
+    scene: 'a lavish, over-the-top display covering the target home and its yard',
+    decorations: 'Outline every roof edge and window with warm-white string lights. '
+      .repeat(4)
+      .trim(),
+    negative: 'no inflatables, no text, no people',
+    lit: true,
+  };
+  /** The paths of the issues a description is rejected with. */
+  const rejectedAt = (value: unknown): string[] => {
+    const result = LavishFragmentSchema.safeParse(value);
+    expect(result.success).toBe(false);
+    return result.success ? [] : result.error.issues.map((issue) => issue.path.join('.'));
+  };
+
+  it('accepts a description within its limits', () => {
+    expect(LAVISH_TEXT_LIMITS).toEqual({
+      scene: 300,
+      decorationsMin: 200,
+      decorations: 2000,
+      negative: 600,
+    });
+    expect(fragment.decorations.length).toBeGreaterThanOrEqual(200);
+    expect(LavishFragmentSchema.parse(fragment)).toEqual(fragment);
+    expect(
+      LavishFragmentSchema.parse({
+        scene: 'x'.repeat(300),
+        decorations: 'x'.repeat(2000),
+        negative: 'x'.repeat(600),
+        lit: false,
+      }).lit,
+    ).toBe(false);
+    expect(
+      LavishFragmentSchema.safeParse({ ...fragment, decorations: 'x'.repeat(200) }).success,
+    ).toBe(true);
+  });
+
+  it('rejects a description outside its limits, with an unknown key or without a boolean lit', () => {
+    expect(rejectedAt({ ...fragment, scene: 'x'.repeat(301) })).toEqual(['scene']);
+    expect(rejectedAt({ ...fragment, decorations: 'x'.repeat(2001) })).toEqual(['decorations']);
+    expect(rejectedAt({ ...fragment, decorations: 'x'.repeat(199) })).toEqual(['decorations']);
+    expect(rejectedAt({ ...fragment, negative: 'x'.repeat(601) })).toEqual(['negative']);
+    expect(rejectedAt({ ...fragment, extra: 'x' })).toEqual(['']);
+    const { lit: _lit, ...unlit } = fragment;
+    expect(rejectedAt(unlit)).toEqual(['lit']);
+    expect(rejectedAt({ ...fragment, lit: 'yes' })).toEqual(['lit']);
+    expect(rejectedAt({ ...fragment, scene: '' })).toEqual(['scene']);
+    expect(rejectedAt({ ...fragment, scene: '   ' })).toEqual(['scene']);
+    // A pack carries the same rules at the section's prompt fragments.
+    const raw = christmasPack() as ReturnType<typeof christmasPack> & {
+      sceneSections: { house_exterior: { promptFragments: Record<string, unknown> } };
+    };
+    raw.sceneSections.house_exterior.promptFragments.lavish = {
+      ...fragment,
+      scene: 'x'.repeat(301),
+    };
+    const pack = HolidayPackSchema.safeParse(raw);
+    expect(pack.success).toBe(false);
+    expect(pack.error?.issues.map((issue) => issue.path.join('.'))).toEqual([
+      'sceneSections.house_exterior.promptFragments.lavish.scene',
+    ]);
+  });
+
+  it('gives a section its description only in the abundant style', () => {
+    const raw = christmasPack() as ReturnType<typeof christmasPack> & {
+      sceneSections: { house_exterior: { promptFragments: Record<string, unknown> } };
+    };
+    raw.sceneSections.house_exterior.promptFragments.lavish = fragment;
+    const pack = HolidayPackSchema.parse(raw);
+    const exterior = pack.sceneSections.house_exterior!;
+    expect(lavishFragmentFor(exterior, 'abundant')).toEqual(fragment);
+    expect(lavishFragmentFor(exterior, 'classic')).toBeNull();
+    expect(lavishFragmentFor(exterior, 'subtle')).toBeNull();
+    // A section without a description has none in any style.
+    for (const style of ['subtle', 'classic', 'abundant'] as const) {
+      expect(lavishFragmentFor(pack.sceneSections.interior!, style)).toBeNull();
+    }
   });
 });
 

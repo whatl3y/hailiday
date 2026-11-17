@@ -83,6 +83,7 @@ import {
   offeredFor,
   projectExpiry,
 } from '../domain/projects.js';
+import { reconfirmationNeeded } from '../domain/discovery.js';
 import { loadOwnedJob, renderStatus, variantDto } from '../domain/renders.js';
 import {
   admissionSourceOf,
@@ -279,7 +280,7 @@ async function inFlightResponse(
 
 /**
  * `POST /v1/renders` in the specified check order: schema, project version, idempotency replay,
- * variant-key cache (200), source readiness, content cell, the in-flight job of the same variant
+ * variant-key cache (200), source readiness (with a view to confirm again), content cell, the in-flight job of the same variant
  * (202, no new job), variants allowance, paid-attempt cap, device and IP backstop, budget and
  * pause, provider availability, capacity, then one transaction under the owner's allowance lock
  * that re-checks the version, source and counts, supersedes the active job, inserts the job,
@@ -415,6 +416,13 @@ async function createRender(
   if (source.state === 'stale') throw await notEditable('stale');
   if (source.state === 'declined' || source.state === 'failed') throw await notEditable('declined');
   if (source.state !== 'ready') throw await notEditable('permission_unknown');
+  // A view aimed at the resolved point, confirmed from views that did not test for a target on
+  // the road, is confirmed again before its first look.
+  const reconfirmCount = await reconfirmationNeeded(deps, project, source);
+  if (reconfirmCount !== null) {
+    await recordOutcome(deps, auth, { body, project, outcome: 'needs_confirmation' });
+    throw new AppError('NEEDS_CONFIRMATION', { candidateCount: reconfirmCount });
+  }
   const evaluated = await evaluateFor(deps, {
     policyId: source.assetPolicyId,
     kind: source.kind,

@@ -1,5 +1,11 @@
 import { sha256Hex } from '../ids/index.js';
-import { initialBearingDeg, round, viewFovDeg, viewPitchDeg } from '../providers/geo.js';
+import {
+  DEFAULT_VIEWPOINT_PARAMETERS,
+  initialBearingDeg,
+  round,
+  viewFovDeg,
+  viewPitchDeg,
+} from '../providers/geo.js';
 import {
   loadFixtureData,
   type FixtureData,
@@ -43,19 +49,38 @@ export interface FixtureFrame {
 }
 
 /**
- * The view that frames a panorama's target as discovery computes it: heading to the target, the
- * field of view from the facade width and distance, and the pitch from the distance.
+ * The view that frames a panorama's home: heading to the target, the field of view from the
+ * facade width and distance, and the pitch from the distance, as discovery computes them. For a
+ * panorama with `home` (a place whose target point lies on the road) the heading is the home's
+ * bearing and the distance the home's.
  */
 export function referenceView(
   place: FixturePlace,
   panorama: FixturePanorama,
 ): { heading: number; fov: number; pitch: number } {
+  if (panorama.home) {
+    return {
+      heading: round(panorama.home.bearingDeg, 1),
+      fov: round(viewFovDeg(place.destinations.facadeWidthM, panorama.home.distanceM), 1),
+      pitch: round(viewPitchDeg(panorama.home.distanceM), 1),
+    };
+  }
   const target = place.destinations.targetPoint ?? place.location;
   return {
     heading: round(initialBearingDeg(panorama.location, target), 1),
     fov: round(viewFovDeg(place.destinations.facadeWidthM, panorama.distanceM), 1),
     pitch: round(viewPitchDeg(panorama.distanceM), 1),
   };
+}
+
+/**
+ * The angle (degrees) a place's facade spans from `distanceM` away: `2 · atan((W / 2) / d)` with
+ * W the facade width, or the default facade width when the place has none.
+ */
+function facadeAngleDeg(place: FixturePlace, distanceM: number): number {
+  const known = place.destinations.facadeWidthM;
+  const widthM = known && known > 0 ? known : DEFAULT_VIEWPOINT_PARAMETERS.defaultFacadeWidthM;
+  return (2 * Math.atan(widthM / 2 / distanceM) * 180) / Math.PI;
 }
 
 function photoFrame(
@@ -81,6 +106,7 @@ function photoFrame(
     framing: settings.framing,
     shiftX: settings.shiftX,
     shiftY: settings.shiftY,
+    ...(panorama.home ? { facadeAngleDeg: facadeAngleDeg(place, panorama.home.distanceM) } : {}),
   });
   // The credit names the photographer and license; fixture frames never carry provider marks.
   const credit = watermark ? fixturePhotoCopyright(photo) : null;
@@ -119,8 +145,8 @@ function proceduralScene(
       height: view.height ?? 640,
     },
     {
-      distanceM: panorama.distanceM,
-      bearingToTargetDeg: initialBearingDeg(panorama.location, target),
+      distanceM: panorama.home?.distanceM ?? panorama.distanceM,
+      bearingToTargetDeg: panorama.home?.bearingDeg ?? initialBearingDeg(panorama.location, target),
     },
   );
   return renderHouse({
@@ -136,6 +162,8 @@ function proceduralScene(
  * The frame of a fixture panorama view, or null for an unknown pano. Owner-facing places show a
  * licensed real photograph panned and zoomed to the view (heading, fov, pitch) with its anchors
  * transformed into the frame; panoramas with procedural parameters use the SVG house renderer.
+ * A panorama with `home` lays its photograph out at the home's bearing and angular size, so a
+ * view turned away from the home shows it at the side, cut by the frame's edge, or not at all.
  */
 export function fixturePanoramaFrame(
   view: FixturePanoramaView,

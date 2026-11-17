@@ -23,6 +23,7 @@ import type {
 import {
   MAX_GEOCODE_CANDIDATES,
   MIN_SUGGEST_QUERY_LENGTH,
+  SUGGESTION_PRIMARY_TYPES,
   candidatePayload,
   countryCodeOf,
   geometryFromOutline,
@@ -135,8 +136,9 @@ function ringOf(polygon: unknown): LatLng[] {
 }
 
 /**
- * Live address provider: Places Autocomplete (New) and Place Details (New) with the server key,
- * the Geocoding API, and Geocoding v4 SearchDestinations.
+ * Live address provider: Places Autocomplete (New) restricted to address types (unrestricted
+ * when Google rejects the restriction) and Place Details (New) with the server key, the Geocoding
+ * API, and Geocoding v4 SearchDestinations.
  */
 export function createGoogleAddressProvider(options: {
   serverKey: string;
@@ -149,6 +151,8 @@ export function createGoogleAddressProvider(options: {
   const fetchImpl = options.fetch ?? (globalThis.fetch as FetchLike);
   const timeoutMs = options.timeoutMs ?? 5000;
   const failure: FailureContext = { logger: options.logger, secrets: [options.serverKey] };
+  /** Whether Google has rejected the suggestion type restriction (logged once). */
+  let typeRestrictionRejected = false;
   const call = (url: string, init: RequestInit, callOptions?: CallOptions) =>
     providerFetch(fetchImpl, url, init, {
       provider: PROVIDER,
@@ -183,24 +187,45 @@ export function createGoogleAddressProvider(options: {
       const query = input.query.trim();
       if (query.length < MIN_SUGGEST_QUERY_LENGTH)
         return { sessionToken, suggestions: [], called: false };
-      const response = await call(
-        `${PLACES_BASE}/places:autocomplete`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Goog-Api-Key': options.serverKey,
-            'X-Goog-FieldMask':
-              'suggestions.placePrediction.placeId,suggestions.placePrediction.structuredFormat',
+      const send = (restricted: boolean) =>
+        call(
+          `${PLACES_BASE}/places:autocomplete`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Goog-Api-Key': options.serverKey,
+              'X-Goog-FieldMask':
+                'suggestions.placePrediction.placeId,suggestions.placePrediction.structuredFormat',
+            },
+            body: JSON.stringify({
+              input: query,
+              sessionToken,
+              includedRegionCodes: INCLUDED_REGION_CODES,
+              ...(restricted ? { includedPrimaryTypes: SUGGESTION_PRIMARY_TYPES } : {}),
+            }),
           },
-          body: JSON.stringify({
-            input: query,
-            sessionToken,
-            includedRegionCodes: INCLUDED_REGION_CODES,
-          }),
-        },
-        callOptions,
-      );
+          callOptions,
+        );
+      let response = await send(true);
+      if (response.status === 400) {
+        // The type restriction was rejected: ask again without it (the place-type gate still
+        // refuses a place that is not an address after selection), and say so once.
+        if (!typeRestrictionRejected) {
+          typeRestrictionRejected = true;
+          logProviderFailure(
+            options.logger,
+            {
+              provider: PROVIDER,
+              operation: 'Autocomplete type restriction',
+              httpStatus: 400,
+              kind: 'invalid_request',
+            },
+            googleErrorDiagnostics(response.bytes, failure.secrets),
+          );
+        }
+        response = await send(false);
+      }
       failIfError(response, 'Autocomplete', failure);
       const body = response.json<{
         suggestions?: {

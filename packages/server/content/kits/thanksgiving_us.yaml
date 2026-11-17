@@ -7,7 +7,7 @@
 
 holidayId: thanksgiving_us
 packId: thanksgiving_us.US
-packVersion: 2.0.0
+packVersion: 2.1.0
 kits:
   - kitId: thanksgiving_us.house_exterior
     holidayId: thanksgiving_us

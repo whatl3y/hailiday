@@ -11,6 +11,7 @@ import type {
 import {
   MAX_GEOCODE_CANDIDATES,
   MIN_SUGGEST_QUERY_LENGTH,
+  SUGGESTION_PRIMARY_TYPES,
   candidatePayload,
   normalizeAddressText,
   signGeocodeCandidate,
@@ -51,8 +52,9 @@ function geocodeOf(place: FixturePlace, partialMatch: boolean): GeocodeSignal {
 }
 
 /**
- * Fixture address provider over `fixtures/places.json`: suggestions by text match (the non-US
- * entry is included so the out-of-scope path is reachable), Essentials-shaped details,
+ * Fixture address provider over `fixtures/places.json`: suggestions by text match among places
+ * with an address type, the types the live request is restricted to (the non-US entry is included
+ * so the out-of-scope path is reachable), Essentials-shaped details,
  * Geocoding signals, manual-entry aliases and SearchDestinations-shaped geometry.
  */
 export function createFixtureAddressProvider(options: {
@@ -73,6 +75,7 @@ export function createFixtureAddressProvider(options: {
       const tokens = query.split(' ').filter(Boolean);
       const suggestions: AddressSuggestion[] = [];
       for (const place of data().places) {
+        if (!place.types.some((type) => SUGGESTION_PRIMARY_TYPES.includes(type))) continue;
         const haystack = normalizeAddressText(
           `${place.formattedAddress} ${place.geocodeAliases.join(' ')}`,
         );

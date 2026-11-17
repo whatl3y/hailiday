@@ -191,6 +191,19 @@ export async function latestDiscovery(deps: Pick<ApiDeps, 'db'>, projectId: stri
   );
 }
 
+/** Whether a project has a look: a variant neither deleted nor withdrawn. */
+export async function projectHasLook(deps: Pick<ApiDeps, 'db'>, projectId: string) {
+  const look = await deps.db
+    .selectFrom('renderAssets')
+    .select('id')
+    .where('projectId', '=', projectId)
+    .where('deletedAt', 'is', null)
+    .where('withdrawnAt', 'is', null)
+    .limit(1)
+    .executeTakeFirst();
+  return look !== undefined;
+}
+
 /** Discovered (not derived) candidates stored on a discovery row. */
 export function discoveredCandidates(candidates: readonly Record<string, unknown>[]) {
   return candidates.filter((candidate) => !candidate.derivedFromCandidateId);

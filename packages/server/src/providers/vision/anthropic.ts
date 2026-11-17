@@ -16,6 +16,8 @@ import {
   ANALYSIS_PROMPT_VERSION,
   ANALYSIS_SYSTEM_PROMPT,
   FRAME_PROMPT_VERSION,
+  FRAME_ROAD_PROMPT_VERSION,
+  FRAME_ROAD_SYSTEM_PROMPT,
   FRAME_SYSTEM_PROMPT,
   FRAME_USER_PROMPT,
   JUDGE_ENHANCE_SYSTEM_PROMPT,
@@ -535,11 +537,14 @@ export function createAnthropicVisionModel(options: AnthropicVisionOptions): Vis
 
     // The locate call is sent once: the SDK does not send it again after a timeout or a
     // transport error, so a slow answer costs its timeout and the job goes on with the frame.
+    // A frame taken from the road is sent with its own system prompt; every other frame, with
+    // the prompt of an aimed frame.
     async locateHome(input, callOptions) {
+      const road = input.target === 'road';
       const result = await run(
         LocateModelOutputSchema,
         {
-          system: FRAME_SYSTEM_PROMPT,
+          system: road ? FRAME_ROAD_SYSTEM_PROMPT : FRAME_SYSTEM_PROMPT,
           images: [input.image.bytes],
           text: FRAME_USER_PROMPT,
           effort: options.effort?.locate ?? 'low',
@@ -552,7 +557,7 @@ export function createAnthropicVisionModel(options: AnthropicVisionOptions): Vis
         result: toLocateResult(result.value),
         usage: result.usage,
         model: result.model,
-        promptVersion: FRAME_PROMPT_VERSION,
+        promptVersion: road ? FRAME_ROAD_PROMPT_VERSION : FRAME_PROMPT_VERSION,
         elapsedMs: result.elapsedMs,
         providerMode: 'live',
       };

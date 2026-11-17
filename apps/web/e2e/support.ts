@@ -15,6 +15,9 @@ export const COPY = {
   headline: 'Imagine your place for the holidays.',
   confirmHeading: 'Is this the right place?',
   confirmYes: 'Yes, decorate this place',
+  /** The line under the address when the views look across or along the road. */
+  confirmRoadGuide:
+    "Choose the view that shows your home, then look left or right until it's in the middle.",
   /** The empty state when address lookup runs on the fixture provider (no Google keys). */
   sampleModeNotice:
     'No matches. This setup has no Google Maps keys, so address search only knows the sample places. Try one below, or upload a photo to decorate your own place.',

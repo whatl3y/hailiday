@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  crossTrackOffsetM,
   destinationPoint,
   estimatedFacadePx,
   haversineDistanceM,
@@ -13,12 +14,16 @@ import {
   copyrightClassOf,
   DISCOVERY_ALGORITHM_VERSION,
   decideMatch,
+  predatesRoadViews,
   type MatchInputs,
 } from './match.js';
 
 describe('discovery algorithm version', () => {
-  it('is 2, the version whose Step 1 probes fallback points around an erroring target', () => {
-    expect(DISCOVERY_ALGORITHM_VERSION).toBe('2');
+  it('is 3, the version that recognises a target on the road', () => {
+    expect(DISCOVERY_ALGORITHM_VERSION).toBe('3');
+    for (const version of ['1', '2', 'x', '']) expect(predatesRoadViews(version)).toBe(true);
+    for (const version of ['3', '4']) expect(predatesRoadViews(version)).toBe(false);
+    expect(predatesRoadViews(DISCOVERY_ALGORITHM_VERSION)).toBe(false);
   });
 });
 
@@ -66,6 +71,18 @@ describe('geometry', () => {
     expect(estimatedFacadePx(13.5, 12, 72.2)).toBeGreaterThan(450);
     expect(estimatedFacadePx(null, 12, 90)).toBeNull();
   });
+
+  it('measures the signed distance of a point from a track, positive to its right', () => {
+    const origin = { latitude: 34.1512, longitude: -83.6034 };
+    const south = destinationPoint(origin, 180, 10);
+    const north = destinationPoint(origin, 0, 10);
+    expect(crossTrackOffsetM(origin, 90, south)).toBeCloseTo(10, 3);
+    expect(crossTrackOffsetM(origin, 90, north)).toBeCloseTo(-10, 3);
+    expect(crossTrackOffsetM(origin, 270, south)).toBeCloseTo(-10, 3);
+    expect(crossTrackOffsetM(origin, 270, north)).toBeCloseTo(10, 3);
+    expect(crossTrackOffsetM(origin, 90, destinationPoint(origin, 90, 25))).toBeCloseTo(0, 3);
+    expect(crossTrackOffsetM(origin, 90, origin)).toBe(0);
+  });
 });
 
 const NOW = new Date('2026-11-09T12:00:00Z');
@@ -102,6 +119,7 @@ describe('match class decisions', () => {
     ['deep setback', { probeRadiusM: 100 }, 'panoramaAvailability'],
     ['distance 25–60 m', { primaryDistanceM: 41 }, 'panoramaDistance'],
     ['point heading', { headingMode: 'point' as const }, 'headingBasis'],
+    ['road heading', { headingMode: 'road' as const }, 'headingBasis'],
     ['narrow facade', { facadeWidthM: 5.5 }, 'facadeWidth'],
     ['attached facade', { attachedFacade: true }, 'facadeWidth'],
     ['old capture', { captureDate: '2018-06' }, 'captureAge'],

@@ -5,7 +5,7 @@ import {
   type MajorFailureCode,
   type NormalizedBox,
 } from '@hailiday/core';
-import type { CompositeMask } from '../imaging/mask.js';
+import { localizedFeather, type CompositeMask } from '../imaging/mask.js';
 import { checksumOf, toRect } from '../imaging/raster.js';
 import { findingsFrom } from '../plan/index.js';
 import { PIPELINE_DEFAULTS } from '../versions.js';
@@ -47,8 +47,9 @@ export interface DecorationsLeft {
 
 /**
  * `render_attempts.composite_mask.restored`: the spots put back from the original before the
- * attempt went on. `objected`: a rejected attempt with no repair after it, delivered as a doubt;
- * `doubted`: a doubted attempt delivered as it stands. `codes` are the verdict's codes (the
+ * attempt went on. `objected`: a rejected attempt with no repair after it, or a rejected lavish
+ * first attempt whose objected spots answered every objection and that went on at once without
+ * its repair, delivered as a doubt; `doubted`: a doubted attempt delivered as it stands. `codes` are the verdict's codes (the
  * doubted codes for `doubted`), `boxes` the judge's boxes (grown when composited) and `keptShare`
  * the share of the decorations' area left. `recordedMajors`, when present, are the confident
  * majors an `objected` restore recorded instead of putting back: those without a box, and those
@@ -186,16 +187,31 @@ export function restoredAreas(
 /**
  * A composite mask with `boxes` restored from the original: each grown box (`restoredAreas`) is
  * cleared in the hard mask and the alpha, as the mask builders clear every exclusion after
- * feathering, so the paste-back keeps the original there byte for byte.
+ * feathering, so the paste-back keeps the original there byte for byte. With `softPx`, the
+ * original also fades out into the kept picture around each grown box: outside the boxes the
+ * alpha is capped by a ramp that rises from 0 at a box's edge to 255 at `softPx` from it (the
+ * inverted `localizedFeather` that the whole-frame keep-mask fades people and blurred regions
+ * with), so it is never raised and reaches its former value by `softPx`; the hard mask outside
+ * the boxes is unchanged. Without `softPx` (or with 0) every edge is hard.
  */
 export function withRestoredSpots(
   mask: CompositeMask,
   boxes: readonly NormalizedBox[],
+  options: { softPx?: number } = {},
 ): CompositeMask {
   const { width, height } = mask;
   const hard = Uint8Array.from(mask.hard);
   const alpha = Uint8Array.from(mask.alpha);
-  for (const box of restoredAreas(boxes, width, height)) {
+  const areas = restoredAreas(boxes, width, height);
+  const softPx = Math.max(0, Math.round(options.softPx ?? 0));
+  if (softPx > 0 && areas.length > 0) {
+    const fade = localizedFeather(width, height, areas, softPx);
+    for (let i = 0; i < alpha.length; i += 1) {
+      const ceiling = 255 - (fade[i] as number);
+      if ((alpha[i] as number) > ceiling) alpha[i] = ceiling;
+    }
+  }
+  for (const box of areas) {
     const rect = toRect(box, width, height);
     for (let y = rect.y0; y < rect.y1; y += 1) {
       hard.fill(0, y * width + rect.x0, y * width + rect.x1);

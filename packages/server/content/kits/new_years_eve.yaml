@@ -7,7 +7,7 @@
 
 holidayId: new_years_eve
 packId: new_years_eve.US
-packVersion: 2.0.0
+packVersion: 2.1.0
 kits:
   - kitId: new_years_eve.house_exterior
     holidayId: new_years_eve

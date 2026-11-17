@@ -1,4 +1,5 @@
 import { expandBox, type FailureCode, type LightingMode, type NormalizedBox } from '@hailiday/core';
+import { TO_LINEAR, toSrgb } from '../../fixtures/canvas.js';
 import { PIPELINE_DEFAULTS } from '../versions.js';
 import { checkAttributionStrokes } from './attribution.js';
 import { featherBand, type CompositeMask } from './mask.js';
@@ -89,7 +90,7 @@ export interface Registration {
   resampledFrom?: { width: number; height: number };
   uncoveredFraction?: number;
   uncoveredInsetPx?: number;
-  reason?: 'aspect' | 'out_of_range' | 'poor_fit' | 'uncovered';
+  reason?: 'aspect' | 'out_of_range' | 'poor_fit' | 'poor_fit_ignored' | 'uncovered';
 }
 
 /**
@@ -476,6 +477,54 @@ export function edgeAgreement(
   return { f1, precision, recall, edges: countW };
 }
 
+/**
+ * The sRGB level a protected box restored from the reference shows for one channel of one pixel:
+ * the reference's level times the box's gain in linear light, clipped at white and rounded. The
+ * protected restore of a relight writes exactly this value, and the check recomputes it.
+ */
+export function protectedRestoreLevel(level: number, gain: number): number {
+  return Math.round(toSrgb(Math.min(1, (TO_LINEAR[level] as number) * gain)));
+}
+
+/** A people box or blur region the compositing restored from the reference with one gain. */
+export interface RestoredProtectedBox {
+  box: NormalizedBox;
+  /** The applied per-channel gain in linear light. */
+  gain: [number, number, number];
+  /**
+   * Rectangles restored after the box from the same reference (the attribution rectangles and the
+   * padding), which win where they overlap it: their pixels are checked by their own rules.
+   */
+  restoredAfter?: readonly NormalizedBox[];
+}
+
+/**
+ * Whether every pixel of `rect` in `candidate` outside the `skip` rectangles is the reference's
+ * restored with `gain` (`protectedRestoreLevel`) within one level on every channel; false when no
+ * pixel is left to compare.
+ */
+function restoredFromReference(
+  reference: Raster,
+  candidate: Raster,
+  rect: PxRect,
+  gain: readonly [number, number, number],
+  skip: readonly PxRect[],
+): boolean {
+  let compared = 0;
+  for (let y = rect.y0; y < rect.y1; y += 1) {
+    for (let x = rect.x0; x < rect.x1; x += 1) {
+      if (skip.some((r) => x >= r.x0 && x < r.x1 && y >= r.y0 && y < r.y1)) continue;
+      compared += 1;
+      const p = (y * reference.width + x) * 3;
+      for (let c = 0; c < 3; c += 1) {
+        const expected = protectedRestoreLevel(reference.data[p + c] as number, gain[c] as number);
+        if (Math.abs((candidate.data[p + c] as number) - expected) > 1) return false;
+      }
+    }
+  }
+  return compared > 0;
+}
+
 export interface DeterministicCheckInput {
   working: Raster;
   raw: Raster;
@@ -511,6 +560,21 @@ export interface DeterministicCheckInput {
    */
   alignment?: Registration & { accepted: boolean };
   thresholds?: Partial<(typeof PIPELINE_DEFAULTS)['checks']> & { edgeExclusionFraction?: number };
+  /**
+   * The attempt is lavish (a decorate attempt compiled from its section's lavish description, or
+   * the relight of one): decorations follow every architectural line and the whole frame is the
+   * editor's, so the checks that compare edges or tones around a mask (the drift tiles, the edge
+   * agreement and the seam) are not run and the judge decides `structure_changed`; in `source`
+   * mode the attribution rectangles are compared as in a relight (their strokes). Every other
+   * check runs as for any attempt.
+   */
+  lavish?: boolean;
+  /**
+   * People boxes and blur regions the compositing restored from the reference with one gain per
+   * channel (a relight). A box whose every pixel outside its `restoredAfter` rectangles is that
+   * restoration passes the protected-region check; its measures are still recorded.
+   */
+  restoredProtected?: readonly RestoredProtectedBox[];
 }
 
 export interface DeterministicCheckResult {
@@ -563,6 +627,9 @@ function areaMask(
  * number preservation, the seam check (source mode), the attribution region and, for a bright
  * relight, that the result is not darker than its base (median luma over the content area).
  * Text detection on the rest of the frame needs a detector and is reported as not available.
+ * For a lavish attempt (`lavish`) the drift tiles, the edge agreement and the seam check are
+ * recorded as skipped. A registration that ignored a poor fit (`poor_fit_ignored`) passes and
+ * hints `camera_changed` to the judge.
  */
 export function runDeterministicChecks(input: DeterministicCheckInput): DeterministicCheckResult {
   const t: (typeof PIPELINE_DEFAULTS)['checks'] & { edgeExclusionFraction?: number } = {
@@ -575,6 +642,7 @@ export function runDeterministicChecks(input: DeterministicCheckInput): Determin
   const { working, raw, candidate } = input;
   const width = working.width;
   const height = working.height;
+  const lavish = input.lavish === true;
 
   const alignment = input.alignment ?? null;
   if (alignment) {
@@ -591,6 +659,8 @@ export function runDeterministicChecks(input: DeterministicCheckInput): Determin
       codes.add('camera_changed');
       return { codes: [...codes], hints, registration: alignment, checks };
     }
+    // Taken unwarped although the fit was poor: whether the camera moved is the judge's to say.
+    if (alignment.reason === 'poor_fit_ignored') hints.push('camera_changed');
   } else {
     const dimensionsOk =
       raw.width === input.requested.width && raw.height === input.requested.height;
@@ -639,70 +709,85 @@ export function runDeterministicChecks(input: DeterministicCheckInput): Determin
     }
   }
 
-  // Out-of-mask drift (source mode): per-tile SSIM before paste-back; a hint only.
+  // Out-of-mask drift (source mode): per-tile SSIM before paste-back; a hint only. A lavish
+  // attempt keeps the whole frame, so nothing of the editor's lies outside its mask.
   if (input.lightingMode === 'source' && input.mask) {
-    const tile = 32;
-    let tiles = 0;
-    let low = 0;
-    for (let y = 0; y + tile <= height; y += tile) {
-      for (let x = 0; x + tile <= width; x += tile) {
-        let inside = false;
-        for (let yy = y; yy < y + tile && !inside; yy += 4) {
-          for (let xx = x; xx < x + tile; xx += 4) {
-            if (input.mask.hard[yy * width + xx]) {
-              inside = true;
-              break;
+    if (lavish) {
+      checks.drift = { skipped: 'lavish', hint: false };
+    } else {
+      const tile = 32;
+      let tiles = 0;
+      let low = 0;
+      for (let y = 0; y + tile <= height; y += tile) {
+        for (let x = 0; x + tile <= width; x += tile) {
+          let inside = false;
+          for (let yy = y; yy < y + tile && !inside; yy += 4) {
+            for (let xx = x; xx < x + tile; xx += 4) {
+              if (input.mask.hard[yy * width + xx]) {
+                inside = true;
+                break;
+              }
             }
           }
-        }
-        if (inside) continue;
-        tiles += 1;
-        if (
-          rectSsim(grayW, grayR, width, { x0: x, y0: y, x1: x + tile, y1: y + tile }) <
-          t.driftTileSsim
-        ) {
-          low += 1;
+          if (inside) continue;
+          tiles += 1;
+          if (
+            rectSsim(grayW, grayR, width, { x0: x, y0: y, x1: x + tile, y1: y + tile }) <
+            t.driftTileSsim
+          ) {
+            low += 1;
+          }
         }
       }
+      const share = tiles === 0 ? 0 : low / tiles;
+      checks.drift = { tiles, lowTiles: low, share, hint: share > t.driftTileShare };
+      if (share > t.driftTileShare) hints.push('structure_changed');
     }
-    const share = tiles === 0 ? 0 : low / tiles;
-    checks.drift = { tiles, lowTiles: low, share, hint: share > t.driftTileShare };
-    if (share > t.driftTileShare) hints.push('structure_changed');
   }
 
   // Edge agreement. A relight: F1 inside the target facade, excluding the placements (with their
   // dilation, where decorations and their glow land) and existing windows and light sources,
   // which may legitimately glow. Source: the mask's feather band, where the original edges must
   // survive the blend; decorations reaching into the band add edges, so recall is the measure.
-  let area: Uint8Array;
+  // A lavish attempt is not measured: its lights and garlands sit on the very edges this compares.
   const evening = input.lightingMode !== 'source' || !input.mask;
-  if (evening) {
-    const pad = t.edgeExclusionFraction ?? 0.04;
-    const excluded = [
-      ...input.placementRegions.map((box) => expandBox(box, pad) ?? box),
-      ...input.glowRegions,
-    ];
-    area = areaMask(width, height, input.targetFacade ?? null, excluded);
+  if (lavish) {
+    checks.edgeAgreement = { passed: true, skipped: 'lavish' };
   } else {
-    const band = featherBand(input.mask as CompositeMask);
-    area = band.map((v, i) => (v && !placementMask[i] ? 1 : 0));
+    let area: Uint8Array;
+    if (evening) {
+      const pad = t.edgeExclusionFraction ?? 0.04;
+      const excluded = [
+        ...input.placementRegions.map((box) => expandBox(box, pad) ?? box),
+        ...input.glowRegions,
+      ];
+      area = areaMask(width, height, input.targetFacade ?? null, excluded);
+    } else {
+      const band = featherBand(input.mask as CompositeMask);
+      area = band.map((v, i) => (v && !placementMask[i] ? 1 : 0));
+    }
+    const edges = edgeAgreement(grayW, grayC, width, height, area, t.edgeTolerancePx);
+    const edgeScore = edges ? (evening ? edges.f1 : edges.recall) : null;
+    checks.edgeAgreement = edges
+      ? {
+          ...edges,
+          measure: evening ? 'f1' : 'recall',
+          passed: (edgeScore as number) >= t.edgeF1,
+          threshold: t.edgeF1,
+        }
+      : { passed: true, skipped: 'insufficient_edges' };
+    if (edgeScore !== null && edgeScore < t.edgeF1) codes.add('structure_changed');
   }
-  const edges = edgeAgreement(grayW, grayC, width, height, area, t.edgeTolerancePx);
-  const edgeScore = edges ? (evening ? edges.f1 : edges.recall) : null;
-  checks.edgeAgreement = edges
-    ? {
-        ...edges,
-        measure: evening ? 'f1' : 'recall',
-        passed: (edgeScore as number) >= t.edgeF1,
-        threshold: t.edgeF1,
-      }
-    : { passed: true, skipped: 'insufficient_edges' };
-  if (edgeScore !== null && edgeScore < t.edgeF1) codes.add('structure_changed');
 
   // Protected regions: never sharper than the working image, whatever the exposure. In a relight,
   // which passes through every protected box, a reconstruction also shows as edges the working
-  // box does not have.
+  // box does not have. A box the compositing restored from the working image, every pixel of it
+  // the working image's under one gain per channel, shows nothing the working image did not show:
+  // it passes, and its measures are recorded. Its pixels inside an attribution rectangle or the
+  // padding, which are restored after it and checked by their own rules, are not compared; a box
+  // with no pixel left to compare is decided by the ratio and edge tests.
   const protectedResults: Record<string, unknown>[] = [];
+  const restoredProtected = input.restoredProtected ?? [];
   const protect = (box: NormalizedBox, code: FailureCode, kind: string) => {
     const rect = toRect(box, width, height);
     const before = relativeSharpness(grayW, width, height, rect, t.protectedNoiseFloor);
@@ -710,6 +795,18 @@ export function runDeterministicChecks(input: DeterministicCheckInput): Determin
     const ratio = (after + 1e-3) / (before + 1e-3);
     let passed = ratio <= t.protectedSharpnessRatio;
     const result: Record<string, unknown> = { kind, ratio: Math.round(ratio * 1000) / 1000 };
+    const record = restoredProtected.find((entry) =>
+      entry.box.every((value, i) => value === box[i]),
+    );
+    const restored =
+      record !== undefined &&
+      restoredFromReference(
+        working,
+        candidate,
+        rect,
+        record.gain,
+        (record.restoredAfter ?? []).map((other) => toRect(other, width, height)),
+      );
     if (evening) {
       const share = newEdgeShare(
         grayW,
@@ -722,6 +819,10 @@ export function runDeterministicChecks(input: DeterministicCheckInput): Determin
       );
       result.newEdgeShare = Math.round(share * 10_000) / 10_000;
       if (share > t.protectedNewEdgeShare) passed = false;
+    }
+    if (restored) {
+      result.restored = true;
+      passed = true;
     }
     protectedResults.push({ ...result, passed });
     if (!passed) codes.add(code);
@@ -754,19 +855,26 @@ export function runDeterministicChecks(input: DeterministicCheckInput): Determin
     };
   }
 
-  // Seam check across the feather band (source mode).
+  // Seam check across the feather band (source mode). The feather band of a lavish mask is where
+  // the original of a restored box fades into the editor's picture: no seam of a pasted edit.
   if (input.lightingMode === 'source' && input.mask) {
-    const deltaE = medianDeltaE(working, candidate, featherBand(input.mask));
-    checks.seam = { deltaE, passed: deltaE <= t.seamDeltaE, threshold: t.seamDeltaE };
-    if (deltaE > t.seamDeltaE) codes.add('implausible_decor');
+    if (lavish) {
+      checks.seam = { passed: true, skipped: 'lavish' };
+    } else {
+      const deltaE = medianDeltaE(working, candidate, featherBand(input.mask));
+      checks.seam = { deltaE, passed: deltaE <= t.seamDeltaE, threshold: t.seamDeltaE };
+      if (deltaE > t.seamDeltaE) codes.add('implausible_decor');
+    }
   }
 
   // Attribution rectangles, compared after restoration. In a relight the ground behind the logo and
   // copyright follows the new light, so where the reference's strokes are found reliably only the
   // solid stroke pixels are compared, and must equal the reference's; elsewhere the rectangle was
-  // restored verbatim and its SSIM against the reference is the measure, as in `source` mode.
+  // restored verbatim and its SSIM against the reference is the measure, as in `source` mode. A
+  // lavish decorate attempt keeps the editor's whole frame, so its rectangles are restored and
+  // compared as in a relight.
   const attribution = attributionRegionsOf(input.attributionRegion);
-  if (attribution.length > 0 && input.lightingMode !== 'source') {
+  if (attribution.length > 0 && (input.lightingMode !== 'source' || lavish)) {
     const regions = attribution.map((box) => {
       const strokes = checkAttributionStrokes(working, candidate, box);
       if (strokes.mode === 'adapted') return strokes;

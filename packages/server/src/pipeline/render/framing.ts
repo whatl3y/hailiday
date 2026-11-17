@@ -6,7 +6,13 @@ import {
   type SceneType,
 } from '@hailiday/core';
 import { toJson, type DbOrTx, type Tx } from '../../db/client.js';
-import type { RenderJob, SourceAsset, ViewpointFraming, ViewpointJson } from '../../db/schema.js';
+import type {
+  RenderJob,
+  SourceAsset,
+  ViewpointFraming,
+  ViewpointJson,
+  ViewpointReaim,
+} from '../../db/schema.js';
 import {
   FRAMING_LEDGER_STAGE,
   VISION_PRICES_MICROS,
@@ -18,12 +24,19 @@ import type { Logger } from '../../logger/index.js';
 import type { AssetPermission } from '../../policy/index.js';
 import {
   ViewpointFramingSchema,
+  aimAt,
   frameView,
   framedViewOf,
   framingOf,
   viewpointFramed,
+  wideViewOf,
 } from '../../providers/street-view/framing.js';
-import type { LocateHomeResult, StreetViewView, VisionCallResult } from '../../providers/types.js';
+import type {
+  FixtureHint,
+  LocateHomeResult,
+  StreetViewView,
+  VisionCallResult,
+} from '../../providers/types.js';
 import type { PipelineDeps, ProviderLegs } from '../context.js';
 import { dropSourceEnhancements } from '../enhance/store.js';
 import { decodeRaster } from '../imaging/raster.js';
@@ -59,6 +72,17 @@ export interface FramingContext {
 export interface FramingResult {
   loaded: LoadedSource;
   source: SourceAsset;
+  /**
+   * Set only for a frame taken from the road whose source has no look yet; nothing is recorded on
+   * the viewpoint either way.
+   * - `no_single_home`: no single home could be settled in the frame (none, two equally likely,
+   *   too little confidence, or a re-aimed frame that does not show it); the job refuses the view
+   *   at once.
+   * - `not_aimed`: the step started and could not aim the frame at its home (a locate call or a
+   *   fetch failed, a frame did not decode, or a provider was paused); the job fails at once as a
+   *   provider failure.
+   */
+  refused?: 'no_single_home' | 'not_aimed';
 }
 
 /** The horizontal middle third of a frame: a located home must reach into it. */
@@ -146,7 +170,8 @@ async function displayBudgetOf(
 /** Where the decision leaves the source: zoomed in on the home, or its wide frame for good. */
 type Decision =
   | { status: 'framed'; view: StreetViewView; box: NormalizedBox; zoom: number }
-  | { status: 'kept'; reason: 'no_home' | 'ambiguous' | 'small_gain'; box: NormalizedBox | null };
+  | { status: 'kept'; reason: 'small_gain'; box: NormalizedBox }
+  | { status: 'kept'; reason: 'no_home' | 'ambiguous'; box: NormalizedBox | null };
 
 /**
  * What a locate answer means for a frame seen at `view`: a home found unambiguously, with enough
@@ -179,6 +204,39 @@ export function framingDecision(view: StreetViewView, located: LocateHomeResult)
     box: located.home,
     zoom: Math.round(framed.zoom * 1000) / 1000,
   };
+}
+
+/** What a locate answer on a frame taken from the road (heading mode `road`) asks for. */
+export type RoadStep =
+  /** No single home in the frame: none, or two equally likely. */
+  | { step: 'refuse' }
+  /** Turn the frame toward the home first: fetch the view at `heading` and locate it again. */
+  | { step: 'reaim'; heading: number; box: NormalizedBox }
+  /** The ordinary decision on the frame as loaded. */
+  | { step: 'decide' };
+
+/**
+ * The step a locate answer on a frame taken from the road asks for. No home, or an ambiguous
+ * answer, refuses the view. A home that does not reach the frame's horizontal middle third, or
+ * that exactly one of the left and right edges cuts (a side within `edgeCutFraction` of it), is
+ * re-aimed: the frame is turned to the middle of its box (`aimAt`), unless that turn is under
+ * `reaimMinTurnDeg`. Every other home (reaching the middle third and not cut, or cut by both
+ * edges) takes the ordinary decision on the frame as loaded. The answer's confidence does not
+ * gate the re-aim: the decision on the frame finally framed applies it.
+ */
+export function roadStep(view: StreetViewView, located: LocateHomeResult): RoadStep {
+  const params = PIPELINE_DEFAULTS.framing;
+  if (located.ambiguous) return { step: 'refuse' };
+  if (!located.home) return { step: 'refuse' };
+  const [x0, , x1] = located.home;
+  const cutLeft = x0 <= params.edgeCutFraction;
+  const cutRight = x1 >= 1 - params.edgeCutFraction;
+  const offCentre = x1 <= MIDDLE_THIRD[0] || x0 >= MIDDLE_THIRD[1];
+  if (cutLeft && cutRight) return { step: 'decide' };
+  if (!offCentre && !cutLeft && !cutRight) return { step: 'decide' };
+  const { heading, turnDeg } = aimAt(view, located.home);
+  if (Math.abs(turnDeg) < params.reaimMinTurnDeg) return { step: 'decide' };
+  return { step: 'reaim', heading, box: located.home };
 }
 
 type Recorded =
@@ -351,6 +409,19 @@ async function recordFraming(
  * wide frame for good. A framed frame a scene analysis then refuses is taken back
  * (`keepWideFrame`).
  *
+ * A viewpoint whose heading mode is `road` (a view across or along the road that was not aimed at
+ * a building) is located with the road prompt and goes on only with one home settled in it
+ * (`roadStep`). No home, or an ambiguous answer, refuses the view (`refused` is `no_single_home`):
+ * nothing is recorded and the job ends at once. A home off to one side of the frame or cut by one
+ * of its side edges is
+ * re-aimed first: the same panorama is fetched again at the viewpoint's pitch and fov, turned to
+ * the home, the home is located again in that frame with the ordinary prompt, and the decision is
+ * made on that frame (`reaim` is recorded with it). On a `road` viewpoint the decision may only
+ * frame the home or find it already filling the frame (`small_gain`: after a re-aim, the re-aimed
+ * frame becomes the source's frame as a `framed` record at zoom 1); every other kept frame (no
+ * home, ambiguous, too little confidence, outside the middle third) refuses the view. Views of
+ * mode `geometry` and `point` keep the rules above.
+ *
  * It applies to a Street View source of an exterior with the switch on, in `persist` or
  * `transient` mode (a `transient` job whose source still has a stored frame is skipped), whose
  * viewpoint records no framing and that no preservation hold covers, for a job still in
@@ -360,13 +431,19 @@ async function recordFraming(
  * failure that says nothing about the picture (permission, pause, a provider error or refusal, a
  * failed or unreadable fetch, a record that does not read back, no display budget left) records
  * nothing, and neither does a record refused because another job of the source is unfinished
- * (`recordFraming`), so the source's next look tries again, and the job goes on with the frame it
- * loaded. The locate call
- * gets one try. The only failure of its own is a source deleted or no longer ready when the
- * framing is recorded (`source_unavailable`). When another job recorded a framing first, its
- * frame is loaded instead. The calls are charged directly on the ledger (stage `framing`): the
- * locate call, the framed fetch and, for a source without a stored frame, the framed view's
- * display load.
+ * (`recordFraming`), so the source's next look tries again. The job then goes on with the frame it
+ * loaded, except on a `road` viewpoint once the step has started: a failed first or second locate
+ * call, a re-aim fetch that is not made or not usable, the vision provider paused before the
+ * second call, or a framed fetch that fails after a re-aim leaves the frame un-aimed and ends the
+ * look (`refused` is `not_aimed`). A `road` frame whose home needed no re-aim goes on when only
+ * its framed fetch fails: its home is already in the middle. Neither `road` ending applies to a
+ * source that already has a look (a render asset neither deleted nor withdrawn): the job goes on
+ * with the frame it loaded, from which those looks were made. The locate call gets one try. The
+ * only failure of its own is a source deleted or no longer ready when the framing is recorded
+ * (`source_unavailable`). When another job recorded a framing first, its
+ * frame is loaded instead. The calls are charged directly on the ledger (stage `framing`): each
+ * locate call, the re-aim fetch, the framed fetch and, for a source without a stored frame, the
+ * framed view's display load.
  */
 export async function frameStreetViewSource(
   deps: PipelineDeps,
@@ -413,36 +490,36 @@ export async function frameStreetViewSource(
   );
 }
 
-async function frame(
+/**
+ * Locates the home in a frame seen at `view` (one try) and charges the call directly on stage
+ * `framing`. Null, with a warning, when the call fails; the job's abort is checked after it.
+ */
+async function locate(
   deps: PipelineDeps,
   ctx: FramingContext,
-  row: SourceAsset & { viewpoint: ViewpointJson },
-  keep: FramingResult,
-  held: Awaited<ReturnType<typeof loadHeldSet>>,
-  display: DisplayBudget | null,
-): Promise<FramingResult> {
-  const viewpoint = row.viewpoint;
-  const wide = framedViewOf(viewpoint);
-  const fixture = fixtureContextFor(row, deps.content, {
-    width: viewpoint.width,
-    height: viewpoint.height,
-  }).hint;
-
-  // 1. Locate the home in the frame as fetched (one try).
+  input: {
+    bytes: Buffer;
+    view: StreetViewView;
+    sourceAssetId: string;
+    fixture: FixtureHint;
+    target?: 'road';
+  },
+): Promise<VisionCallResult<LocateHomeResult> | null> {
   let call: VisionCallResult<LocateHomeResult>;
   try {
     call = await ctx.legs.vision.locateHome(
       {
-        image: { bytes: ctx.loaded.bytes, width: viewpoint.width, height: viewpoint.height },
-        sourceAssetId: row.id,
-        fixture,
+        image: { bytes: input.bytes, width: input.view.width, height: input.view.height },
+        sourceAssetId: input.sourceAssetId,
+        fixture: input.fixture,
+        ...(input.target ? { target: input.target } : {}),
       },
       { signal: ctx.signal, timeoutMs: PIPELINE_DEFAULTS.framing.locateTimeoutMs },
     );
   } catch (error) {
     ctx.checkAbort();
     ctx.log.warn({ err: error }, 'locating the home failed; the job goes on with the frame');
-    return keep;
+    return null;
   }
   await settleCall(deps.db, {
     reservation: null,
@@ -460,48 +537,29 @@ async function frame(
     clock: deps.clock,
   });
   ctx.checkAbort();
+  return call;
+}
 
-  const decision = framingDecision(wide, call.result);
-  const recorded = {
-    promptVersion: call.promptVersion,
-    model: call.model,
-    framedAt: deps.clock.now().toISOString(),
-  };
-  const framing: ViewpointFraming =
-    decision.status === 'kept'
-      ? { status: 'kept', reason: decision.reason, box: decision.box, ...recorded }
-      : {
-          status: 'framed',
-          heading: decision.view.heading,
-          pitch: decision.view.pitch,
-          fov: decision.view.fov,
-          box: decision.box,
-          zoom: decision.zoom,
-          ...recorded,
-        };
-  // A record that would not read back (framedViewOf ignores it) is never written.
-  if (!ViewpointFramingSchema.safeParse(framing).success) {
-    ctx.log.warn(
-      { status: framing.status },
-      'the framing record does not read back; the job goes on with the frame',
-    );
-    return keep;
-  }
-  if (decision.status === 'kept') {
-    const outcome = await recordFraming(deps, ctx, row.id, framing, null, display);
-    return settle(deps, ctx, outcome, keep);
-  }
-
-  // 2. Fetch the framed view from the same panorama.
+/**
+ * Fetches `view` from the source's panorama and charges the fetch directly on stage `framing`.
+ * Null, with a warning, when the Street View provider is paused (nothing fetched), the fetch fails
+ * or the frame does not decode; the job's abort is checked after the fetch.
+ */
+async function fetchView(
+  deps: PipelineDeps,
+  ctx: FramingContext,
+  view: StreetViewView,
+  what: 'framed view' | 're-aimed view',
+): Promise<{ bytes: Buffer; checksum: string } | null> {
   const streetViewProvider = ctx.legs.mode === 'live' ? 'google' : 'fixture';
-  if (await ctx.isPaused(streetViewProvider)) return keep;
+  if (await ctx.isPaused(streetViewProvider)) return null;
   let fetched: { bytes: Buffer; checksum: string };
   try {
-    fetched = await fetchFrame(deps, ctx.legs, decision.view, ctx.signal);
+    fetched = await fetchFrame(deps, ctx.legs, view, ctx.signal);
   } catch (error) {
     ctx.checkAbort();
-    ctx.log.warn({ err: error }, 'fetching the framed view failed; the job goes on with the frame');
-    return keep;
+    ctx.log.warn({ err: error }, `fetching the ${what} failed; the job goes on with the frame`);
+    return null;
   }
   await settleCall(deps.db, {
     reservation: null,
@@ -519,11 +577,155 @@ async function frame(
   try {
     await decodeRaster(fetched.bytes);
   } catch (error) {
-    ctx.log.warn({ err: error }, 'the framed view could not be decoded; the job goes on');
-    return keep;
+    ctx.log.warn({ err: error }, `the ${what} could not be decoded; the job goes on`);
+    return null;
+  }
+  return fetched;
+}
+
+async function frame(
+  deps: PipelineDeps,
+  ctx: FramingContext,
+  row: SourceAsset & { viewpoint: ViewpointJson },
+  keep: FramingResult,
+  held: Awaited<ReturnType<typeof loadHeldSet>>,
+  display: DisplayBudget | null,
+): Promise<FramingResult> {
+  const viewpoint = row.viewpoint;
+  const wide = framedViewOf(viewpoint);
+  const road = viewpoint.headingMode === 'road';
+  const fixture = fixtureContextFor(row, deps.content, {
+    width: viewpoint.width,
+    height: viewpoint.height,
+  }).hint;
+
+  // 1. Locate the home in the frame as fetched (one try); a frame taken from the road is asked
+  // for the home anywhere in it.
+  const first = await locate(deps, ctx, {
+    bytes: ctx.loaded.bytes,
+    view: wide,
+    sourceAssetId: row.id,
+    fixture,
+    ...(road ? { target: 'road' as const } : {}),
+  });
+  if (!first) return road ? notAimed(deps, ctx, keep) : keep;
+
+  // 2. A frame taken from the road goes on only with one home settled in it: none, or two
+  // equally likely, refuses the view; a home off to one side or cut by one edge is located again
+  // in the frame turned toward it (one re-aim at most). A re-aim that cannot be completed ends the
+  // look.
+  let decided = wide;
+  let answer = first;
+  let reaim: ViewpointReaim | null = null;
+  let reaimed: { bytes: Buffer; checksum: string } | null = null;
+  if (road) {
+    const step = roadStep(wide, first.result);
+    if (step.step === 'refuse') return refuseRoadFrame(deps, ctx, keep, first.result, null);
+    if (step.step === 'reaim') {
+      ctx.log.info(
+        {
+          from: wide.heading,
+          to: step.heading,
+          box: step.box,
+          confidence: first.result.confidence,
+        },
+        'turning the frame taken from the road toward its home',
+      );
+      const view: StreetViewView = { ...wide, heading: step.heading };
+      reaimed = await fetchView(deps, ctx, view, 're-aimed view');
+      if (!reaimed) return notAimed(deps, ctx, keep);
+      if (await ctx.isPaused(ctx.visionProvider())) return notAimed(deps, ctx, keep);
+      const second = await locate(deps, ctx, {
+        bytes: reaimed.bytes,
+        view,
+        sourceAssetId: row.id,
+        fixture: {
+          ...fixture,
+          scene: {
+            kind: 'street_view',
+            panoId: view.panoId,
+            heading: view.heading,
+            fov: view.fov,
+            pitch: view.pitch,
+          },
+        },
+      });
+      if (!second) return notAimed(deps, ctx, keep);
+      decided = view;
+      answer = second;
+      reaim = { heading: step.heading, box: step.box, promptVersion: first.promptVersion };
+    }
   }
 
-  // 3. Record it: the framed frame becomes the source's frame.
+  const decision = framingDecision(decided, answer.result);
+  // A frame taken from the road is never kept unsettled: only a home that already fills the
+  // frame is kept (or, after a re-aim, becomes the source's frame).
+  if (road && decision.status === 'kept' && decision.reason !== 'small_gain') {
+    return refuseRoadFrame(deps, ctx, keep, answer.result, reaim);
+  }
+  const recorded = {
+    promptVersion: answer.promptVersion,
+    model: answer.model,
+    framedAt: deps.clock.now().toISOString(),
+    ...(reaim ? { reaim } : {}),
+  };
+  let framing: ViewpointFraming;
+  if (decision.status === 'framed') {
+    framing = {
+      status: 'framed',
+      heading: decision.view.heading,
+      pitch: decision.view.pitch,
+      fov: decision.view.fov,
+      box: decision.box,
+      zoom: decision.zoom,
+      ...recorded,
+    };
+  } else if (reaim && decision.reason === 'small_gain') {
+    // The re-aimed frame shows the home already filling it: it becomes the source's frame.
+    framing = {
+      status: 'framed',
+      heading: decided.heading,
+      pitch: decided.pitch,
+      fov: decided.fov,
+      box: decision.box,
+      zoom: 1,
+      reason: 'small_gain',
+      ...recorded,
+    };
+  } else {
+    framing = {
+      status: 'kept',
+      reason: decision.reason,
+      box: decision.box,
+      promptVersion: answer.promptVersion,
+      model: answer.model,
+      framedAt: recorded.framedAt,
+    };
+  }
+  // A record that would not read back (framedViewOf ignores it) is never written.
+  if (!ViewpointFramingSchema.safeParse(framing).success) {
+    ctx.log.warn(
+      { status: framing.status },
+      'the framing record does not read back; the job goes on with the frame',
+    );
+    return keep;
+  }
+  if (framing.status === 'kept') {
+    const outcome = await recordFraming(deps, ctx, row.id, framing, null, display);
+    return settle(deps, ctx, outcome, keep);
+  }
+
+  // 3. Fetch the framed view from the same panorama (the re-aimed frame is that view already
+  // when zooming in would gain too little). Without it, a re-aimed road frame was never turned
+  // toward its home and ends the look; any other frame goes on, a road frame that needed no
+  // re-aim having its home in the middle already.
+  const fetched =
+    decision.status === 'framed'
+      ? await fetchView(deps, ctx, decision.view, 'framed view')
+      : reaimed;
+  if (!fetched) return reaim ? notAimed(deps, ctx, keep) : keep;
+
+  // 4. Record it: the framed frame becomes the source's frame.
   const outcome = await recordFraming(deps, ctx, row.id, framing, fetched, display);
   if (outcome.outcome === 'recorded' && outcome.bytesReplaced) {
     // Enhancements of the replaced frame go with it.
@@ -535,6 +737,75 @@ async function frame(
     streetViewMode: ctx.loaded.streetViewMode,
     fetched: true,
   });
+}
+
+/**
+ * Refuses a frame taken from the road in which no single home could be settled: nothing is
+ * recorded on the viewpoint, and the result tells the job to refuse the view (`no_single_home`,
+ * through `endRoadLook`).
+ */
+function refuseRoadFrame(
+  deps: PipelineDeps,
+  ctx: FramingContext,
+  keep: FramingResult,
+  located: LocateHomeResult,
+  reaim: ViewpointReaim | null,
+): Promise<FramingResult> {
+  ctx.log.info(
+    {
+      home: located.home,
+      ambiguous: located.ambiguous,
+      confidence: located.confidence,
+      reaimed: reaim !== null,
+      ...(reaim ? { reaimHeading: reaim.heading } : {}),
+    },
+    'no single home in the frame taken from the road; the view is refused',
+  );
+  return endRoadLook(deps, ctx, keep, 'no_single_home');
+}
+
+/**
+ * Ends the look of a frame taken from the road that the step started on and could not aim at its
+ * home (a locate call or a fetch failed, a frame did not decode, or a provider was paused):
+ * nothing is recorded on the viewpoint, and the result tells the job to fail the look as a
+ * provider failure (`not_aimed`, through `endRoadLook`).
+ */
+function notAimed(
+  deps: PipelineDeps,
+  ctx: FramingContext,
+  keep: FramingResult,
+): Promise<FramingResult> {
+  ctx.log.warn('the frame taken from the road could not be aimed at its home; the look ends');
+  return endRoadLook(deps, ctx, keep, 'not_aimed');
+}
+
+/**
+ * The result that ends the look of a frame taken from the road (`refused`), unless the source
+ * already has a look (a render asset made from it, neither deleted nor withdrawn): those looks
+ * were made from the frame the job loaded, so the job goes on with it and nothing is recorded.
+ */
+async function endRoadLook(
+  deps: PipelineDeps,
+  ctx: FramingContext,
+  keep: FramingResult,
+  refused: NonNullable<FramingResult['refused']>,
+): Promise<FramingResult> {
+  const look = await deps.db
+    .selectFrom('renderAssets')
+    .select('id')
+    .where('sourceAssetId', '=', keep.source.id)
+    .where('deletedAt', 'is', null)
+    .where('withdrawnAt', 'is', null)
+    .limit(1)
+    .executeTakeFirst();
+  if (look) {
+    ctx.log.info(
+      { refused },
+      'the source has a look; the job goes on with the frame taken from the road',
+    );
+    return keep;
+  }
+  return { ...keep, refused };
 }
 
 /**
@@ -647,11 +918,15 @@ export type TakeBack =
  * whichever run meets that frame (the run that framed it, its redelivery or a later job). The
  * decision is the source row's, not the run's: the framing is the `framed` record the run's frame
  * was loaded from (and, in `persist` mode, the stored frame is the one the run analyzed), and no
- * look of the source was created at or after its `framedAt` (`takeBackCheck`). The candidate's own
- * view is then fetched again (one Static fetch, charged directly on stage `framing`) and becomes the
- * source's frame again: in `persist` mode it replaces the stored framed frame under the same key
- * (its enhancements go with it), and the viewpoint's framing becomes `kept` with reason
- * `refused_framed`, so the source keeps its wide frame for good.
+ * look of the source was created at or after its `framedAt` (`takeBackCheck`). The frame the
+ * framing was decided on (`wideViewOf`: the candidate's own view, or the re-aimed view of a framing
+ * that records a re-aim) is then fetched again (one Static fetch, charged directly on stage
+ * `framing`) and becomes the source's frame again: in `persist` mode it replaces the stored framed
+ * frame under the same key (its enhancements go with it), and the viewpoint's framing becomes
+ * `kept` with reason `refused_framed`, so the source keeps its wide frame for good; a re-aimed
+ * framing becomes `framed` at the re-aimed view with `zoom` 1 and reason `refused_framed`. A
+ * recorded frame that is already the frame the framing was decided on has nothing to take back
+ * (`refused`).
  *
  * The checks run before the fetch and again under the project row's and then the source row's lock
  * before the write, like the framing record (`recordFraming`). A job no longer active
@@ -674,6 +949,16 @@ export async function keepWideFrame(deps: PipelineDeps, ctx: FramingContext): Pr
   ) {
     return { outcome: 'refused' };
   }
+  // The frame the framing was decided on: after a re-aim, the re-aimed frame. A recorded frame
+  // that is that frame itself has nothing to take back.
+  const wide = wideViewOf(viewpoint);
+  if (
+    framing.heading === wide.heading &&
+    framing.pitch === wide.pitch &&
+    framing.fov === wide.fov
+  ) {
+    return { outcome: 'refused' };
+  }
   const blocked = () =>
     new JobFailure('source_unavailable', null, 'the refused framing could not be taken back');
   const before = await takeBackCheck(
@@ -690,14 +975,6 @@ export async function keepWideFrame(deps: PipelineDeps, ctx: FramingContext): Pr
   if (await ctx.isPaused(streetViewProvider)) {
     throw new JobFailure('provider_error', null, 'paused');
   }
-  const wide: StreetViewView = {
-    panoId: viewpoint.panoId,
-    heading: viewpoint.heading,
-    pitch: viewpoint.pitch,
-    fov: viewpoint.fov,
-    width: viewpoint.width,
-    height: viewpoint.height,
-  };
   const fetched = await fetchFrame(deps, ctx.legs, wide, ctx.signal);
   await settleCall(deps.db, {
     reservation: null,
@@ -729,14 +1006,31 @@ export async function keepWideFrame(deps: PipelineDeps, ctx: FramingContext): Pr
     const check = await takeBackCheck(trx, ctx, framing.framedAt, current);
     if (check !== 'eligible') return check;
     if (!current?.viewpoint) return 'refused';
-    const record: ViewpointFraming = {
-      status: 'kept',
-      reason: 'refused_framed',
-      box: framing.box,
-      promptVersion: framing.promptVersion,
-      model: framing.model,
-      framedAt: await databaseNow(trx, deps),
-    };
+    const framedAt = await databaseNow(trx, deps);
+    // A re-aimed framing goes back to the re-aimed frame, which shows the home; its display load
+    // (a source without a stored frame) is counted when the view is first shown.
+    const record: ViewpointFraming = framing.reaim
+      ? {
+          status: 'framed',
+          heading: wide.heading,
+          pitch: wide.pitch,
+          fov: wide.fov,
+          box: framing.box,
+          zoom: 1,
+          reason: 'refused_framed',
+          reaim: framing.reaim,
+          promptVersion: framing.promptVersion,
+          model: framing.model,
+          framedAt,
+        }
+      : {
+          status: 'kept',
+          reason: 'refused_framed',
+          box: framing.box,
+          promptVersion: framing.promptVersion,
+          model: framing.model,
+          framedAt,
+        };
     const replace = mode === 'persist' && current.objectKey !== null;
     if (replace) {
       await deps.storage.put({

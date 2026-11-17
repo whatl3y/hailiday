@@ -360,6 +360,46 @@ export function unionLocalizedMask(
 }
 
 /**
+ * The keep-mask of an attempt whose whole frame is kept: every pixel outside `exclusions` is kept
+ * (hard 255) and every pixel inside one shows the original (0 in the hard mask and the alpha).
+ * Around each `soft` box the alpha falls from 255 to 0 toward the box across `featherPx`
+ * (`localizedFeather`, inverted), so the original fades into the kept picture; every other
+ * exclusion has a hard edge. A `soft` box must also be listed in `exclusions`.
+ */
+export function wholeFrameMask(input: {
+  width: number;
+  height: number;
+  exclusions: readonly NormalizedBox[];
+  soft?: readonly NormalizedBox[];
+  featherPx?: number;
+}): CompositeMask {
+  const { width, height } = input;
+  const featherPx = Math.max(0, Math.round(input.featherPx ?? 0));
+  const soft = input.soft ?? [];
+  const hard = new Uint8Array(width * height).fill(255);
+  const alpha = new Uint8Array(width * height).fill(255);
+  if (featherPx > 0 && soft.length > 0) {
+    const fade = localizedFeather(width, height, soft, featherPx);
+    for (let i = 0; i < alpha.length; i += 1) alpha[i] = 255 - (fade[i] as number);
+  }
+  for (const box of input.exclusions) {
+    const rect = toRect(box, width, height);
+    fillRect(hard, width, rect, 0);
+    fillRect(alpha, width, rect, 0);
+  }
+  return {
+    width,
+    height,
+    hard,
+    alpha,
+    checksum: checksumOf(hard),
+    dilationPx: 0,
+    bandDilationPx: 0,
+    featherPx,
+  };
+}
+
+/**
  * Pixels within `radius` of a set pixel of `plane` (square neighbourhood), as 0/1. Used for the
  * unedited ring around a mask and the inner edge band of a mask.
  */

@@ -2,6 +2,8 @@ import {
   boxArea,
   boxCenter,
   intersectBoxes,
+  isCriticalFailureCode,
+  isLavishPlan,
   isRepairableFailureCode,
   MAX_RESTORE_BOXES,
   type DecorationPlan,
@@ -90,6 +92,12 @@ const distance = (a: NormalizedBox, b: NormalizedBox) => {
  * findings (render spec, repair and retries, code classes). Instructions come from fixed
  * templates and analysis-derived position words, never from model text. Small judge boxes of the
  * restoring codes become `restoreBoxes`, which the repaired attempt pastes back from the original.
+ * When the failed attempt's plan is lavish (`isLavishPlan`) and a finding has a critical code
+ * (`isCriticalFailureCode`), the repair is the ordinary look (`adjustments.ordinary`): it is
+ * planned without the description and every instruction is worded as for a plan without the
+ * mark. When the lavish attempt failed for major findings only, the instructions for
+ * `plan_not_followed`, `unrequested_change` and `lighting_implausible` speak of the whole
+ * description instead of a list; every other instruction and every adjustment are the same.
  */
 export function deriveRepair(
   previous: DecorationPlan,
@@ -100,6 +108,9 @@ export function deriveRepair(
   const constraints: RepairConstraint[] = [];
   const adjustments: RepairAdjustments = { excludePairs: [] };
   const keyOf = (placementId: string) => placementKeys[placementId] ?? placementId;
+  const ordinary =
+    isLavishPlan(previous) && findings.some((finding) => isCriticalFailureCode(finding.code));
+  const lavish = isLavishPlan(previous) && !ordinary;
   const codes = [...new Set(findings.map((finding) => finding.code))];
   const byPriority = [...previous.placements].sort((a, b) => b.priority - a.priority);
 
@@ -194,8 +205,9 @@ export function deriveRepair(
       case 'unrequested_change':
         constraints.push({
           code,
-          instruction:
-            'Change nothing except adding the listed decorations: no repainting, no landscaping changes, no added snow, no removed objects.',
+          instruction: lavish
+            ? 'Change nothing except adding decorations: no repainting, no landscaping changes, no added snow, no removed objects.'
+            : 'Change nothing except adding the listed decorations: no repainting, no landscaping changes, no added snow, no removed objects.',
           placementIds: [],
         });
         break;
@@ -207,7 +219,9 @@ export function deriveRepair(
         adjustments.restateFirst = missing;
         constraints.push({
           code,
-          instruction: 'Add every listed decoration, each at the stated position and count.',
+          instruction: lavish
+            ? 'Decorate far more richly: follow the whole description.'
+            : 'Add every listed decoration, each at the stated position and count.',
           placementIds: missing,
         });
         break;
@@ -224,8 +238,9 @@ export function deriveRepair(
       case 'lighting_implausible':
         constraints.push({
           code,
-          instruction:
-            'Only the listed lit decorations may glow; add no other light sources and do not light neighboring buildings.',
+          instruction: lavish
+            ? 'Only the lights on the decorations may glow; add no other light sources and do not light neighboring buildings.'
+            : 'Only the listed lit decorations may glow; add no other light sources and do not light neighboring buildings.',
           placementIds: [],
         });
         break;
@@ -235,5 +250,6 @@ export function deriveRepair(
   }
   const restoreBoxes = restoreBoxesOf(findings);
   if (restoreBoxes.length > 0) adjustments.restoreBoxes = restoreBoxes;
+  if (ordinary) adjustments.ordinary = true;
   return { constraints, adjustments };
 }

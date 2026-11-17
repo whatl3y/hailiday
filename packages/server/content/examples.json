@@ -115,7 +115,7 @@
         "photoId": "house-14-victorian-autumn",
         "buildingForm": "detached"
       },
-      "packVersion": "2.0.0",
+      "packVersion": "2.1.0",
       "width": 1536,
       "height": 1024,
       "captionKey": "example.halloween.house_exterior",
@@ -145,7 +145,7 @@
         "photoId": "house-14-victorian-autumn",
         "buildingForm": "detached"
       },
-      "packVersion": "2.0.0",
+      "packVersion": "2.1.0",
       "width": 1536,
       "height": 1024,
       "captionKey": "example.halloween.house_exterior",
@@ -174,7 +174,7 @@
         "kind": "photo",
         "photoId": "sample-apartment-hallway"
       },
-      "packVersion": "2.0.0",
+      "packVersion": "2.1.0",
       "width": 1536,
       "height": 1024,
       "captionKey": "example.halloween.apartment_entry",
@@ -203,7 +203,7 @@
         "kind": "photo",
         "photoId": "sample-balcony"
       },
-      "packVersion": "2.0.0",
+      "packVersion": "2.1.0",
       "width": 1536,
       "height": 1024,
       "captionKey": "example.halloween.balcony",
@@ -233,7 +233,7 @@
         "photoId": "sample-living-room-mantel",
         "roomType": "living_room"
       },
-      "packVersion": "2.0.0",
+      "packVersion": "2.1.0",
       "width": 1536,
       "height": 1024,
       "captionKey": "example.halloween.interior",
@@ -263,7 +263,7 @@
         "photoId": "house-02-georgian-autumn",
         "buildingForm": "detached"
       },
-      "packVersion": "2.0.0",
+      "packVersion": "2.1.0",
       "width": 1536,
       "height": 1024,
       "captionKey": "example.thanksgiving_us.house_exterior",
@@ -292,7 +292,7 @@
         "kind": "photo",
         "photoId": "sample-apartment-hallway"
       },
-      "packVersion": "2.0.0",
+      "packVersion": "2.1.0",
       "width": 1536,
       "height": 1024,
       "captionKey": "example.thanksgiving_us.apartment_entry",
@@ -321,7 +321,7 @@
         "kind": "photo",
         "photoId": "sample-balcony"
       },
-      "packVersion": "2.0.0",
+      "packVersion": "2.1.0",
       "width": 1536,
       "height": 1024,
       "captionKey": "example.thanksgiving_us.balcony",
@@ -351,7 +351,7 @@
         "photoId": "sample-dining-room",
         "roomType": "dining_room"
       },
-      "packVersion": "2.0.0",
+      "packVersion": "2.1.0",
       "width": 1536,
       "height": 1024,
       "captionKey": "example.thanksgiving_us.interior",
@@ -381,7 +381,7 @@
         "photoId": "house-04-bungalow-summer",
         "buildingForm": "detached"
       },
-      "packVersion": "2.0.0",
+      "packVersion": "2.1.0",
       "width": 1536,
       "height": 1024,
       "captionKey": "example.christmas.house_exterior",
@@ -411,7 +411,7 @@
         "photoId": "house-04-bungalow-summer",
         "buildingForm": "detached"
       },
-      "packVersion": "2.0.0",
+      "packVersion": "2.1.0",
       "width": 1536,
       "height": 1024,
       "captionKey": "example.christmas.house_exterior",
@@ -440,7 +440,7 @@
         "kind": "photo",
         "photoId": "sample-apartment-hallway"
       },
-      "packVersion": "2.0.0",
+      "packVersion": "2.1.0",
       "width": 1536,
       "height": 1024,
       "captionKey": "example.christmas.apartment_entry",
@@ -469,7 +469,7 @@
         "kind": "photo",
         "photoId": "sample-balcony"
       },
-      "packVersion": "2.0.0",
+      "packVersion": "2.1.0",
       "width": 1536,
       "height": 1024,
       "captionKey": "example.christmas.balcony",
@@ -499,7 +499,7 @@
         "photoId": "sample-living-room-mantel",
         "roomType": "living_room"
       },
-      "packVersion": "2.0.0",
+      "packVersion": "2.1.0",
       "width": 1536,
       "height": 1024,
       "captionKey": "example.christmas.interior",
@@ -529,7 +529,7 @@
         "photoId": "house-07-modern-summer",
         "buildingForm": "detached"
       },
-      "packVersion": "2.0.0",
+      "packVersion": "2.1.0",
       "width": 1536,
       "height": 1024,
       "captionKey": "example.new_years_eve.house_exterior",
@@ -558,7 +558,7 @@
         "kind": "photo",
         "photoId": "sample-balcony"
       },
-      "packVersion": "2.0.0",
+      "packVersion": "2.1.0",
       "width": 1536,
       "height": 1024,
       "captionKey": "example.new_years_eve.balcony",
@@ -588,7 +588,7 @@
         "photoId": "sample-dining-room",
         "roomType": "dining_room"
       },
-      "packVersion": "2.0.0",
+      "packVersion": "2.1.0",
       "width": 1536,
       "height": 1024,
       "captionKey": "example.new_years_eve.interior",

@@ -16,6 +16,7 @@ import {
   SpecAttributesSchema,
   TERMINAL_RENDER_JOB_STATES,
   isCriticalFailureCode,
+  isLavishPlan,
   isRelightLightingMode,
   isTerminalRenderJobState,
   JobEnhancementRecordSchema,
@@ -176,6 +177,7 @@ import {
   classifyJudge,
   compositeAndCheck,
   decideAttempt,
+  deliverableDoubt,
   deterministicClassification,
   deterministicJudgeResult,
   judgeDecision,
@@ -183,7 +185,7 @@ import {
   openTextMarkHints,
   registerOutput,
   restoredChangeHints,
-  uncertainDeliverable,
+  UNCERTAIN_DELIVERABLE_CODES,
   type AttemptVerdict,
   type CompositeResult,
   type JudgeClassification,
@@ -373,7 +375,10 @@ interface CheckedAttempt {
   verdict: AttemptVerdict;
   /** The deterministic codes of the composite as checked. */
   deterministic: FailureCode[];
-  /** The decorations the composite keeps: the localized items kept, else the plan's regions. */
+  /**
+   * The decorations the composite keeps: the localized items kept, else (a fallback, or a lavish
+   * attempt, which is not localized) the plan's regions.
+   */
   decorations: NormalizedBox[];
   /**
    * Composites the attempt again exactly as it was checked, with `boxes` (grown) restored from the
@@ -646,7 +651,9 @@ class RenderRun {
     });
     this.checkAbort();
     // A Street View source with no framing recorded is zoomed in on its home here; the job goes on
-    // with the frame and the source row as they stand afterwards.
+    // with the frame and the source row as they stand afterwards, unless the frame was taken from
+    // the road and either no single home could be settled in it or it could not be aimed at its
+    // home.
     const framed = await frameStreetViewSource(this.deps, {
       job: this.job,
       source,
@@ -663,9 +670,39 @@ class RenderRun {
     this.loaded = framed.loaded;
     this.source = framed.source;
     source = framed.source;
+    if (framed.refused === 'no_single_home') await this.refuseUnsettledFrame();
+    if (framed.refused === 'not_aimed') await this.failUnaimedFrame();
     this.checkAbort();
     await this.useLoadedFrame(source, permission);
     if (this.job.state === 'preparing') await this.advance('analyzing');
+  }
+
+  /**
+   * Refuses a Street View frame taken from the road in which no single home could be settled: the
+   * job fails while still in `preparing` (no working image, no analysis, no enhancement) and the
+   * source is not declined, so asking for the same view again runs the framing step again. A job
+   * another actor ended meanwhile (canceled, superseded) stops the run instead.
+   */
+  private async refuseUnsettledFrame(): Promise<never> {
+    await this.ensureActive();
+    throw new JobFailure('source_rejected', 'facade_not_in_frame');
+  }
+
+  /**
+   * Fails a look whose Street View frame was taken from the road and could not be aimed at its
+   * home (a call or fetch of the framing step failed, or a provider was paused): the job fails
+   * `provider_error` while still in `preparing`, with no working image and no analysis. Nothing is
+   * recorded on the viewpoint, the source is not declined, its stored frame is untouched and the
+   * framing charges already made stay. A job another actor ended meanwhile (canceled, superseded)
+   * stops the run instead.
+   */
+  private async failUnaimedFrame(): Promise<never> {
+    await this.ensureActive();
+    throw new JobFailure(
+      'provider_error',
+      null,
+      'the view from the road could not be aimed at its home',
+    );
   }
 
   /**
@@ -1478,6 +1515,7 @@ class RenderRun {
               anchorFloors: this.options.anchorFloors,
               dilationFraction: dilation,
               featherFraction: this.options.featherFraction,
+              lavish: PIPELINE_DEFAULTS.lavishSceneTypes.includes(this.sceneType),
             },
           },
           (built) => ({
@@ -2587,7 +2625,8 @@ class RenderRun {
 
   /**
    * Writes the localization and the protected-box decisions onto the attempt's composite-mask
-   * record (either may be left as recorded).
+   * record (either may be left as recorded) and, for a lavish attempt, what its whole-frame
+   * keep-mask kept (`keep`).
    */
   private async writeLocalization(
     db: Pick<PipelineDeps['db'], 'updateTable'>,
@@ -2602,6 +2641,7 @@ class RenderRun {
           ...((attempt.compositeMask as Record<string, unknown> | null) ?? {}),
           ...(record ? { localization: record } : {}),
           protectedBoxes: protection.decisions,
+          ...(protection.wholeFrame ? { keep: protection.wholeFrame } : {}),
         }),
       })
       .where('id', '=', attempt.id)
@@ -2620,7 +2660,11 @@ class RenderRun {
    * a redelivery reuses the recorded items without a second paid call and recomputes the same
    * decisions. A call that fails after its retries falls back to the plan mask, decided with the
    * plan's shapes as the decorations and recorded as such. Every text mark left open reaches the
-   * judge as a hint.
+   * judge as a hint. A lavish attempt (`isLavishPlan`) makes no call: its keep-mask is the whole
+   * frame minus the restored boxes (`lavishKeepMask`), decided with no localized items; the
+   * decisions and what the keep-mask kept (`keep`) are written when missing, so a redelivery
+   * composites the same picture; no localization is recorded, no hint comes from one, and the
+   * decorations the restores measure are the plan's regions.
    */
   private async localize(
     attempt: RenderAttempt,
@@ -2628,6 +2672,7 @@ class RenderRun {
     planMask: CompositeMask,
     aligned: Raster,
   ): Promise<LocalizedComposite> {
+    const lavish = isLavishPlan(plan);
     const dilation = plan.compositeMask?.dilationFraction ?? this.options.dilationFraction;
     const protect = (items: readonly LocalizedAdditionRecord[] | null) =>
       protectedCompositing({
@@ -2644,6 +2689,7 @@ class RenderRun {
           this.maskFor(plan.placements, dilation, restoreBoxes, textMarks),
         // On a street photo the number on the house is never the editor's.
         keepHouseNumbers: this.source.kind === 'street_view',
+        lavish,
       });
     const composite = (
       record: LocalizationRecord,
@@ -2662,6 +2708,20 @@ class RenderRun {
         openHouseNumbers,
       };
     };
+    if (lavish) {
+      // The kept area does not depend on what the editor added: nothing is localized.
+      const protection = protect(null);
+      const written = attempt.compositeMask as { protectedBoxes?: unknown; keep?: unknown } | null;
+      if (!written?.protectedBoxes || !written.keep) {
+        await this.writeLocalization(this.deps.db, attempt, null, protection);
+      }
+      return {
+        mask: protection.mask,
+        keptRegions: [],
+        hints: openTextMarkHints(protection.decisions.textMarks),
+        openHouseNumbers: protection.openHouseNumbers,
+      };
+    }
     const recorded = this.recordedLocalization(attempt);
     if (recorded) {
       // A redelivery recomputes the same decisions from the recorded items; they are written
@@ -2767,6 +2827,7 @@ class RenderRun {
     if (planned.plan.relightOf)
       return this.checkRelight(attemptNo, planned, planned.plan.relightOf);
     const plan = planned.plan;
+    const lavish = isLavishPlan(plan);
     let attempt = await this.currentAttempt(attemptNo);
     if (!this.rawOutput && !attempt.candidateObjectKey) {
       // A redelivery of a job whose fallback to the attempt it kept through a repair had moved it
@@ -2786,13 +2847,14 @@ class RenderRun {
       plan,
       mask: planned.mask,
       glowRegions: this.glowRegions(),
+      lavish,
     }).catch(undecodable);
     let localized: LocalizedComposite | null = null;
     const aligned = registration.registered.aligned;
     if (plan.lightingMode === 'source' && planned.mask && aligned) {
       // How the text marks and the repair's restore boxes are composited follows how much the
       // editor changed their surroundings and where it put decorations; the mask sent to the
-      // editor stays as it was.
+      // editor stays as it was. A lavish attempt keeps the whole frame without a localization.
       localized = await this.localize(attempt, plan, planned.mask, aligned);
       attempt = await this.currentAttempt(attemptNo);
     }
@@ -2808,6 +2870,7 @@ class RenderRun {
       openHouseNumbers: localized?.openHouseNumbers ?? [],
       attributionRegion: this.attributionRegions,
       glowRegions: this.glowRegions(),
+      lavish,
     };
     const composite = await compositeAndCheck(compositeInput).catch(undecodable);
     await this.deps.db
@@ -2843,6 +2906,7 @@ class RenderRun {
         deterministic: composite.deterministic.codes,
         judge: classification,
         ...(composite.deterministic.decisive ? { decisive: composite.deterministic.decisive } : {}),
+        poorFitIgnored: composite.alignment.reason === 'poor_fit_ignored',
       });
     const verdict = decide(majorsRepaired);
     await this.ensureActive();
@@ -2860,16 +2924,32 @@ class RenderRun {
         localized && localized.keptRegions.length > 0
           ? localized.keptRegions
           : plan.placements.map((placement) => placement.region),
+      // The spots a lavish attempt puts back fade into its whole-frame picture over the keep's
+      // own feather width.
       restore:
         aligned && checkedMask
           ? (boxes) =>
-              compositeAndCheck({ ...compositeInput, mask: withRestoredSpots(checkedMask, boxes) })
+              compositeAndCheck({
+                ...compositeInput,
+                mask: withRestoredSpots(
+                  checkedMask,
+                  boxes,
+                  lavish && localized ? { softPx: checkedMask.featherPx } : {},
+                ),
+              })
           : null,
     };
+    // A lavish attempt whose verdict is a deliverable doubt with no confident major beside it
+    // goes on as the editor drew it whether or not a repair is open: a repair draws the whole
+    // picture again and its doubt would be delivered the same way. A confident major is repaired
+    // while a repair is open.
     const accepted =
       verdict.verdict === 'pass' ||
       (verdict.verdict === 'uncertain' &&
         (this.job.reviewMode === 'pre_delivery' ||
+          (lavish &&
+            deliverableDoubt(verdict) &&
+            verdict.codes.every((code) => isCriticalFailureCode(code))) ||
           this.deliversUncertain(verdict, repairOpen, this.relights())));
     if (accepted) {
       // A doubt delivered as it stands has its doubted spots put back when that costs little.
@@ -2892,8 +2972,15 @@ class RenderRun {
     // relight-mode job included (its relight then takes the third attempt). An attempt whose
     // verdict is a deliverable doubt, that would pass with no repair after it, or whose objected
     // spots qualify for the last resort, is kept as the job's picture should the repair end
-    // without an accepted one.
+    // without an accepted one. Outside pre-delivery review, a lavish attempt whose objected spots
+    // answer every objection (`answersEveryObjection`) first has them all put back from the
+    // original (`restoreObjections`) and goes on at once as a doubt with no repair: a repair would
+    // draw the whole picture again. Any other rejected attempt is repaired first.
     if (repairOpen && isRepairable(codes)) {
+      if (lavish && this.job.reviewMode !== 'pre_delivery' && this.answersEveryObjection(checked)) {
+        const restored = await this.restoreObjections(checked);
+        if (restored) return this.goOnAccepted(restored);
+      }
       await rejectAttempt();
       this.kept = this.keepable(checked, majorsRepaired ? decide(false) : verdict);
       const { critical, uncertain, major } = this.options.judgeThresholds;
@@ -2994,6 +3081,30 @@ class RenderRun {
   }
 
   /**
+   * Whether putting back the objected spots of a rejected lavish decorate attempt answers every
+   * objection, so the attempt may go on at once without a repair: every critical finding at or
+   * above the uncertainty floor is about a detail of the home (`UNCERTAIN_DELIVERABLE_CODES`; a
+   * finding about privacy, people or a neighbouring home is answered by the ordinary repair, whose
+   * paste-back keeps the original everywhere outside its decorations), the spots qualify
+   * (`objectionsOf`) with every confident major boxed (none would be recorded instead of put
+   * back), and putting all the boxes back leaves enough of the decorations.
+   */
+  private answersEveryObjection(checked: CheckedAttempt): boolean {
+    const { uncertain } = this.options.judgeThresholds;
+    const aboutTheHome = checked.judge.critical.every(
+      (finding) =>
+        finding.confidence < uncertain || UNCERTAIN_DELIVERABLE_CODES.includes(finding.code),
+    );
+    if (!aboutTheHome) return false;
+    const objected = this.objectionsOf(checked);
+    return (
+      objected !== null &&
+      objected.recordedMajors.length === 0 &&
+      this.enoughLeftAfter(checked, objected.boxes, 'objected')
+    );
+  }
+
+  /**
    * A rejected decorate attempt with every spot the judge objected to put back from the original
    * (`objectionsOf`), as an attempt accepted with a doubt: verdict `uncertain` with the verdict's
    * codes, its confident majors without a box recorded. When putting back the boxes of the
@@ -3030,7 +3141,7 @@ class RenderRun {
    */
   private keepable(checked: CheckedAttempt, passing: AttemptVerdict): KeptAttempt | null {
     const { verdict } = checked;
-    if (verdict.verdict === 'uncertain' && uncertainDeliverable(verdict.codes)) {
+    if (deliverableDoubt(verdict)) {
       return { checked, as: 'doubt' };
     }
     if (passing.verdict === 'pass')
@@ -3047,9 +3158,11 @@ class RenderRun {
    * The picture of a doubted decorate attempt that goes on as it stands, with its doubted spots
    * that have a box put back from the original when that keeps enough of the decorations
    * (`lastResort.minKeptShareDoubt`) and the deterministic checks pass; otherwise the picture as
-   * it is.
+   * it is. A lavish attempt goes on as the editor drew it: a doubted box put back would show the
+   * undecorated original inside a fully decorated picture.
    */
   private async restoreDoubts(checked: CheckedAttempt): Promise<Raster> {
+    if (isLavishPlan(checked.plan)) return checked.candidate;
     const spots = checked.restore
       ? doubtedSpots(checked.judge, this.options.judgeThresholds)
       : null;
@@ -3268,17 +3381,19 @@ class RenderRun {
 
   /**
    * Whether an uncertain verdict is delivered as it stands (outside pre-delivery review, where a
-   * reviewer decides): its doubts are all about a detail of the home (`uncertainDeliverable`), and
+   * reviewer decides): its doubts are all about a detail of the home (`deliverableDoubt`), and
    * no repair can follow, or the attempt is the base of a relit look and a repair would leave too
    * little of the job's time for the relight (`uncertainRepairWithRelightMs`). A look that may
-   * differ in a detail is delivered rather than none; with time for it, the doubt is repaired.
+   * differ in a detail is delivered rather than none; with time for it, the doubt of an attempt
+   * without the lavish mark is repaired. A lavish decorate attempt whose doubt is deliverable and
+   * that has no confident major goes on before this is asked (`checkAttempt`).
    */
   private deliversUncertain(
     verdict: AttemptVerdict,
     repairOpen: boolean,
     relightAhead: boolean,
   ): boolean {
-    if (verdict.verdict !== 'uncertain' || !uncertainDeliverable(verdict.codes)) return false;
+    if (!deliverableDoubt(verdict)) return false;
     if (!repairOpen || !isRepairable(verdict.codes)) return true;
     return relightAhead && this.shortForRepairAndRelight();
   }
@@ -3303,15 +3418,18 @@ class RenderRun {
 
   /**
    * Checks a relight against its decorated base (render spec, lighting modes): the relit output is
-   * registered to the base (`camera_changed` and uncovered strips as for any output), the
-   * attribution rectangles and padding are restored verbatim, the protected regions and structure
-   * are compared with the base, a bright relight must not be darker than the base, and the judge
-   * runs in relight mode for the target with the base as the reference. A relight that passes is
-   * delivered (`global_relight`); a repairable rejection is repaired once with the stronger keep
-   * clause while the job has its repair and an attempt left (the relight of an accepted daylight
-   * variant is attempt 1 of two; the relight of a base this job decorated is attempt 2 or 3 of
-   * three). A relight rejected for good ends an evening job rejected (its daylight variant
-   * exists) and makes a bright job deliver its decorated base as the result.
+   * registered to the base (`camera_changed` and uncovered strips as for any output), the people
+   * boxes and blur regions are put back from the base with the exposure adapted, then the
+   * attribution rectangles keep the base's strokes over the relit ground and the padding is
+   * restored verbatim (both win over a box they overlap), the protected regions and structure
+   * are compared with the base (for a lavish base the structure is the judge's alone), a bright
+   * relight must not be darker than the base, and the judge runs in relight mode for the target
+   * with the base as the reference. A relight that passes is delivered (`global_relight`); a
+   * repairable rejection is repaired once with the stronger keep clause while the job has its
+   * repair and an attempt left (the relight of an accepted daylight variant is attempt 1 of two;
+   * the relight of a base this job decorated is attempt 2 or 3 of three). A relight rejected for
+   * good ends an evening job rejected (its daylight variant exists) and makes a bright job
+   * deliver its decorated base as the result.
    */
   private async checkRelight(
     attemptNo: RenderAttemptNumber,
@@ -3319,6 +3437,7 @@ class RenderRun {
     base: RelightBase,
   ): Promise<'next' | 'done'> {
     const plan = planned.plan;
+    const lavish = isLavishPlan(plan);
     const attempt = await this.currentAttempt(attemptNo);
     if (!this.rawOutput && !attempt.candidateObjectKey) {
       // A redelivery of a job whose fallback to its base had already moved it to `checking`.
@@ -3337,9 +3456,13 @@ class RenderRun {
         plan,
         analysis: this.analysis,
         mask: null,
-        keptRegions: input.keptRegions,
+        // A lavish base is not localized, and the boxes a localization recorded on one can cover
+        // most of the frame; registration keeps its pixels and the edge check, which they would
+        // be left out of, is not run.
+        keptRegions: lavish ? [] : input.keptRegions,
         attributionRegion: this.attributionRegions,
         glowRegions: this.glowRegions(),
+        lavish,
       });
     } catch (error) {
       if (this.signal.aborted) throw error;

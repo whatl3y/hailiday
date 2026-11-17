@@ -104,6 +104,25 @@ export function pointOf(view: FrameGeometry, direction: ViewDirection): FramePoi
   return { u: 0.5 + (f * x) / zc, v: 0.5 - (f * yc) / zc / aspect };
 }
 
+/**
+ * The heading that puts `box` ([x0, y0, x1, y1] normalized on `view`) in the middle of the frame:
+ * the angular middle of the box's left and right sides at its mid-height, rounded to one decimal
+ * in [0, 360), with the signed turn from the view's heading in [-180, 180).
+ */
+export function aimAt(
+  view: FrameGeometry,
+  box: NormalizedBox,
+): { heading: number; turnDeg: number } {
+  const [x0, y0, x1, y1] = box;
+  const cy = (y0 + y1) / 2;
+  const left = directionOf(view, x0, cy);
+  const right = directionOf(view, x1, cy);
+  const heading = normalizeHeading(
+    round1(normalizeHeading(left.heading + headingDelta(right.heading, left.heading) / 2)),
+  );
+  return { heading, turnDeg: headingDelta(heading, view.heading) };
+}
+
 /** How many times the field of view is widened at most to bring the box's corners inside. */
 const CORNER_FIT_PASSES = 40;
 
@@ -137,9 +156,7 @@ export function frameView(
   const fill = 1 - 2 * params.marginFraction;
   const fitWide = 2 * deg(Math.atan(Math.tan(rad(wide) / 2) / fill));
   const fitTall = 2 * deg(Math.atan(Math.tan(rad(tall) / 2) / fill / aspect));
-  const heading = normalizeHeading(
-    round1(normalizeHeading(left.heading + headingDelta(right.heading, left.heading) / 2)),
-  );
+  const { heading } = aimAt(view, box);
   const viewAt = (fov: number) => {
     const vertical = 2 * deg(Math.atan(Math.tan(rad(fov) / 2) * aspect));
     const slack = Math.max(0, vertical - tall);
@@ -194,6 +211,12 @@ const recorded = {
   model: z.string(),
   framedAt: z.string(),
 };
+/** The turn of a frame taken from the road toward its home, recorded with the framing. */
+const ReaimSchema = z.object({
+  heading: z.number().min(0).lt(360),
+  box: BoxSchema,
+  promptVersion: z.string(),
+});
 
 /** A recorded framing, as read back from a viewpoint. */
 export const ViewpointFramingSchema = z.discriminatedUnion('status', [
@@ -205,6 +228,8 @@ export const ViewpointFramingSchema = z.discriminatedUnion('status', [
     box: BoxSchema,
     zoom: z.number().positive(),
     displayIssuedAt: z.string().optional(),
+    reason: z.enum(['small_gain', 'refused_framed']).optional(),
+    reaim: ReaimSchema.optional(),
     ...recorded,
   }),
   z.object({
@@ -247,6 +272,28 @@ export function framedViewOf(
     heading: framed ? framed.heading : viewpoint.heading,
     pitch: framed ? framed.pitch : viewpoint.pitch,
     fov: framed ? framed.fov : viewpoint.fov,
+    width: viewpoint.width,
+    height: viewpoint.height,
+  };
+}
+
+/**
+ * The view of the wide frame a framing was decided on: the viewpoint's own view, turned to
+ * `framing.reaim.heading` (same panorama, pitch, fov and size) when the framing records a re-aim.
+ */
+export function wideViewOf(
+  viewpoint: Pick<
+    ViewpointJson,
+    'panoId' | 'heading' | 'pitch' | 'fov' | 'width' | 'height' | 'framing'
+  >,
+): StreetViewView {
+  const framing = framingOf(viewpoint);
+  const reaim = framing?.status === 'framed' ? framing.reaim : undefined;
+  return {
+    panoId: viewpoint.panoId,
+    heading: reaim ? reaim.heading : viewpoint.heading,
+    pitch: viewpoint.pitch,
+    fov: viewpoint.fov,
     width: viewpoint.width,
     height: viewpoint.height,
   };

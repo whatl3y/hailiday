@@ -153,16 +153,60 @@ export async function primaryViewpoint(
   };
 }
 
-/** Creates an owner, an address project, its property and a `ready` Street View source. */
+/** A viewpoint of a fixture place given outright: one of its panoramas and the view of it. */
+export interface FixtureSourceView {
+  panoId: string;
+  heading: number;
+  pitch: number;
+  fov: number;
+  headingMode: ViewpointJson['headingMode'];
+}
+
+/** The viewpoint of `view` on one of the place's panoramas, as discovery would bind it. */
+function givenViewpoint(
+  place: FixturePlace,
+  view: FixtureSourceView,
+): Awaited<ReturnType<typeof primaryViewpoint>> {
+  const panorama = place.panoramas.find((candidate) => candidate.panoId === view.panoId);
+  if (!panorama) throw new Error(`Fixture place ${place.placeId} has no panorama ${view.panoId}`);
+  return {
+    viewpoint: {
+      panoId: view.panoId,
+      heading: view.heading,
+      headingMode: view.headingMode,
+      pitch: view.pitch,
+      fov: view.fov,
+      width: 640,
+      height: 640,
+      source: 'outdoor',
+      captureGranularity: panorama.captureGranularity,
+      fetchedAt: null,
+      sourceCheckedAt: null,
+    },
+    copyright: panorama.copyright,
+    captureDate: panorama.captureDate,
+    isGoogleImagery: panorama.isGoogleImagery,
+  };
+}
+
+/**
+ * Creates an owner, an address project, its property and a `ready` Street View source. Its
+ * viewpoint is the place's primary as discovery finds it, or, with `view`, that view of one of
+ * the place's panoramas (no discovery runs).
+ */
 export async function createStreetViewSource(
   deps: Pick<PipelineDeps, 'db' | 'providers' | 'clock'>,
-  input: { placeId: string; streetViewMode?: 'transient' | 'persist'; holidayId?: HolidayId },
+  input: {
+    placeId: string;
+    streetViewMode?: 'transient' | 'persist';
+    holidayId?: HolidayId;
+    view?: FixtureSourceView;
+  },
 ): Promise<{ ownerId: string; projectId: string; source: SourceAsset }> {
   const place = fixturePlace(input.placeId);
-  const { viewpoint, copyright, captureDate, isGoogleImagery } = await primaryViewpoint(
-    deps,
-    place,
-  );
+  const { viewpoint, copyright, captureDate, isGoogleImagery } = input.view
+    ? givenViewpoint(place, input.view)
+    : await primaryViewpoint(deps, place);
   const now = deps.clock.now();
   const ownerId = newId();
   await deps.db.insertInto('owners').values({ id: ownerId, kind: 'anonymous' }).execute();

@@ -25,6 +25,7 @@ import type {
   FeedbackVerdict,
   FidelityMode,
   FailureCode,
+  HeadingMode,
   HolidayId,
   JobEnhancementRecord,
   JudgeDecision,
@@ -325,6 +326,14 @@ export interface AssetPoliciesTable extends Mutable {
  * frame for good, because no single home was found, the answer was ambiguous or not confident
  * enough, zooming in would gain too little, or the scene analysis refused the framed frame of the
  * look that recorded it (`refused_framed`: the wide frame was fetched and stored again).
+ *
+ * `reaim` is recorded when a frame taken from the road (heading mode `road`) was turned toward its
+ * home before the decision: `reaim.box` is the home as first located on the viewpoint's own frame,
+ * `reaim.heading` the heading of the re-aimed frame (the viewpoint's panorama, pitch and fov), and
+ * `reaim.promptVersion` the prompt of that first call. With `reaim`, `box` is normalized on the
+ * re-aimed frame and `zoom` is the gain over it. A `framed` record with `zoom` 1 and a `reason` is
+ * the re-aimed frame itself: zooming in would gain too little (`small_gain`), or the scene analysis
+ * refused the zoomed frame and the re-aimed frame was fetched and stored again (`refused_framed`).
  */
 export type ViewpointFraming =
   | {
@@ -335,6 +344,8 @@ export type ViewpointFraming =
       box: NormalizedBox;
       zoom: number;
       displayIssuedAt?: string;
+      reason?: 'small_gain' | 'refused_framed';
+      reaim?: ViewpointReaim;
       promptVersion: string;
       model: string;
       framedAt: string;
@@ -348,6 +359,13 @@ export type ViewpointFraming =
       framedAt: string;
     };
 
+/** The turn of a frame taken from the road toward its home, recorded with its framing. */
+export interface ViewpointReaim {
+  heading: number;
+  box: NormalizedBox;
+  promptVersion: string;
+}
+
 /**
  * Street View refetch descriptor stored on a source asset. `heading`, `pitch` and `fov` are the
  * confirmed candidate's view and the viewpoint's identity (`viewpoint_key`); `framing`, once
@@ -356,7 +374,7 @@ export type ViewpointFraming =
 export interface ViewpointJson {
   panoId: string;
   heading: number;
-  headingMode: 'geometry' | 'point';
+  headingMode: HeadingMode;
   pitch: number;
   fov: number;
   width: number;

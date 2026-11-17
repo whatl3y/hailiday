@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { DecorationPlanSchema, JudgeResultSchema, type DecorationPlan } from '@hailiday/core';
 import { createFixtureVisionModel } from './fixture.js';
@@ -7,9 +8,21 @@ import {
   analysisUserPrompt,
   ENHANCE_ATTRIBUTION_CODE,
   FRAME_PROMPT_VERSION,
+  FRAME_ROAD_PROMPT_VERSION,
+  FRAME_ROAD_SYSTEM_PROMPT,
   FRAME_SYSTEM_PROMPT,
+  FRAME_USER_PROMPT,
   JUDGE_BRIGHT_RELIGHT_SYSTEM_PROMPT,
   JUDGE_ENHANCE_SYSTEM_PROMPT,
+  JUDGE_LAVISH_AMOUNT,
+  JUDGE_LAVISH_GROUNDS,
+  JUDGE_LAVISH_HARD_RULES,
+  JUDGE_LAVISH_PLACEMENTS,
+  JUDGE_LAVISH_PLAN,
+  JUDGE_LAVISH_RELIGHT_BASE,
+  JUDGE_LAVISH_RELIGHT_DECORATIONS,
+  JUDGE_LAVISH_RELIGHT_EVENING,
+  JUDGE_LAVISH_REQUEST,
   JUDGE_PROMPT_VERSION,
   JUDGE_RELIGHT_SYSTEM_PROMPT,
   JUDGE_SYSTEM_PROMPT,
@@ -22,9 +35,14 @@ import {
   protectedSpotLines,
   relightJudgeTarget,
   STREET_VIEW_NO_TARGET,
+  STREET_VIEW_ROAD_NO_TARGET,
+  STREET_VIEW_ROAD_TARGET_HOME,
+  STREET_VIEW_ROAD_TARGET_UNCLEAR,
   STREET_VIEW_TARGET_HOME,
   STREET_VIEW_TARGET_UNCLEAR,
 } from './prompts.js';
+
+const sha256 = (text: string) => createHash('sha256').update(text).digest('hex');
 
 const plan: DecorationPlan = DecorationPlanSchema.parse({
   schemaVersion: '1.0',
@@ -196,7 +214,7 @@ describe('judge prompt', () => {
   });
 
   it('keeps the fixture judge result valid under the new prompt version', async () => {
-    expect(JUDGE_PROMPT_VERSION).toBe('judge-2026.11.10');
+    expect(JUDGE_PROMPT_VERSION).toBe('judge-2026.11.16');
     const vision = createFixtureVisionModel();
     const image = { bytes: new Uint8Array([1]), width: 1024, height: 1024 };
     const call = await vision.judge({
@@ -206,8 +224,8 @@ describe('judge prompt', () => {
       plan,
     });
     const parsed = JudgeResultSchema.parse(call.result);
-    expect(parsed.judgePromptVersion).toBe('judge-2026.11.10');
-    expect(call.promptVersion).toBe('judge-2026.11.10');
+    expect(parsed.judgePromptVersion).toBe('judge-2026.11.16');
+    expect(call.promptVersion).toBe('judge-2026.11.16');
     expect(parsed.placements.map((p) => p.placementId)).toEqual(['p1']);
   });
 
@@ -438,6 +456,244 @@ describe('judge prompt', () => {
   });
 });
 
+/** Every line the judge gets only for a plan decorated from a lavish description. */
+const LAVISH_LINES = [
+  JUDGE_LAVISH_REQUEST,
+  JUDGE_LAVISH_AMOUNT,
+  JUDGE_LAVISH_GROUNDS,
+  JUDGE_LAVISH_PLAN,
+  JUDGE_LAVISH_HARD_RULES,
+  JUDGE_LAVISH_PLACEMENTS,
+  JUDGE_LAVISH_RELIGHT_BASE,
+  JUDGE_LAVISH_RELIGHT_EVENING,
+  JUDGE_LAVISH_RELIGHT_DECORATIONS,
+];
+
+const lavishPlan: DecorationPlan = DecorationPlanSchema.parse({
+  ...plan,
+  style: 'abundant',
+  lavish: { lit: true },
+});
+
+/** The judge sentences of the lavish tier, as text. */
+const LAVISH_TEXT = {
+  REQUEST:
+    'The lavish style was asked for: the home is meant to be covered in a great many lights and decorations, far more than the placements listed below.',
+  AMOUNT:
+    'The number, density and brightness of the lights and decorations are never a failure in themselves: report no code only because there are many of them, because they are close together or because their lights are bright.',
+  GROUNDS:
+    "Lights laid over or wrapped around the home's own shrubs, hedges and tree trunks, and decorations standing on its lawn and along its paths, are decorations: they are not landscaping changes, not a plant covered or replaced, and not unrequested_change.",
+  PLAN: 'Report plan_not_followed only when the picture is not richly decorated or shows the wrong holiday; a listed placement that is missing, in another spot or in another count is not plan_not_followed.',
+  HARD_RULES:
+    'Every other rule applies unchanged: structure_changed, wrong_property, neighbor_decorated, access_blocked, privacy_regression, people_altered, text_added, unsafe_or_offensive, camera_changed and attribution_altered are reported exactly as for any other photo.',
+  PLACEMENTS:
+    'Listed placements (typical items of this look; report for each whether it is present, as a record only: none of them is required, and decorations beyond them are expected):',
+  RELIGHT_BASE:
+    'Image 1 is decorated in the lavish style: its lights and decorations are many and bright by design. Every decoration in image 1 must still be there, unchanged, whether it is listed below or not.',
+  RELIGHT_EVENING:
+    'In the evening light the decorated home is meant to be the brightest thing in the picture: many bulbs glowing brightly, and their glow washing the walls, the ground and the plants around them, are expected and are not lighting_implausible. Glow without a source, lit windows that do not exist and neighbors lit still are.',
+  RELIGHT_DECORATIONS:
+    'Listed decorations (typical items of this look; report for each whether it is still where it is in image 1; an item that is not in image 1 is reported as not present and is not a failure):',
+};
+
+const DECORATE_PROMPT = [
+  'Scene type: house_exterior. Lighting mode: source.',
+  'Requested decorations: Christmas, abundant style.',
+  LAVISH_TEXT.REQUEST,
+  LAVISH_TEXT.AMOUNT,
+  LAVISH_TEXT.GROUNDS,
+  LAVISH_TEXT.PLAN,
+  LAVISH_TEXT.HARD_RULES,
+  'The lighting, sky and time of day should match the original.',
+  LAVISH_TEXT.PLACEMENTS,
+  '- p1: 1 x 24-inch fresh fir wreath (centered_on the front door, middle center of the image).',
+  'Must not appear: people.',
+  'Outdoors a decoration of the requested holiday may take the place of a removable seasonal item at the same spot: an existing wreath or door hanger, a potted plant, flower pot, planter or urn, a hanging basket, a seasonal flag or a doormat. That swap is expected and is not unrequested_change, also for an item listed below as an existing decoration. Furniture, fixtures, mailboxes, anything built, vehicles, bins and plants growing in the ground are still unrequested_change when removed, replaced, moved or covered, and so is a removable item taken away with no decoration in its place.',
+  'Protected spots to inspect:',
+  '- a person (lower left of the image): must stay unchanged; report people_altered if not.',
+  '- a blurred face (middle left of the image): must stay blurred and unchanged; report privacy_regression if it is clearer or reconstructed.',
+  '- a blurred license plate (lower right of the image): must stay blurred and unchanged; report privacy_regression if it is clearer or reconstructed.',
+  '- a house number (middle center of the image): its text must stay exactly as in image 1, and readable wherever it is readable there; a decoration beside or around it and the light or shadow the decorations cast on it are expected; report text_added if readable text is altered, replaced, covered or missing; a mark too small to read in image 1 may be covered by a decoration.',
+  '- a sign (middle left of the image): its text must stay exactly as in image 1, and readable wherever it is readable there; a decoration beside or around it and the light or shadow the decorations cast on it are expected; report text_added if readable text is altered, replaced, covered or missing; a mark too small to read in image 1 may be covered by a decoration.',
+  '- a logo or burned-in mark (lower left of the image): its text must stay exactly as in image 1, and readable wherever it is readable there; a decoration beside or around it and the light or shadow the decorations cast on it are expected; report text_added if readable text is altered, replaced, covered or missing; a mark too small to read in image 1 may be covered by a decoration.',
+  '- an existing decoration (middle right of the image): if it is such an item (one of the removable seasonal items named above), a decoration of the requested holiday may take its place and that swap is expected; otherwise it must stay unchanged; report unrequested_change if it is gone with no decoration in its place, or changed in any other way.',
+  '- a vehicle (lower right of the image): must stay unchanged; report unrequested_change if not.',
+  '- the walkway (lower center of the image): must stay clear; report access_blocked if decor obstructs it.',
+  '- the burned-in imagery attribution (lower left of the image): must stay exactly as in the original; report attribution_altered if it is covered, cropped or changed.',
+  '- the burned-in imagery attribution (lower right of the image): must stay exactly as in the original; report attribution_altered if it is covered, cropped or changed.',
+];
+const EVENING_PROMPT = [
+  'Scene type: house_exterior. Requested light: early evening at dusk, with the decorations that are switched on glowing, warm light in the existing windows and the porch light on.',
+  'A darker sky, lower ambient exposure and the glow of existing lights are expected and are not changes to report.',
+  LAVISH_TEXT.RELIGHT_BASE,
+  LAVISH_TEXT.RELIGHT_EVENING,
+  LAVISH_TEXT.RELIGHT_DECORATIONS,
+  '- p1: 1 x 24-inch fresh fir wreath.',
+  'Must not appear: people.',
+  'Protected spots to inspect:',
+  '- a person (lower left of the image): must stay unchanged; report people_altered if not.',
+  '- a blurred face (middle left of the image): must stay blurred and unchanged; report privacy_regression if it is clearer or reconstructed.',
+  '- a blurred license plate (lower right of the image): must stay blurred and unchanged; report privacy_regression if it is clearer or reconstructed.',
+  '- a house number (middle center of the image): must stay unchanged; report text_added if not.',
+  '- a sign (middle left of the image): must stay unchanged; report text_added if not.',
+  '- an existing decoration (middle right of the image): must stay unchanged; report unrequested_change if not.',
+  '- a vehicle (lower right of the image): must stay unchanged; report unrequested_change if not.',
+  '- the walkway (lower center of the image): must stay clear; report access_blocked if decor obstructs it.',
+  "- the burned-in imagery attribution (lower left of the image): the map provider's logo and copyright text here must stay exactly as in image 1 (same letters, shape and position, still bright and legible); the ground behind them follows the new light, which is expected; report attribution_altered only if the logo or the text is missing, illegible, covered, cropped, moved or redrawn.",
+  "- the burned-in imagery attribution (lower right of the image): the map provider's logo and copyright text here must stay exactly as in image 1 (same letters, shape and position, still bright and legible); the ground behind them follows the new light, which is expected; report attribution_altered only if the logo or the text is missing, illegible, covered, cropped, moved or redrawn.",
+];
+const BRIGHT_PROMPT = [
+  'Scene type: house_exterior. Requested light: the bright look, bright, airy and cheerful as on a sunny day with every light on: fuller soft daylight, the existing lamps and fixtures on with a clean warm glow, shadows lifted and the decorations that are switched on still glowing.',
+  'Brighter light, lamps and fixtures switched on, daylight in the windows (the view outside a window may turn from night to day) and lifted shadows are expected and are not changes to report.',
+  LAVISH_TEXT.RELIGHT_BASE,
+  LAVISH_TEXT.RELIGHT_DECORATIONS,
+  '- p1: 1 x 24-inch fresh fir wreath.',
+  'Must not appear: people.',
+  'Protected spots to inspect:',
+  '- a person (lower left of the image): must stay unchanged; report people_altered if not.',
+  '- a blurred face (middle left of the image): must stay blurred and unchanged; report privacy_regression if it is clearer or reconstructed.',
+  '- a blurred license plate (lower right of the image): must stay blurred and unchanged; report privacy_regression if it is clearer or reconstructed.',
+  '- a house number (middle center of the image): must stay unchanged; report text_added if not.',
+  '- a sign (middle left of the image): must stay unchanged; report text_added if not.',
+  '- an existing decoration (middle right of the image): must stay unchanged; report unrequested_change if not.',
+  '- a vehicle (lower right of the image): must stay unchanged; report unrequested_change if not.',
+  '- the walkway (lower center of the image): must stay clear; report access_blocked if decor obstructs it.',
+  "- the burned-in imagery attribution (lower left of the image): the map provider's logo and copyright text here must stay exactly as in image 1 (same letters, shape and position, still bright and legible); the ground behind them follows the new light, which is expected; report attribution_altered only if the logo or the text is missing, illegible, covered, cropped, moved or redrawn.",
+  "- the burned-in imagery attribution (lower right of the image): the map provider's logo and copyright text here must stay exactly as in image 1 (same letters, shape and position, still bright and legible); the ground behind them follows the new light, which is expected; report attribution_altered only if the logo or the text is missing, illegible, covered, cropped, moved or redrawn.",
+];
+
+describe('judge prompt of the lavish tier', () => {
+  it('tells the decorate judge that the lavish style was asked for', () => {
+    const prompt = judgeUserPrompt(lavishPlan);
+    const lines = prompt.split('\n');
+    const start = lines.indexOf('Requested decorations: Christmas, abundant style.');
+    expect(start).toBeGreaterThan(0);
+    expect(lines.slice(start + 1, start + 6)).toEqual([
+      JUDGE_LAVISH_REQUEST,
+      JUDGE_LAVISH_AMOUNT,
+      JUDGE_LAVISH_GROUNDS,
+      JUDGE_LAVISH_PLAN,
+      JUDGE_LAVISH_HARD_RULES,
+    ]);
+    expect(lines[start + 6]).toBe('The lighting, sky and time of day should match the original.');
+    expect(lines[start + 7]).toBe(JUDGE_LAVISH_PLACEMENTS);
+    expect(lines[start + 8]).toMatch(/^- p1: 1 x 24-inch fresh fir wreath \(/);
+    expect(prompt).not.toContain('each must be present');
+    expect(prompt).not.toContain('Planned placements');
+    for (const line of [JUDGE_LAVISH_RELIGHT_BASE, JUDGE_LAVISH_RELIGHT_EVENING]) {
+      expect(prompt).not.toContain(line);
+    }
+    // The grounds line is about a house's own yard.
+    const balcony = judgeUserPrompt({ ...lavishPlan, sceneType: 'balcony' });
+    expect(balcony).toContain(JUDGE_LAVISH_REQUEST);
+    expect(balcony).toContain(JUDGE_LAVISH_HARD_RULES);
+    expect(balcony).not.toContain(JUDGE_LAVISH_GROUNDS);
+  });
+
+  it('keeps every protected spot and the swap rule of a lavish plan as for any other plan', () => {
+    const hints = ['drift in the lower left'];
+    const prompt = judgeUserPrompt(lavishPlan, hints);
+    for (const line of protectedSpotLines(lavishPlan.preserve, 'decorate', {
+      outdoorSwaps: true,
+    })) {
+      expect(prompt).toContain(line);
+    }
+    expect(prompt).toContain('Protected spots to inspect:');
+    expect(prompt).toContain(OUTDOOR_SWAPS);
+    expect(prompt).toContain('Must not appear: people.');
+    expect(prompt).toContain('Deterministic check hints');
+    expect(prompt).toContain('drift in the lower left');
+    // Only the lines before the placements differ from the ordinary prompt.
+    const ordinary = judgeUserPrompt(plan, hints);
+    const tail = (text: string) => text.slice(text.indexOf('Must not appear:'));
+    expect(tail(prompt)).toBe(tail(ordinary));
+    expect(judgeSystemPrompt('decorate')).toBe(JUDGE_SYSTEM_PROMPT);
+  });
+
+  it('tells the relight judges that the lights of a lavish base are many and bright by design', () => {
+    const evening = judgeUserPrompt({ ...lavishPlan, lightingMode: 'evening' }, [], {
+      mode: 'relight',
+    });
+    const lines = evening.split('\n');
+    const base = lines.indexOf(JUDGE_LAVISH_RELIGHT_BASE);
+    expect(base).toBeGreaterThan(0);
+    expect(lines.slice(base, base + 3)).toEqual([
+      JUDGE_LAVISH_RELIGHT_BASE,
+      JUDGE_LAVISH_RELIGHT_EVENING,
+      JUDGE_LAVISH_RELIGHT_DECORATIONS,
+    ]);
+    expect(lines[base + 3]).toBe('- p1: 1 x 24-inch fresh fir wreath.');
+    expect(evening).not.toContain('each must still be there');
+    expect(evening).toContain('Requested light: early evening at dusk');
+    const bright = judgeUserPrompt({ ...lavishPlan, lightingMode: 'bright' }, [], {
+      mode: 'relight',
+    });
+    expect(bright).toContain(JUDGE_LAVISH_RELIGHT_BASE);
+    expect(bright).toContain(JUDGE_LAVISH_RELIGHT_DECORATIONS);
+    expect(bright).not.toContain(JUDGE_LAVISH_RELIGHT_EVENING);
+    expect(bright).not.toContain('each must still be there');
+    const unlit = judgeUserPrompt(
+      { ...lavishPlan, lightingMode: 'evening', lavish: { lit: false } },
+      [],
+      { mode: 'relight' },
+    );
+    expect(unlit).toContain(JUDGE_LAVISH_RELIGHT_BASE);
+    expect(unlit).not.toContain(JUDGE_LAVISH_RELIGHT_EVENING);
+    for (const prompt of [evening, bright, unlit]) {
+      for (const line of [JUDGE_LAVISH_REQUEST, JUDGE_LAVISH_AMOUNT, JUDGE_LAVISH_PLACEMENTS]) {
+        expect(prompt).not.toContain(line);
+      }
+    }
+  });
+
+  it('adds none of the lavish lines for a plan without the mark', () => {
+    // An abundant plan without the mark (a section without a description, or after the step-down).
+    for (const unmarked of [plan, { ...plan, style: 'abundant' as const }]) {
+      const prompts = [
+        judgeUserPrompt(unmarked),
+        judgeUserPrompt({ ...unmarked, lightingMode: 'evening' }, [], { mode: 'relight' }),
+        judgeUserPrompt({ ...unmarked, lightingMode: 'bright' }, [], { mode: 'relight' }),
+      ];
+      for (const prompt of prompts) {
+        for (const line of LAVISH_LINES) expect(prompt).not.toContain(line);
+      }
+      expect(prompts[0]).toContain('Planned placements (the kinds and counts matter');
+      expect(prompts[1]).toContain(
+        'Decorations in image 1 (each must still be there, unchanged, wherever it is in image 1):',
+      );
+      expect(prompts[2]).toContain(
+        'Decorations in image 1 (each must still be there, unchanged, wherever it is in image 1):',
+      );
+    }
+  });
+
+  it('states the judge sentences of the lavish tier word for word', () => {
+    expect(JUDGE_LAVISH_REQUEST).toBe(LAVISH_TEXT.REQUEST);
+    expect(JUDGE_LAVISH_AMOUNT).toBe(LAVISH_TEXT.AMOUNT);
+    expect(JUDGE_LAVISH_GROUNDS).toBe(LAVISH_TEXT.GROUNDS);
+    expect(JUDGE_LAVISH_PLAN).toBe(LAVISH_TEXT.PLAN);
+    expect(JUDGE_LAVISH_HARD_RULES).toBe(LAVISH_TEXT.HARD_RULES);
+    expect(JUDGE_LAVISH_PLACEMENTS).toBe(LAVISH_TEXT.PLACEMENTS);
+    expect(JUDGE_LAVISH_RELIGHT_BASE).toBe(LAVISH_TEXT.RELIGHT_BASE);
+    expect(JUDGE_LAVISH_RELIGHT_EVENING).toBe(LAVISH_TEXT.RELIGHT_EVENING);
+    expect(JUDGE_LAVISH_RELIGHT_DECORATIONS).toBe(LAVISH_TEXT.RELIGHT_DECORATIONS);
+  });
+
+  it('gives the decorate, evening and bright judges of a lavish plan these exact prompts', () => {
+    expect(judgeUserPrompt(lavishPlan).split('\n')).toEqual(DECORATE_PROMPT);
+    expect(
+      judgeUserPrompt({ ...lavishPlan, lightingMode: 'evening' }, [], { mode: 'relight' }).split(
+        '\n',
+      ),
+    ).toEqual(EVENING_PROMPT);
+    expect(
+      judgeUserPrompt({ ...lavishPlan, lightingMode: 'bright' }, [], { mode: 'relight' }).split(
+        '\n',
+      ),
+    ).toEqual(BRIGHT_PROMPT);
+  });
+});
+
 describe('open text mark hint', () => {
   it('names the kind and position of a mark that keeps the edited pixels, never its text', () => {
     expect(openTextMarkHint('house_number', [0.1, 0.5, 0.11, 0.55])).toBe(
@@ -449,7 +705,7 @@ describe('open text mark hint', () => {
     expect(openTextMarkHint('logo', [0.1, 0.8, 0.2, 0.9])).toBe(
       'a logo or burned-in mark (lower left of the image) keeps the edited pixels: compare its text with image 1',
     );
-    expect(JUDGE_PROMPT_VERSION).toBe('judge-2026.11.10');
+    expect(JUDGE_PROMPT_VERSION).toBe('judge-2026.11.16');
   });
 });
 
@@ -553,7 +809,7 @@ describe('enhance judge prompt', () => {
     expect(parsed.placements).toEqual([]);
     expect(parsed.escalated).toBe(false);
     expect(parsed.scores).toEqual({ realism: 4, appeal: 4, planAdherence: 5 });
-    expect(parsed.judgePromptVersion).toBe('judge-2026.11.10');
+    expect(parsed.judgePromptVersion).toBe('judge-2026.11.16');
     expect(call.providerMode).toBe('fixture');
   });
 });
@@ -589,5 +845,65 @@ describe('the frame prompt', () => {
     ]) {
       expect(FRAME_SYSTEM_PROMPT).toContain(phrase);
     }
+  });
+
+  it('keeps the prompt of an aimed frame byte for byte', () => {
+    expect(FRAME_SYSTEM_PROMPT).toBe(
+      [
+        'You find the home a street-level photograph is aimed at, so that a closer photograph of just that home can be taken from the same spot.',
+        'Target home: the home this frame is aimed at. It is the residential facade containing the horizontal center of the frame at mid-height. When the center falls beside a home instead (on its driveway, yard, fence, garage or the gap next to it), the target is the residential facade nearest to the center, as long as that facade is clearly the main building in the frame.',
+        'home: one tight box around the whole visible building of the target home, from the top of its roof (chimney included) down to where the building meets the ground, with its porch, entry steps and an attached garage. Leave out the lawn, driveway, walkway, sidewalk, street, trees, shrubs, fences, vehicles and every neighboring building. Where a tree or shrub in front hides part of the home, the box still covers the part of the home behind it. For attached homes the box spans only the target unit.',
+        'When no residential facade is in frame, set home to null and ambiguous to false. Set ambiguous to true, with home null, only when the center falls on the boundary between two attached or closely neighboring facades, or when two facades are about equally near the center and about equally prominent. Otherwise set ambiguous to false.',
+        'confidence: from 0 to 1, how sure you are that the box holds the target home and all of it.',
+        'Boxes are [x0, y0, x1, y1] normalized to 0-1 on the image: origin top-left, x to the right, y down, x0 < x1 and y0 < y1.',
+      ].join('\n'),
+    );
+    expect(sha256(FRAME_SYSTEM_PROMPT)).toBe(
+      '813b6e39c629cce38f2b4d846cbe123e5d4ae2bfb8b1ed181a3def99fe0fceea',
+    );
+    expect(FRAME_USER_PROMPT).toBe('Locate the target home in this frame.');
+    expect(FRAME_PROMPT_VERSION).toBe('frame-2026.11.0');
+  });
+});
+
+describe('the frame prompt for a view from the road', () => {
+  it('is its own prompt, pinned whole, with its own version', () => {
+    expect(FRAME_ROAD_PROMPT_VERSION).toBe('frame-road-2026.11.0');
+    expect(FRAME_ROAD_SYSTEM_PROMPT).not.toBe(FRAME_SYSTEM_PROMPT);
+    expect(FRAME_ROAD_SYSTEM_PROMPT).toHaveLength(1947);
+    expect(sha256(FRAME_ROAD_SYSTEM_PROMPT)).toBe(
+      'b4f7d14be54910a36a1583f558c88fdf50e135805b89088e1f029826f5c77fba',
+    );
+    // Its box and coordinate lines are the aimed prompt's, the box line with one more sentence.
+    const road = FRAME_ROAD_SYSTEM_PROMPT.split('\n');
+    const aimed = FRAME_SYSTEM_PROMPT.split('\n');
+    expect(road).toHaveLength(6);
+    expect(road[2]).toBe(
+      `${aimed[2]} Where the edge of the frame cuts the home off, the box ends at that edge.`,
+    );
+    expect(road[5]).toBe(aimed[5]);
+  });
+
+  it('looks for the home at or nearest the center, else the most prominent one, also when cut', () => {
+    for (const phrase of [
+      'nearest to the center',
+      'the largest and least hidden one',
+      'left or right edge of the frame cuts it off',
+      'the box ends at that edge',
+    ]) {
+      expect(FRAME_ROAD_SYSTEM_PROMPT).toContain(phrase);
+    }
+  });
+
+  it('answers no home only for a frame without a residential building', () => {
+    expect(FRAME_ROAD_SYSTEM_PROMPT).toContain(
+      `When ${STREET_VIEW_ROAD_NO_TARGET}, set home to null and ambiguous to false.`,
+    );
+    expect(STREET_VIEW_ROAD_NO_TARGET).toBe('no residential building is in frame');
+    expect(FRAME_ROAD_SYSTEM_PROMPT).toContain(
+      `Set ambiguous to true, with home null, only when ${STREET_VIEW_ROAD_TARGET_UNCLEAR}.`,
+    );
+    expect(FRAME_ROAD_SYSTEM_PROMPT).toContain(`Target home: ${STREET_VIEW_ROAD_TARGET_HOME}`);
+    expect(FRAME_ROAD_SYSTEM_PROMPT).not.toContain(STREET_VIEW_TARGET_HOME);
   });
 });

@@ -85,6 +85,18 @@ const PanoramaSchema = z
     isGoogleImagery: z.boolean(),
     distanceM: z.number(),
     headingDeg: z.number(),
+    /**
+     * Where the home stands as seen from this panorama, for a place whose target point lies on
+     * the road: its compass bearing and distance. Its frames show the photograph at the home's
+     * bearing and angular size, so a view turned away shows the home at the side, cut by the
+     * frame's edge or not at all.
+     */
+    home: z
+      .object({
+        bearingDeg: z.number().min(0).lt(360),
+        distanceM: z.number().positive(),
+      })
+      .optional(),
     /** A real photograph shown for this panorama (owner-facing places). */
     photo: PanoramaPhotoSchema.optional(),
     /** Procedural house parameters (the SVG renderer, kept for tests that need exact drawings). */
@@ -144,6 +156,12 @@ const PlaceSchema = z.object({
     postalCode: z.string(),
   }),
   geocodeAliases: z.array(z.string()),
+  /**
+   * How a metadata probe near the place finds a panorama. `probe`: by the panorama's probe label
+   * (the target point, or an offset along the road) within its probe radius. `nearest`: the
+   * panorama nearest the probed point, within the probe's radius.
+   */
+  panoramaLookup: z.enum(['probe', 'nearest']).default('probe'),
   panoramas: z.array(PanoramaSchema).default([]),
 });
 export type FixturePlace = z.infer<typeof PlaceSchema>;

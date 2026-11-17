@@ -7,7 +7,7 @@
 
 holidayId: halloween
 packId: halloween.US
-packVersion: 2.0.0
+packVersion: 2.1.0
 kits:
   - kitId: halloween.house_exterior
     holidayId: halloween
@@ -101,7 +101,7 @@ kits:
         sortOrder: 6
         anchorCategory: lawn
         anchors: [lawn, porch_steps]
-        specText: one stylized bone-white plastic skeleton about five feet tall, seated or standing beside the steps or on the lawn, clean with no blood or damage
+        specText: one stylized bone-white plastic skeleton about five feet tall, seated or standing beside the steps or on the lawn, clean and undamaged
         specAttributes:
           category: figure
           sizeRange: about 5 ft

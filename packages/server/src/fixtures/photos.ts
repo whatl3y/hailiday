@@ -244,7 +244,10 @@ export function fixturePhotoCopyright(
 
 // ---- view → crop ---------------------------------------------------------------------------------
 
-/** A crop rectangle in photo pixels (integers). */
+/**
+ * A crop rectangle in photo pixels (integers). A crop laid out at a facade's angular size may
+ * lie partly or wholly outside the photo.
+ */
 export interface CropRect {
   left: number;
   top: number;
@@ -273,6 +276,12 @@ export interface PanoramaCropInput {
   /** Horizontal and vertical offset of the reference framing, as fractions of its size. */
   shiftX?: number;
   shiftY?: number;
+  /**
+   * The angle (degrees) the facade spans from the camera. With it the photograph is laid out at
+   * that scale (the facade's width covers this many degrees), `framing` is not used, and the crop
+   * may leave the photograph.
+   */
+  facadeAngleDeg?: number;
 }
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
@@ -281,7 +290,9 @@ const clamp = (value: number, min: number, max: number) => Math.min(max, Math.ma
  * Pans and zooms within a photograph as if it were a panorama: the reference view frames the
  * facade; a heading offset shifts the crop horizontally, a pitch offset vertically (looking up
  * moves it up), and the field of view sets its size at a fixed number of photo pixels per degree.
- * The crop never leaves the photo (it slides back inside, and shrinks to fit). Deterministic.
+ * Without `facadeAngleDeg` the crop never leaves the photo (it slides back inside, and shrinks to
+ * fit). With it the scale is the facade's width over that angle and the crop is not limited: it
+ * may lie partly or wholly outside the photo. Deterministic.
  */
 export function panoramaCrop(input: PanoramaCropInput): CropRect {
   const { width: W, height: H } = input.photo;
@@ -289,6 +300,23 @@ export function panoramaCrop(input: PanoramaCropInput): CropRect {
   const [fx0, fy0, fx1, fy1] = input.facade;
   const facadeW = (fx1 - fx0) * W;
   const facadeH = (fy1 - fy0) * H;
+  if (input.facadeAngleDeg !== undefined) {
+    const pxPerDegree = facadeW / input.facadeAngleDeg;
+    const referenceHeight = pxPerDegree * input.reference.fov;
+    const height = Math.max(1, pxPerDegree * input.view.fov);
+    const width = height * aspect;
+    const cx =
+      ((fx0 + fx1) / 2) * W +
+      (input.shiftX ?? 0) * referenceHeight +
+      signedAngleDelta(input.reference.heading, input.view.heading) * pxPerDegree;
+    const cy =
+      ((fy0 + fy1) / 2) * H +
+      (input.shiftY ?? 0) * referenceHeight -
+      (input.view.pitch - input.reference.pitch) * pxPerDegree;
+    const w = Math.max(1, Math.round(width));
+    const h = Math.max(1, Math.round(height));
+    return { left: Math.round(cx - w / 2), top: Math.round(cy - h / 2), width: w, height: h };
+  }
   // Largest crop height that fits the photo at this aspect ratio.
   const maxHeight = Math.min(H, W / aspect);
   const referenceHeight = clamp(
@@ -656,21 +684,83 @@ function decodePhoto(file: string) {
   return entry;
 }
 
+/** The flat color of a frame whose crop does not meet the photo at all. */
+export const OUTSIDE_PHOTO_FILL = '#B8C2C8';
+
 /**
- * Renders a photo frame: the crop resampled to the output size, the facade blurred when the owner
- * asked for it, and the credit line burned into the bottom right. Returns PNG or JPEG bytes.
+ * The pixels of a crop that leaves the photo: the part inside the photo resampled to its share of
+ * the output, and the rest filled by continuing that part's edge pixels outward (the photo is
+ * never repeated). A crop that does not meet the photo at all gives a flat `OUTSIDE_PHOTO_FILL`
+ * frame. PNG bytes of exactly `width` by `height`.
+ */
+async function outsidePhotoFrame(
+  master: { data: Buffer; width: number; height: number },
+  crop: CropRect,
+  width: number,
+  height: number,
+): Promise<Buffer> {
+  const ix0 = Math.max(0, crop.left);
+  const iy0 = Math.max(0, crop.top);
+  const ix1 = Math.min(master.width, crop.left + crop.width);
+  const iy1 = Math.min(master.height, crop.top + crop.height);
+  if (ix1 <= ix0 || iy1 <= iy0) {
+    return sharp({ create: { width, height, channels: 3, background: OUTSIDE_PHOTO_FILL } })
+      .png()
+      .toBuffer();
+  }
+  // Where the inside part lands in the output, at least one pixel on each axis.
+  const span = (from: number, to: number, origin: number, size: number, out: number) => {
+    let start = Math.round(((from - origin) * out) / size);
+    let end = Math.round(((to - origin) * out) / size);
+    start = clamp(start, 0, out - 1);
+    end = clamp(end, start + 1, out);
+    return { start, end };
+  };
+  const x = span(ix0, ix1, crop.left, crop.width, width);
+  const y = span(iy0, iy1, crop.top, crop.height, height);
+  const inside = await sharp(master.data, {
+    raw: { width: master.width, height: master.height, channels: 3 },
+  })
+    .extract({ left: ix0, top: iy0, width: ix1 - ix0, height: iy1 - iy0 })
+    .resize(x.end - x.start, y.end - y.start, { fit: 'fill', kernel: 'lanczos3' })
+    .png()
+    .toBuffer();
+  return sharp(inside)
+    .extend({
+      left: x.start,
+      top: y.start,
+      right: width - x.end,
+      bottom: height - y.end,
+      extendWith: 'copy',
+    })
+    .png()
+    .toBuffer();
+}
+
+/**
+ * Renders a photo frame: the crop resampled to the output size (a crop that leaves the photo
+ * continues the photo's edge, see `outsidePhotoFrame`), the facade blurred when the owner asked
+ * for it, and the credit line burned into the bottom right. Returns PNG or JPEG bytes.
  */
 export async function renderPhotoFrame(
   input: PhotoFrameInput & { file: string; format?: 'jpeg' | 'png'; quality?: number },
 ): Promise<Buffer> {
   const master = await decodePhoto(input.file);
-  let frame = await sharp(master.data, {
-    raw: { width: master.width, height: master.height, channels: 3 },
-  })
-    .extract(input.crop)
-    .resize(input.width, input.height, { fit: 'fill', kernel: 'lanczos3' })
-    .png()
-    .toBuffer();
+  const { crop } = input;
+  const insidePhoto =
+    crop.left >= 0 &&
+    crop.top >= 0 &&
+    crop.left + crop.width <= master.width &&
+    crop.top + crop.height <= master.height;
+  let frame = insidePhoto
+    ? await sharp(master.data, {
+        raw: { width: master.width, height: master.height, channels: 3 },
+      })
+        .extract(crop)
+        .resize(input.width, input.height, { fit: 'fill', kernel: 'lanczos3' })
+        .png()
+        .toBuffer()
+    : await outsidePhotoFrame(master, crop, input.width, input.height);
   const overlays: OverlayOptions[] = [];
   if (input.blurredHouse) {
     const facade = transformBox(

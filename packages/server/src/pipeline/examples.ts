@@ -3,6 +3,7 @@ import sharp from 'sharp';
 import {
   SCENE_ANALYSIS_SCHEMA_VERSION,
   SpecAttributesSchema,
+  isLavishPlan,
   isRelightLightingMode,
   type LightingMode,
   type LocalizedAdditionRecord,
@@ -147,9 +148,10 @@ function daylightKey(example: ExampleContent, photo: LibraryPhoto): string {
  * exact anchors when vision runs in fixture mode), the pack's plan and the request compiled with
  * the configured settings (`imageEdit`), the edit, registration, localization of the added
  * decorations, the keep-mask (the plan's shapes united with the localized boxes), photometric
- * alignment and paste-back. A relit example (`evening`, `bright`) relights that daylight composite
- * with the compiled relight request for its target (no mask) and registers the relit output to
- * it, as a render job's relight does; a bright example of a photo that is already bright (the
+ * alignment and paste-back; a lavish example (`isLavishPlan`) is not localized, keeps the whole
+ * frame minus the restored boxes and is pasted without tone matching. A relit example
+ * (`evening`, `bright`) relights that daylight composite with the compiled relight request for
+ * its target (no mask) and registers the relit output to it, as a render job's relight does; a bright example of a photo that is already bright (the
  * render job's skip rule) keeps the composite as photographed. Returns JPEG bytes of the before
  * and after images at the example's size, and for a relit example the daylight composite it relit
  * (JPEG at the same size) with its plan.
@@ -297,6 +299,7 @@ export async function renderExamplePair(
         lightingMode: 'source',
         compilerVersion: compilerVersionFor(provider),
         permissionEvaluationId: `example:${example.exampleId}`,
+        options: { lavish: PIPELINE_DEFAULTS.lavishSceneTypes.includes(example.sceneType) },
       },
       (built) => {
         const mask = maskFor(built.draft.placements);
@@ -337,6 +340,7 @@ export async function renderExamplePair(
       plan,
       mask: planMask,
       glowRegions: windows,
+      lavish: isLavishPlan(plan),
     });
     if (!registration.registered.aligned) {
       throw new ExampleCameraChangedError(
@@ -345,23 +349,27 @@ export async function renderExamplePair(
         outcome.image,
       );
     }
+    const lavish = isLavishPlan(plan);
     let items: LocalizedAdditionRecord[] | null = null;
-    try {
-      const localized = await callLocalizer({
-        vision: deps.vision,
-        attemptId: example.exampleId,
-        working,
-        aligned: registration.registered.aligned,
-        placements: plan.placements,
-        timeoutMs: PIPELINE_DEFAULTS.localizationTimeoutMs,
-        signal: new AbortController().signal,
-      });
-      items = localizationRecords(
-        localized.result,
-        plan.placements.map((placement) => placement.id),
-      ).items;
-    } catch {
-      // As in the render job: a localization that fails keeps the plan mask.
+    // As in the render job, a lavish example keeps the whole frame and is not localized.
+    if (!lavish) {
+      try {
+        const localized = await callLocalizer({
+          vision: deps.vision,
+          attemptId: example.exampleId,
+          working,
+          aligned: registration.registered.aligned,
+          placements: plan.placements,
+          timeoutMs: PIPELINE_DEFAULTS.localizationTimeoutMs,
+          signal: new AbortController().signal,
+        });
+        items = localizationRecords(
+          localized.result,
+          plan.placements.map((placement) => placement.id),
+        ).items;
+      } catch {
+        // As in the render job: a localization that fails keeps the plan mask.
+      }
     }
     // As in the render job, the surroundings of each text mark and the decorations found on it
     // decide how it is composited; the keep-mask follows the decisions.
@@ -375,6 +383,7 @@ export async function renderExamplePair(
       items,
       placements: plan.placements,
       buildMask: ({ textMarks }) => maskFor(plan.placements, textMarks),
+      lavish,
     });
     const mask = protection.keep?.mask ?? protection.mask;
     const keptRegions: NormalizedBox[] = (protection.keep?.kept ?? []).map((item) => item.box);
@@ -390,6 +399,7 @@ export async function renderExamplePair(
       openHouseNumbers: protection.openHouseNumbers,
       attributionRegion: null,
       glowRegions: windows,
+      lavish,
     });
     daylight = {
       candidate: composite.candidate,
@@ -439,9 +449,11 @@ export async function renderExamplePair(
       },
       analysis,
       mask: null,
-      keptRegions: daylight.keptRegions,
+      // As in the render job: a lavish base's localized boxes are not left out.
+      keptRegions: isLavishPlan(daylight.plan) ? [] : daylight.keptRegions,
       attributionRegion: null,
       glowRegions: windows,
+      lavish: isLavishPlan(daylight.plan),
     });
     if (!relight.alignment.accepted) {
       throw new ExampleCameraChangedError(example.exampleId, relight.alignment, outcome.image);

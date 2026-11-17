@@ -16,7 +16,10 @@ export * from './validator.js';
 export * from './builder.js';
 export * from './repair.js';
 
-/** The reviewed pack content the compiler needs for one scene section. */
+/**
+ * The reviewed pack content the compiler needs for one scene section, its lavish description
+ * included.
+ */
 export function compileContentFor(
   pack: Pick<HolidayPack, 'sceneSections'>,
   sceneType: SceneType,

@@ -321,6 +321,13 @@ export const DecorationPlanSchema = z.strictObject({
   }),
   negatives: z.array(z.string()),
   lightingInstruction: z.strictObject({ mode: LightingModeSchema, text: z.string() }),
+  /**
+   * Present when the decorate request states the pack section's lavish description (one
+   * paragraph for the whole display) in place of one sentence per placement; the placements are
+   * then an advisory list. `lit`: whether that description asks for electric lights. A relight
+   * plan carries the value of the plan it relights.
+   */
+  lavish: z.strictObject({ lit: z.boolean() }).optional(),
   repairConstraints: z.array(RepairConstraintSchema).optional(),
   existingDecorConflict: z.boolean(),
   permissionEvaluationId: z.string().min(1),
@@ -351,6 +358,11 @@ export const DecorationPlanSchema = z.strictObject({
   relightOf: RelightBaseSchema.optional(),
 });
 export type DecorationPlan = z.infer<typeof DecorationPlanSchema>;
+
+/** Whether a plan's decorate request states the lavish description (`DecorationPlan.lavish`). */
+export function isLavishPlan(plan: Pick<DecorationPlan, 'lavish'>): boolean {
+  return plan.lavish !== undefined;
+}
 
 /** One decoration the localizer found in an aligned output, as recorded on the attempt. */
 export const LocalizedAdditionRecordSchema = z.strictObject({

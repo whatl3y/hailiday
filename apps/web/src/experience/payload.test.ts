@@ -96,15 +96,31 @@ describe('experience payload', () => {
 });
 
 describe('fixture badge', () => {
-  it('marks fixture integrations and non-Google Street View images', () => {
+  it('marks fixture integrations and the fixture stand-ins of Street View frames', () => {
     expect(isFixtureImage('generated', ['image_editing'])).toBe(true);
     expect(isFixtureImage('generated', [])).toBe(false);
-    expect(isFixtureImage('street_view', [], { url: '/v1/fixtures/sv/abc.jpg' })).toBe(true);
+    expect(isFixtureImage('street_view', [], { url: '/fixture/streetview?pano=abc' })).toBe(true);
+    expect(
+      isFixtureImage('street_view', [], {
+        url: 'http://localhost:8080/fixture/streetview?pano=abc&heading=90',
+      }),
+    ).toBe(true);
     expect(
       isFixtureImage('street_view', [], {
         url: 'https://maps.googleapis.com/maps/api/streetview?pano=x',
       }),
     ).toBe(false);
+    // The stored frame a look was made from is served from storage: real imagery, no badge.
+    expect(
+      isFixtureImage('street_view', [], {
+        url: 'http://localhost:9000/hailiday-private/sources/018f/frame.jpg?X-Amz-Signature=abc',
+      }),
+    ).toBe(false);
+    expect(
+      isFixtureImage('street_view', ['street_view_display'], {
+        url: 'http://localhost:9000/hailiday-private/sources/018f/frame.jpg',
+      }),
+    ).toBe(true);
     expect(isFixtureImage('photo', [], { sourceKind: 'fixture' })).toBe(true);
     expect(isFixtureImage('photo', ['image_editing'])).toBe(false);
   });

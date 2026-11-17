@@ -34,6 +34,7 @@ export {
 } from './street-view/fixture.js';
 export {
   ViewpointFramingSchema,
+  aimAt,
   directionOf,
   frameView,
   framedViewOf,
@@ -41,6 +42,7 @@ export {
   normalizeHeading,
   pointOf,
   viewpointFramed,
+  wideViewOf,
   type FrameGeometry,
   type FramePoint,
   type FramedView,

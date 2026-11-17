@@ -109,6 +109,37 @@ export interface ViewpointParameters {
   preferredDistanceM: number;
   farFromTargetM: number;
   primaryReplacementMaxDistanceM: number;
+  /** A second panorama nearer than this to the lead one gives no road bearing. */
+  trackMinSeparationM: number;
+  /** A second panorama farther than this from the lead one gives no road bearing. */
+  trackMaxSeparationM: number;
+  /**
+   * Two second panoramas agree on a track when their bearings from the lead one, taken as lines
+   * (modulo 180 degrees), differ by at most this.
+   */
+  trackAgreementMaxDeg: number;
+  /** The target is on the road when it lies at most this far from the track. */
+  onRoadMaxCrossTrackM: number;
+  /** Below this distance from the track the side of the road the target lies on is unknown. */
+  roadSideMinCrossTrackM: number;
+  /** Assumed distance from a target on the road to the home, across the road. */
+  roadsideSetbackM: number;
+  /** Distance from the lead panorama of the four points probed for a second panorama. */
+  roadCrossOffsetM: number;
+  /** Probe radius at each of those four points. */
+  roadCrossRadiusM: number;
+  /** Those four points are probed only when the target is at most this far from the panorama. */
+  roadCrossMaxTargetDistanceM: number;
+  /**
+   * The third road view looks toward the target only from this distance between the panorama and
+   * the target; nearer, it looks along the track.
+   */
+  alongRoadMinDistanceM: number;
+  /**
+   * The third road view looks toward the target only when that heading differs by at least this
+   * from each side view; otherwise it looks along the track.
+   */
+  alongRoadMinSideAngleDeg: number;
 }
 
 export const DEFAULT_VIEWPOINT_PARAMETERS: ViewpointParameters = Object.freeze({
@@ -128,7 +159,29 @@ export const DEFAULT_VIEWPOINT_PARAMETERS: ViewpointParameters = Object.freeze({
   preferredDistanceM: 20,
   farFromTargetM: 40,
   primaryReplacementMaxDistanceM: 40,
+  trackMinSeparationM: 4,
+  trackMaxSeparationM: 45,
+  trackAgreementMaxDeg: 15,
+  onRoadMaxCrossTrackM: 6,
+  roadSideMinCrossTrackM: 0.75,
+  roadsideSetbackM: 15,
+  roadCrossOffsetM: 15,
+  roadCrossRadiusM: 13,
+  roadCrossMaxTargetDistanceM: 12,
+  alongRoadMinDistanceM: 3,
+  alongRoadMinSideAngleDeg: 30,
 });
+
+/**
+ * Signed distance in meters of `point` from the line through `origin` on `trackBearingDeg`:
+ * positive to the right of the bearing, negative to the left. `d · sin(bearing(origin→point) −
+ * track)`, 0 when the points coincide.
+ */
+export function crossTrackOffsetM(origin: LatLng, trackBearingDeg: number, point: LatLng): number {
+  const distance = haversineDistanceM(origin, point);
+  if (distance === 0) return 0;
+  return distance * Math.sin(toRad(initialBearingDeg(origin, point) - trackBearingDeg));
+}
 
 /**
  * `fov = clamp(2 · atan((W/2 + m) / d), 60, 90)`. When W is unknown it is taken as

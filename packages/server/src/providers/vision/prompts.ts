@@ -1,4 +1,9 @@
-import { SURFACE_ANCHOR_CATEGORIES, anchorCategoriesForSceneType, boxThirds } from '@hailiday/core';
+import {
+  SURFACE_ANCHOR_CATEGORIES,
+  anchorCategoriesForSceneType,
+  boxThirds,
+  isLavishPlan,
+} from '@hailiday/core';
 import type {
   AnchorCategory,
   DecorationPlan,
@@ -12,7 +17,7 @@ import type { EnhanceJudgeInput } from '../types.js';
 
 /** Prompt versions, recorded with every call. */
 export const ANALYSIS_PROMPT_VERSION = 'analysis-2026.11.2';
-export const JUDGE_PROMPT_VERSION = 'judge-2026.11.10';
+export const JUDGE_PROMPT_VERSION = 'judge-2026.11.16';
 export const TRIAGE_PROMPT_VERSION = 'triage-2026.11.0';
 export const LOCALIZE_PROMPT_VERSION = 'localize-2026.11.0';
 export const FRAME_PROMPT_VERSION = 'frame-2026.11.0';
@@ -428,10 +433,38 @@ export function judgeSystemPrompt(
 }
 
 /**
+ * What the decorate judge is told about a plan decorated from a lavish description: the amount
+ * and brightness are intended, lights on the home's own plants and decorations on its grounds are
+ * decorations, and the listed placements are a record, not a checklist.
+ */
+export const JUDGE_LAVISH_REQUEST =
+  'The lavish style was asked for: the home is meant to be covered in a great many lights and decorations, far more than the placements listed below.';
+export const JUDGE_LAVISH_AMOUNT =
+  'The number, density and brightness of the lights and decorations are never a failure in themselves: report no code only because there are many of them, because they are close together or because their lights are bright.';
+export const JUDGE_LAVISH_GROUNDS =
+  "Lights laid over or wrapped around the home's own shrubs, hedges and tree trunks, and decorations standing on its lawn and along its paths, are decorations: they are not landscaping changes, not a plant covered or replaced, and not unrequested_change.";
+export const JUDGE_LAVISH_PLAN =
+  'Report plan_not_followed only when the picture is not richly decorated or shows the wrong holiday; a listed placement that is missing, in another spot or in another count is not plan_not_followed.';
+export const JUDGE_LAVISH_HARD_RULES =
+  'Every other rule applies unchanged: structure_changed, wrong_property, neighbor_decorated, access_blocked, privacy_regression, people_altered, text_added, unsafe_or_offensive, camera_changed and attribution_altered are reported exactly as for any other photo.';
+export const JUDGE_LAVISH_PLACEMENTS =
+  'Listed placements (typical items of this look; report for each whether it is present, as a record only: none of them is required, and decorations beyond them are expected):';
+
+/** What the relight judges are told about a base decorated from a lavish description. */
+export const JUDGE_LAVISH_RELIGHT_BASE =
+  'Image 1 is decorated in the lavish style: its lights and decorations are many and bright by design. Every decoration in image 1 must still be there, unchanged, whether it is listed below or not.';
+export const JUDGE_LAVISH_RELIGHT_EVENING =
+  'In the evening light the decorated home is meant to be the brightest thing in the picture: many bulbs glowing brightly, and their glow washing the walls, the ground and the plants around them, are expected and are not lighting_implausible. Glow without a source, lit windows that do not exist and neighbors lit still are.';
+export const JUDGE_LAVISH_RELIGHT_DECORATIONS =
+  'Listed decorations (typical items of this look; report for each whether it is still where it is in image 1; an item that is not in image 1 is reported as not present and is not a failure):';
+
+/**
  * The per-call judge instruction built from the plan; it contains no address or user text. In
  * relight mode the plan's placements are the decorations of the base image, which must all stay,
  * and the requested light follows the relight plan's lighting mode: the bright look for `bright`,
- * otherwise early evening.
+ * otherwise early evening. A plan decorated from a lavish description (`plan.lavish`) gets the
+ * lines that say the amount and brightness are intended, and its placements are listed as a
+ * record instead of a checklist.
  */
 export function judgeUserPrompt(
   plan: DecorationPlan,
@@ -440,6 +473,7 @@ export function judgeUserPrompt(
 ): string {
   const relight = options.mode === 'relight';
   const bright = relight && relightJudgeTarget(plan) === 'bright';
+  const lavish = isLavishPlan(plan);
   const lines = relight
     ? [
         ...(bright
@@ -451,7 +485,15 @@ export function judgeUserPrompt(
               `Scene type: ${plan.sceneType}. Requested light: early evening at dusk, with the decorations that are switched on glowing, warm light in the existing windows and the porch light on.`,
               'A darker sky, lower ambient exposure and the glow of existing lights are expected and are not changes to report.',
             ]),
-        'Decorations in image 1 (each must still be there, unchanged, wherever it is in image 1):',
+        ...(lavish
+          ? [
+              JUDGE_LAVISH_RELIGHT_BASE,
+              ...(!bright && plan.lavish?.lit ? [JUDGE_LAVISH_RELIGHT_EVENING] : []),
+              JUDGE_LAVISH_RELIGHT_DECORATIONS,
+            ]
+          : [
+              'Decorations in image 1 (each must still be there, unchanged, wherever it is in image 1):',
+            ]),
         ...plan.placements.map(
           (placement) =>
             `- ${placement.id}: ${placement.count} x ${placement.specText}${placement.lit ? ', switched on (should glow)' : ''}.`,
@@ -460,10 +502,21 @@ export function judgeUserPrompt(
     : [
         `Scene type: ${plan.sceneType}. Lighting mode: ${plan.lightingMode}.`,
         `Requested decorations: ${HOLIDAY_WORDS[plan.holidayId]}, ${plan.style} style.`,
+        ...(lavish
+          ? [
+              JUDGE_LAVISH_REQUEST,
+              JUDGE_LAVISH_AMOUNT,
+              ...(plan.sceneType === 'house_exterior' ? [JUDGE_LAVISH_GROUNDS] : []),
+              JUDGE_LAVISH_PLAN,
+              JUDGE_LAVISH_HARD_RULES,
+            ]
+          : []),
         plan.lightingMode === 'evening'
           ? 'An evening relight is expected: a darker sky and lower ambient exposure are not changes to report.'
           : 'The lighting, sky and time of day should match the original.',
-        'Planned placements (the kinds and counts matter: each must be present; a different natural spot is fine, and so are additional decorations of the requested holiday and style in sensible places):',
+        lavish
+          ? JUDGE_LAVISH_PLACEMENTS
+          : 'Planned placements (the kinds and counts matter: each must be present; a different natural spot is fine, and so are additional decorations of the requested holiday and style in sensible places):',
         ...plan.placements.map(
           (placement) =>
             `- ${placement.id}: ${placement.count} x ${placement.specText} (${placement.placementRule} the ${placement.anchorCategory.replace(/_/g, ' ')}, ${positionWords(placement.region)})${placement.lit ? ', switched on' : ''}.`,
@@ -518,6 +571,15 @@ export function localizeUserPrompt(placements: readonly LocalizePromptPlacement[
   ].join('\n');
 }
 
+/** What the box of the call that locates the home covers, and what it leaves out. */
+const FRAME_HOME_BOX =
+  'home: one tight box around the whole visible building of the target home, from the top of its roof (chimney included) down to where the building meets the ground, with its porch, entry steps and an attached garage. Leave out the lawn, driveway, walkway, sidewalk, street, trees, shrubs, fences, vehicles and every neighboring building. Where a tree or shrub in front hides part of the home, the box still covers the part of the home behind it. For attached homes the box spans only the target unit.';
+
+/** When the call that locates the home answers no home, and when it answers ambiguous. */
+function frameNullRule(noTarget: string, unclear: string): string {
+  return `When ${noTarget}, set home to null and ambiguous to false. Set ambiguous to true, with home null, only when ${unclear}. Otherwise set ambiguous to false.`;
+}
+
 /**
  * System prompt of the call that locates the home a Street View frame is aimed at, so that the
  * frame can be fetched again showing just that home (cacheable; contains no address or user text).
@@ -525,9 +587,42 @@ export function localizeUserPrompt(placements: readonly LocalizePromptPlacement[
 export const FRAME_SYSTEM_PROMPT = [
   'You find the home a street-level photograph is aimed at, so that a closer photograph of just that home can be taken from the same spot.',
   `Target home: ${STREET_VIEW_TARGET_HOME}`,
-  'home: one tight box around the whole visible building of the target home, from the top of its roof (chimney included) down to where the building meets the ground, with its porch, entry steps and an attached garage. Leave out the lawn, driveway, walkway, sidewalk, street, trees, shrubs, fences, vehicles and every neighboring building. Where a tree or shrub in front hides part of the home, the box still covers the part of the home behind it. For attached homes the box spans only the target unit.',
-  `When ${STREET_VIEW_NO_TARGET}, set home to null and ambiguous to false. Set ambiguous to true, with home null, only when ${STREET_VIEW_TARGET_UNCLEAR}. Otherwise set ambiguous to false.`,
+  FRAME_HOME_BOX,
+  frameNullRule(STREET_VIEW_NO_TARGET, STREET_VIEW_TARGET_UNCLEAR),
   'confidence: from 0 to 1, how sure you are that the box holds the target home and all of it.',
+  COORDINATES,
+].join('\n');
+
+/** Version of the prompt that locates the home in a Street View frame taken from the road. */
+export const FRAME_ROAD_PROMPT_VERSION = 'frame-road-2026.11.0';
+
+/**
+ * Which home a Street View frame taken from the road shows: the camera was not aimed at a
+ * building, so the home may be anywhere in the frame, also cut by its left or right edge.
+ */
+export const STREET_VIEW_ROAD_TARGET_HOME =
+  'the residential building that contains the horizontal center of the frame, or the one nearest to the center when the center falls beside it (on its driveway, yard, fence or the gap next to it). When no residential building is at or near the center, the target is the most prominent residential building anywhere in the frame: the largest and least hidden one, also when the left or right edge of the frame cuts it off.';
+
+/** A Street View frame taken from the road without any home. */
+export const STREET_VIEW_ROAD_NO_TARGET = 'no residential building is in frame';
+
+/** When the home of a Street View frame taken from the road cannot be told apart from another. */
+export const STREET_VIEW_ROAD_TARGET_UNCLEAR =
+  'the center falls on the boundary between two attached or closely neighboring facades, or when two residential buildings are about equally near the center and about equally prominent';
+
+/**
+ * System prompt of the call that locates the home in a Street View frame taken from the road (a
+ * view across or along the road that the person turned toward their home), so that a frame aimed
+ * at just that home can be fetched from the same panorama (cacheable; contains no address or user
+ * text). Its box and coordinate rules are the aimed prompt's, and the box ends at the frame's
+ * edge where that edge cuts the home off.
+ */
+export const FRAME_ROAD_SYSTEM_PROMPT = [
+  'You find the home a person picked in a street-level photograph, so that a closer photograph of just that home can be taken from the same spot. The photograph was taken from the road, looking across or along it; it was not aimed at any one home. The person chose this view because it shows their home, and was asked to turn the view until their home is in the middle.',
+  `Target home: ${STREET_VIEW_ROAD_TARGET_HOME}`,
+  `${FRAME_HOME_BOX} Where the edge of the frame cuts the home off, the box ends at that edge.`,
+  frameNullRule(STREET_VIEW_ROAD_NO_TARGET, STREET_VIEW_ROAD_TARGET_UNCLEAR),
+  'confidence: from 0 to 1, how sure you are that the box holds the target home and all of its visible part.',
   COORDINATES,
 ].join('\n');
 

@@ -3,6 +3,7 @@ import { captureGranularityOf, copyrightClassOf } from '../match.js';
 import {
   DEFAULT_VIEWPOINT_PARAMETERS,
   angleDifference,
+  crossTrackOffsetM,
   destinationPoint,
   estimatedFacadePx,
   haversineDistanceM,
@@ -18,6 +19,7 @@ import type {
   DiscoveryInput,
   DiscoveryResult,
   MetadataStatus,
+  RoadEvidence,
   StreetViewMetadata,
   ViewCandidate,
 } from '../types.js';
@@ -42,7 +44,10 @@ export const METADATA_FATAL_STATUSES: readonly MetadataStatus[] = [
   'INVALID_REQUEST',
 ];
 
-/** Compass bearings of the probe cross around the target when the road bearing is unknown. */
+/**
+ * Compass bearings of a probe cross: around the target when it answers `UNKNOWN_ERROR` and the
+ * road bearing is unknown, and around the lead panorama in the road step.
+ */
 export const TARGET_CROSS_BEARINGS: readonly { bearingDeg: number; label: string }[] = [
   { bearingDeg: 0, label: 'n' },
   { bearingDeg: 90, label: 'e' },
@@ -98,9 +103,94 @@ const usable = (
 ): metadata is StreetViewMetadata & { location: LatLng } =>
   metadata.status === 'OK' && Boolean(metadata.panoId) && metadata.location !== null;
 
+/** A panorama found in Steps 1 and 2, with the probe that found it. */
+interface FoundPanorama {
+  metadata: StreetViewMetadata & { location: LatLng };
+  probe: string;
+}
+
+/** One view of the road step, before rounding. */
+interface RoadView {
+  heading: number;
+  pitch: number;
+  roadView: NonNullable<ViewCandidate['roadView']>;
+}
+
+/**
+ * The index of the panorama that leads: the first one, unless it is not attributed to Google or
+ * is undated and a later one is attributed to Google, dated and within
+ * `primaryReplacementMaxDistanceM` of the target (rounded to the meter); then the first such.
+ */
+function leadIndex(
+  found: readonly FoundPanorama[],
+  target: LatLng,
+  params: ViewpointParameters,
+): number {
+  const strong = (metadata: StreetViewMetadata) =>
+    copyrightClassOf(metadata.copyright) === 'google' &&
+    captureGranularityOf(metadata.date) !== 'none';
+  const first = found[0];
+  if (!first || strong(first.metadata)) return 0;
+  const replacement = found.findIndex(
+    ({ metadata }, index) =>
+      index > 0 &&
+      strong(metadata) &&
+      Math.round(haversineDistanceM(metadata.location, target)) <=
+        params.primaryReplacementMaxDistanceM,
+  );
+  return replacement === -1 ? 0 : replacement;
+}
+
+/** A panorama that may give the road's track, as seen from the lead panorama. */
+interface TrackChoice {
+  panoId: string;
+  /** Bearing from the lead panorama to this one. */
+  bearing: number;
+  /** Signed offset of the target from the line through both panoramas. */
+  offset: number;
+  /** Distance from the lead panorama. */
+  separation: number;
+  /** How many other eligible panoramas lie along the same line through the lead panorama. */
+  agreement: number;
+}
+
+/** Smallest difference between two bearings taken as lines (modulo 180), in [0, 90]. */
+const lineAngleDifference = (a: number, b: number) => {
+  const difference = angleDifference(a, b);
+  return Math.min(difference, 180 - difference);
+};
+
+/** Heading to 0.1 degree in [0, 360). */
+const roundedHeading = (degrees: number) => {
+  const value = round(normalizeDegrees(degrees), 1);
+  return value >= 360 ? 0 : value;
+};
+
 /**
  * The viewpoint algorithm: primary panorama by radius ladder, up to four alternate probes along
  * the road, per-candidate view parameters, then primary selection and ordering.
+ *
+ * Without building geometry a road step runs after the alternates. The panorama that leads (the
+ * one Step 4 would make primary) is `A`. When the target is within `roadCrossMaxTargetDistanceM`
+ * of `A`, four single probes `roadCrossOffsetM` north, east, south and west of `A` at radius
+ * `roadCrossRadiusM` are sent together (none once the time budget is spent; an error status there
+ * is no panorama and never fails discovery). Every other panorama seen by any probe that is
+ * attributed to Google and lies `trackMinSeparationM` to `trackMaxSeparationM` from `A` gives a
+ * track (the bearing from `A` to it). Its agreement is the number of other such panoramas whose
+ * bearing from `A` lies within `trackAgreementMaxDeg` of the same line (modulo 180 degrees). The
+ * track with the highest agreement is taken; then the one the target lies nearest to, then the
+ * nearer panorama, then the smaller panorama ID. A target within `onRoadMaxCrossTrackM` of that
+ * track is on the road: the candidates are, all from `A` in mode `road`, the view across the road
+ * to the side the target lies on (the south or east side when it is under `roadSideMinCrossTrackM`
+ * from the track), the view across to the other side, both aimed at the point `roadsideSetbackM`
+ * from the target across the track, and a third view: toward the target when it is at least
+ * `alongRoadMinDistanceM` from `A` and that heading differs by at least `alongRoadMinSideAngleDeg`
+ * from both side views, otherwise along the track (toward the panorama that gave it). With no
+ * track at all after the cross, the candidates are three views from
+ * `A` 120 degrees apart in mode `road`, starting toward the target (north under
+ * `alongRoadMinDistanceM`). Otherwise Steps 3 and 4 run as with geometry, in mode `point`. Road
+ * views have the widest field of view and the pitch of the assumed setback; what was found is
+ * returned as `road`.
  *
  * Every metadata error at the target is retried once. When both attempts answer with an error
  * status and either was `OVER_QUERY_LIMIT`, `REQUEST_DENIED` or `INVALID_REQUEST`, discovery ends
@@ -110,10 +200,12 @@ const usable = (
  * fallback point at the same radius; the first `OK` panorama within the alternate distance limit
  * becomes the primary. The step ends with `error` only when every one of its probes errors; when
  * some answered without a usable panorama, the ladder continues. An exhausted time budget also
- * ends with `error`. With the default parameters a discovery makes at most 26 metadata calls:
- * 6 per ladder step (target, its retry, four fallback points) and 8 for the alternates (four
- * points, each retried once; a point already probed at the same radius reuses that answer, except
- * that a single `UNKNOWN_ERROR` there gets its one retry, so no point takes more than two calls).
+ * ends with `error`. With the default parameters a discovery makes at most 26 metadata calls for
+ * a place with building geometry: 6 per ladder step (target, its retry, four fallback points) and
+ * 8 for the alternates (four points, each retried once; a point already probed at the same radius
+ * reuses that answer, except that a single `UNKNOWN_ERROR` there gets its one retry, so no point
+ * takes more than two calls). A place without it may add the 4 single probes of the cross around
+ * the primary, 30 in all.
  */
 export async function discoverCandidates(
   probe: MetadataProbe,
@@ -129,6 +221,11 @@ export async function discoverCandidates(
   let calls = 0;
   /** The settled answer per point and radius, with the attempts it took. */
   const answered = new Map<string, { metadata: StreetViewMetadata; attempts: number }>();
+  /**
+   * Every panorama any probe answered, in the order first seen, with whether its metadata is
+   * attributed to Google.
+   */
+  const seen = new Map<string, { location: LatLng; google: boolean }>();
   const keyOf = (location: LatLng, radius: number) =>
     `${location.latitude.toFixed(7)},${location.longitude.toFixed(7)}@${radius}`;
   const isError = (metadata: StreetViewMetadata) =>
@@ -170,6 +267,12 @@ export async function discoverCandidates(
     }
     const settled = isError(last) && fatal ? fatal : last;
     answered.set(key, { metadata: settled, attempts: made });
+    if (usable(settled) && !seen.has(settled.panoId as string)) {
+      seen.set(settled.panoId as string, {
+        location: settled.location,
+        google: copyrightClassOf(settled.copyright) === 'google',
+      });
+    }
     return settled;
   };
 
@@ -184,8 +287,136 @@ export async function discoverCandidates(
     metadataCalls: calls,
     durationMs: now() - started,
     timedOut: false,
+    road: null,
     ...extra,
   });
+
+  /**
+   * The on-road test around the panorama that leads, and the road views when it calls for them
+   * (`views` null when Steps 3 and 4 make the candidates).
+   */
+  const roadStep = async (
+    lead: FoundPanorama,
+  ): Promise<{ road: RoadEvidence; views: RoadView[] | null }> => {
+    const origin = lead.metadata.location;
+    const leadPanoId = lead.metadata.panoId as string;
+    const target = input.target;
+    const distance = haversineDistanceM(origin, target);
+    const before = new Set(seen.keys());
+    const looked = distance <= params.roadCrossMaxTargetDistanceM;
+    let crossProbes = 0;
+    if (looked) {
+      const callsBefore = calls;
+      // The four probes start in the order north, east, south, west and run together.
+      await Promise.all(
+        TARGET_CROSS_BEARINGS.map(({ bearingDeg }) =>
+          call(
+            destinationPoint(origin, bearingDeg, params.roadCrossOffsetM),
+            params.roadCrossRadiusM,
+            1,
+          ).catch((error: unknown) => {
+            if (!(error instanceof BudgetExceeded)) throw error;
+          }),
+        ),
+      );
+      crossProbes = calls - callsBefore;
+    }
+
+    // Panoramas that may give a track: attributed to Google, at a usable distance from the lead.
+    const eligible: TrackChoice[] = [];
+    for (const [panoId, { location, google }] of seen) {
+      if (panoId === leadPanoId || !google) continue;
+      const separation = haversineDistanceM(origin, location);
+      if (separation < params.trackMinSeparationM || separation > params.trackMaxSeparationM) {
+        continue;
+      }
+      const bearing = initialBearingDeg(origin, location);
+      const offset = crossTrackOffsetM(origin, bearing, target);
+      eligible.push({ panoId, bearing, offset, separation, agreement: 0 });
+    }
+
+    // The track most other eligible panoramas lie along; then the one the target lies nearest to;
+    // then the nearer panorama; then the smaller panorama ID.
+    let track: TrackChoice | null = null;
+    for (const item of eligible) {
+      item.agreement = eligible.filter(
+        (other) =>
+          other !== item &&
+          lineAngleDifference(other.bearing, item.bearing) <= params.trackAgreementMaxDeg,
+      ).length;
+      const better =
+        !track ||
+        item.agreement > track.agreement ||
+        (item.agreement === track.agreement &&
+          (Math.abs(item.offset) < Math.abs(track.offset) ||
+            (Math.abs(item.offset) === Math.abs(track.offset) &&
+              (item.separation < track.separation ||
+                (item.separation === track.separation && item.panoId < track.panoId)))));
+      if (better) track = item;
+    }
+
+    if (!track) {
+      const road: RoadEvidence = {
+        onRoad: false,
+        trackBearingDeg: null,
+        trackAgreement: null,
+        trackSource: null,
+        crossTrackM: null,
+        crossProbes,
+      };
+      if (!looked) return { road, views: null };
+      // No road is known around the panorama: three views 120 degrees apart.
+      const base = distance >= params.alongRoadMinDistanceM ? initialBearingDeg(origin, target) : 0;
+      const pitch = viewPitchDeg(params.roadsideSetbackM, params);
+      return {
+        road,
+        views: [0, 120, 240].map((turn) => ({
+          heading: base + turn,
+          pitch,
+          roadView: 'around' as const,
+        })),
+      };
+    }
+
+    const onRoad = Math.abs(track.offset) <= params.onRoadMaxCrossTrackM;
+    const road: RoadEvidence = {
+      onRoad,
+      trackBearingDeg: roundedHeading(track.bearing),
+      trackAgreement: track.agreement,
+      trackSource: before.has(track.panoId) ? 'alternates' : 'cross',
+      crossTrackM: round(track.offset, 1),
+      crossProbes,
+    };
+    if (!onRoad) return { road, views: null };
+
+    // The side the target point lies on first; the south or east side when that is unknown.
+    const first =
+      Math.abs(track.offset) >= params.roadSideMinCrossTrackM
+        ? normalizeDegrees(track.bearing + (track.offset > 0 ? 90 : -90))
+        : (track.bearing % 180) + 90;
+    const views: RoadView[] = [first, normalizeDegrees(first + 180)].map((side) => {
+      const aim = destinationPoint(target, side, params.roadsideSetbackM);
+      return {
+        heading: initialBearingDeg(origin, aim),
+        pitch: viewPitchDeg(haversineDistanceM(origin, aim), params),
+        roadView: 'side' as const,
+      };
+    });
+    // The third view looks toward the target unless the target is too near or that view would
+    // repeat a side view; then it looks along the track.
+    const toward = initialBearingDeg(origin, target);
+    const towardTarget =
+      distance >= params.alongRoadMinDistanceM &&
+      views.every(
+        (view) => angleDifference(view.heading, toward) >= params.alongRoadMinSideAngleDeg,
+      );
+    views.push({
+      heading: towardTarget ? toward : track.bearing,
+      pitch: viewPitchDeg(params.roadsideSetbackM, params),
+      roadView: 'along',
+    });
+    return { road, views };
+  };
 
   try {
     // Step 1: primary panorama.
@@ -227,9 +458,7 @@ export async function discoverCandidates(
     const roadBearing =
       input.roadBearingDeg ??
       normalizeDegrees(initialBearingDeg(primary.location, input.target) + 90);
-    const found: { metadata: StreetViewMetadata; probe: string }[] = [
-      { metadata: primary, probe: primaryProbe },
-    ];
+    const found: FoundPanorama[] = [{ metadata: primary, probe: primaryProbe }];
     for (const offset of params.alternateOffsetsM) {
       const metadata = await call(alongRoad(input.target, roadBearing, offset), primaryRadius);
       if (!usable(metadata)) continue;
@@ -239,19 +468,60 @@ export async function discoverCandidates(
       found.push({ metadata, probe: offsetLabel(offset) });
     }
 
+    const flagsOf = (metadata: StreetViewMetadata, distance: number): CandidateFlag[] => {
+      const flags: CandidateFlag[] = [];
+      if (deepSetback) flags.push('deepSetback');
+      if (copyrightClassOf(metadata.copyright) !== 'google') flags.push('contributorImagery');
+      if (captureGranularityOf(metadata.date) === 'none') flags.push('undated');
+      if (distance > params.farFromTargetM) flags.push('farFromTarget');
+      if (input.attachedFacade) flags.push('attachedFacade');
+      return flags;
+    };
+    const lead = found[leadIndex(found, input.target, params)] as FoundPanorama;
+
+    // The road step, for a place without building geometry.
+    let road: RoadEvidence | null = null;
+    if (!input.geometryAvailable) {
+      const step = await roadStep(lead);
+      road = step.road;
+      if (step.views) {
+        const metadata = lead.metadata;
+        const distance = haversineDistanceM(metadata.location, input.target);
+        const copyrightClass = copyrightClassOf(metadata.copyright);
+        const candidates: ViewCandidate[] = step.views
+          .slice(0, params.maxCandidates)
+          .map((view, index) => ({
+            panoId: metadata.panoId as string,
+            heading: roundedHeading(view.heading),
+            headingMode: 'road',
+            pitch: round(view.pitch, 1),
+            fov: params.fovMax,
+            width: params.size,
+            height: params.size,
+            distanceM: Math.round(distance),
+            captureDate: metadata.date ?? null,
+            captureGranularity: captureGranularityOf(metadata.date),
+            copyright: metadata.copyright ?? null,
+            isGoogleImagery: copyrightClass === 'google',
+            estimatedFacadePx: null,
+            flags: flagsOf(metadata, distance),
+            rank: index + 1,
+            isPrimary: index === 0,
+            location: metadata.location,
+            probe: lead.probe,
+            roadView: view.roadView,
+          }));
+        return result('ok', { candidates, probeRadiusM: primaryRadius, deepSetback, road });
+      }
+    }
+
     // Step 3: view parameters per candidate, aimed at the same target.
     const candidates: ViewCandidate[] = found.map(({ metadata, probe: probeName }) => {
-      const location = metadata.location as LatLng;
+      const location = metadata.location;
       const distance = haversineDistanceM(location, input.target);
       const fov = viewFovDeg(input.facadeWidthM, distance, params);
       const copyrightClass = copyrightClassOf(metadata.copyright);
       const granularity = captureGranularityOf(metadata.date);
-      const flags: CandidateFlag[] = [];
-      if (deepSetback) flags.push('deepSetback');
-      if (copyrightClass !== 'google') flags.push('contributorImagery');
-      if (granularity === 'none') flags.push('undated');
-      if (distance > params.farFromTargetM) flags.push('farFromTarget');
-      if (input.attachedFacade) flags.push('attachedFacade');
       return {
         panoId: metadata.panoId as string,
         heading: round(initialBearingDeg(location, input.target), 1),
@@ -266,7 +536,7 @@ export async function discoverCandidates(
         copyright: metadata.copyright ?? null,
         isGoogleImagery: copyrightClass === 'google',
         estimatedFacadePx: estimatedFacadePx(input.facadeWidthM, distance, fov, params.size),
-        flags,
+        flags: flagsOf(metadata, distance),
         rank: 0,
         isPrimary: false,
         location,
@@ -275,20 +545,7 @@ export async function discoverCandidates(
     });
 
     // Step 4: primary selection and ordering.
-    let primaryCandidate = candidates[0] as ViewCandidate;
-    const weak =
-      !primaryCandidate.isGoogleImagery || primaryCandidate.captureGranularity === 'none';
-    if (weak) {
-      const replacement = candidates
-        .slice(1)
-        .find(
-          (candidate) =>
-            candidate.isGoogleImagery &&
-            candidate.captureGranularity !== 'none' &&
-            candidate.distanceM <= params.primaryReplacementMaxDistanceM,
-        );
-      if (replacement) primaryCandidate = replacement;
-    }
+    const primaryCandidate = candidates[found.indexOf(lead)] as ViewCandidate;
     const facing =
       input.facadeNormalDeg === null ? null : normalizeDegrees(input.facadeNormalDeg + 180);
     const rest = candidates
@@ -309,7 +566,12 @@ export async function discoverCandidates(
         rank: index + 1,
         isPrimary: index === 0,
       }));
-    return result('ok', { candidates: ordered, probeRadiusM: primaryRadius, deepSetback });
+    return result('ok', {
+      candidates: ordered,
+      probeRadiusM: primaryRadius,
+      deepSetback,
+      road,
+    });
   } catch (error) {
     if (error instanceof BudgetExceeded) return result('error', { timedOut: true });
     throw error;

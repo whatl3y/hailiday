@@ -7,10 +7,13 @@ import type { Raster } from '../imaging/raster.js';
 import { PIPELINE_DEFAULTS } from '../versions.js';
 import {
   decideProtectedBoxes,
+  lavishKeepMask,
   localizedKeepMask,
   placementDecorationBoxes,
   protectedCompositing,
   renderCompositeMask,
+  restoreExclusions,
+  textMarkExclusions,
 } from './mask.js';
 
 let content: Content;
@@ -302,6 +305,192 @@ describe('localized keep-mask', () => {
     });
     expect(tight.dropped).toEqual([big, medium]);
     expect(tight.kept).toEqual([planned]);
+  });
+});
+
+describe('lavish keep-mask', () => {
+  const width = 400;
+  const height = 300;
+  const window: NormalizedBox = [0.6, 0.2, 0.8, 0.6];
+  const person: NormalizedBox = [0.05, 0.6, 0.15, 0.95];
+  const face: NormalizedBox = [0.2, 0.1, 0.26, 0.2];
+  const houseNumber: NormalizedBox = [0.45, 0.45, 0.5, 0.5];
+  const attribution: NormalizedBox = [0.7, 0.9, 0.95, 0.98];
+  const pad: NormalizedBox = [0.97, 0, 1, 1];
+  const restore: NormalizedBox = [0.3, 0.3, 0.34, 0.34];
+  const analysis = (): SceneAnalysis => {
+    const real = bungalow();
+    return {
+      ...real,
+      workingImage: { width, height, checksum: 'x' },
+      anchors: [
+        {
+          ...(real.anchors[0] as SceneAnalysis['anchors'][number]),
+          id: 'w1',
+          category: 'window_frame',
+          box: window,
+        },
+      ],
+      accessRegions: [{ kind: 'walkway', box: [0.3, 0.8, 0.5, 1] }],
+      existingDecorations: { ...real.existingDecorations, boxes: [] },
+      peopleBoxes: [person],
+      // The padding is listed as a blurred region too, as the render job records it.
+      protectedBlurRegions: [
+        { kind: 'face', box: face },
+        { kind: 'other', box: pad },
+      ],
+      preserveRegions: [{ kind: 'house_number', box: houseNumber }],
+    };
+  };
+  const planMask = (a: SceneAnalysis) =>
+    renderCompositeMask({
+      analysis: a,
+      placements: [
+        { anchorId: 'door', placementRule: 'centered_on', region: [0.4, 0.3, 0.55, 0.5] },
+      ],
+      width,
+      height,
+      padRegions: [pad],
+      attributionRegions: [attribution],
+      dilationFraction: PIPELINE_DEFAULTS.dilationFraction,
+      featherFraction: PIPELINE_DEFAULTS.featherFraction,
+    });
+  const at = (plane: Uint8Array, x: number, y: number) =>
+    plane[Math.floor(y * height) * width + Math.floor(x * width)];
+  const flat = (): Raster => ({
+    data: Buffer.alloc(width * height * 3, 128),
+    width,
+    height,
+  });
+  const lavishCompositing = (
+    items: LocalizedAdditionRecord[] | null,
+    extra: Partial<Parameters<typeof protectedCompositing>[0]> = {},
+  ) => {
+    const a = analysis();
+    const plan = planMask(a);
+    return protectedCompositing({
+      working: flat(),
+      aligned: flat(),
+      analysis: a,
+      padRegions: [pad],
+      attributionRegions: [attribution],
+      planMask: plan,
+      items,
+      placements: [{ region: [0.4, 0.3, 0.55, 0.5] }],
+      buildMask: () => plan,
+      lavish: true,
+      ...extra,
+    });
+  };
+
+  it('is the whole frame minus people, blurred regions, text marks, restore boxes and padding', () => {
+    const a = analysis();
+    const featherPx = 8;
+    const mask = lavishKeepMask({
+      width,
+      height,
+      analysis: a,
+      padRegions: [pad],
+      restoreBoxes: [restore],
+      featherPx,
+    });
+    // Each excluded box shows the original: 0 in the hard mask and the alpha.
+    const grownMark = textMarkExclusions(a, width, height)[0] as NormalizedBox;
+    const grownRestore = restoreExclusions([restore], width, height)[0] as NormalizedBox;
+    for (const box of [person, face, grownMark, grownRestore, pad]) {
+      const [x0, y0, x1, y1] = [
+        Math.round(box[0] * width),
+        Math.round(box[1] * height),
+        Math.round(box[2] * width),
+        Math.round(box[3] * height),
+      ];
+      for (let y = y0; y < y1; y += 1) {
+        for (let x = x0; x < x1; x += 1) {
+          expect(mask.hard[y * width + x], `${box.join(',')} ${x},${y}`).toBe(0);
+          expect(mask.alpha[y * width + x], `${box.join(',')} ${x},${y}`).toBe(0);
+        }
+      }
+    }
+    // A window interior, the door, an access region and the attribution rectangles are kept:
+    // the attribution is restored after the paste, over the kept picture's own ground.
+    for (const [x, y] of [
+      [0.7, 0.45], // window interior
+      [0.47, 0.35], // door (the plan's region)
+      [0.4, 0.9], // walkway
+      [0.8, 0.94], // attribution
+    ] as const) {
+      expect(at(mask.hard, x, y), `${x},${y}`).toBe(255);
+      expect(at(mask.alpha, x, y), `${x},${y}`).toBe(255);
+    }
+    // People and blurred regions fade into the picture; text marks and restore boxes cut hard.
+    const personRow = Math.round(0.8 * height) * width;
+    const personRight = Math.round(person[2] * width);
+    expect(mask.alpha[personRow + personRight] as number).toBeGreaterThan(0);
+    expect(mask.alpha[personRow + personRight] as number).toBeLessThan(64);
+    expect(mask.alpha[personRow + personRight + featherPx]).toBe(255);
+    const faceRow = Math.round(0.15 * height) * width;
+    const faceRight = Math.round(face[2] * width);
+    expect(mask.alpha[faceRow + faceRight] as number).toBeGreaterThan(0);
+    expect(mask.alpha[faceRow + faceRight] as number).toBeLessThan(64);
+    expect(mask.alpha[faceRow + faceRight + featherPx]).toBe(255);
+    const markRow = Math.round(0.475 * height) * width;
+    const markRight = Math.round(grownMark[2] * width);
+    expect(mask.alpha[markRow + markRight - 1]).toBe(0);
+    expect(mask.alpha[markRow + markRight]).toBe(255);
+    expect(coverage(mask.hard)).toBeGreaterThan(0.85);
+  });
+
+  it('keeps the picture at full strength up to the padding', () => {
+    const mask = lavishKeepMask({
+      width,
+      height,
+      analysis: analysis(),
+      padRegions: [pad],
+      featherPx: 8,
+    });
+    const row = Math.round(0.5 * height) * width;
+    const padLeft = Math.round(pad[0] * width);
+    expect(mask.alpha[row + padLeft]).toBe(0);
+    expect(mask.alpha[row + padLeft - 1]).toBe(255);
+  });
+
+  it('is the same with localized items, with none and with items over the cap, and drops nothing', () => {
+    const three = [
+      { label: 'wreath', box: [0.42, 0.32, 0.52, 0.45] as NormalizedBox, placementId: 'p1' },
+      { label: 'garland', box: [0.3, 0.1, 0.9, 0.18] as NormalizedBox, placementId: null },
+      { label: 'tree', box: [0.6, 0.6, 0.7, 0.9] as NormalizedBox, placementId: null },
+    ];
+    // Unplanned items covering 70% of the frame.
+    const over = [{ label: 'lights', box: [0, 0, 0.7, 1] as NormalizedBox, placementId: null }];
+    const none = lavishCompositing(null);
+    const some = lavishCompositing(three);
+    const many = lavishCompositing(over);
+    for (const result of [some, many]) {
+      expect(result.mask.checksum).toBe(none.mask.checksum);
+      expect(Buffer.from(result.mask.alpha).equals(Buffer.from(none.mask.alpha))).toBe(true);
+      expect(result.keep?.dropped).toEqual([]);
+      expect(result.keep?.mask.checksum).toBe(none.mask.checksum);
+      expect(result.keep?.coverage).toBeGreaterThan(0.5);
+    }
+    expect(some.keep?.kept).toEqual(three);
+    expect(many.keep?.kept).toEqual(over);
+    expect(none.keep).toBeNull();
+    // The attribution rectangle is kept for its restore after the paste; padding is not.
+    expect(at(none.mask.hard, 0.8, 0.94)).toBe(255);
+    expect(at(none.mask.hard, 0.985, 0.5)).toBe(0);
+  });
+
+  it('records what it kept', () => {
+    const result = lavishCompositing(null);
+    const kept = result.mask.hard.reduce((sum, v) => sum + (v ? 1 : 0), 0) / (width * height);
+    expect(result.wholeFrame).toEqual({
+      area: 'whole_frame',
+      coverage: Math.round(kept * 10_000) / 10_000,
+      featherPx: planMask(analysis()).featherPx,
+    });
+    expect(result.mask.featherPx).toBe(Math.round(PIPELINE_DEFAULTS.featherFraction * width));
+    // An attempt that is not lavish records nothing of the kind.
+    expect(lavishCompositing(null, { lavish: false }).wholeFrame).toBeUndefined();
   });
 });
 
@@ -785,6 +974,84 @@ describe('the surroundings of text marks and restore boxes decide their composit
     expect(
       plain.mask.alpha[Math.round((r[1] + 0.01) * H) * W + Math.round((r[0] + 0.005) * W)],
     ).toBe(0);
+  });
+
+  describe('lavish keep-mask', () => {
+    const around = (box: NormalizedBox): NormalizedBox => [
+      box[0] - 0.05,
+      box[1] - 0.08,
+      box[2] + 0.05,
+      box[3] + 0.08,
+    ];
+
+    it('never leaves a text mark open: a covered mark keeps its analysis box', () => {
+      const a = analysis();
+      const planMask = build(a);
+      const compositing = protectedCompositing({
+        working: wall(),
+        aligned: edited(),
+        analysis: a,
+        padRegions: [],
+        attributionRegions: [],
+        planMask,
+        items: [covered, touched, untouched].map((box) => ({
+          label: 'garland',
+          box: around(box),
+          placementId: null,
+        })),
+        placements,
+        buildMask: ({ textMarks }) => build(a, textMarks),
+        lavish: true,
+      });
+      expect(
+        compositing.decisions.textMarks.map((mark) => [mark.kind, mark.mode, mark.decorated]),
+      ).toEqual([
+        ['house_number', 'exact', false],
+        ['house_number', 'exact', false],
+        ['sign', 'grown', false],
+      ]);
+      expect(compositing.openHouseNumbers).toEqual([]);
+      for (let y = Math.round(covered[1] * H); y < Math.round(covered[3] * H); y += 1) {
+        for (let x = Math.round(covered[0] * W); x < Math.round(covered[2] * W); x += 1) {
+          expect(compositing.mask.alpha[y * W + x]).toBe(0);
+        }
+      }
+      // The garland around the covered mark is kept.
+      expect(compositing.mask.hard[Math.round(0.43 * H) * W + Math.round(covered[2] * W) + 2]).toBe(
+        255,
+      );
+    });
+
+    it("applies a repair's restore box on a plain wall and skips one amid a painted area", () => {
+      const a = analysis();
+      const planMask = build(a);
+      const amid: NormalizedBox = [0.2, 0.6, 0.22, 0.63];
+      const plain: NormalizedBox = [0.6, 0.6, 0.62, 0.63];
+      const compositing = protectedCompositing({
+        working: wall(),
+        aligned: glowing(),
+        analysis: a,
+        restoreBoxes: [amid, plain],
+        padRegions: [],
+        attributionRegions: [],
+        planMask,
+        items: null,
+        placements,
+        buildMask: ({ textMarks }) => build(a, textMarks),
+        lavish: true,
+      });
+      expect(compositing.decisions.restoreBoxes.map((box) => [box.box, box.applied])).toEqual([
+        [amid, false],
+        [plain, true],
+      ]);
+      expect(compositing.restoreBoxes).toEqual([plain]);
+      const center = (box: NormalizedBox) =>
+        Math.round(((box[1] + box[3]) / 2) * H) * W + Math.round(((box[0] + box[2]) / 2) * W);
+      expect(compositing.mask.hard[center(plain)]).toBe(0);
+      expect(compositing.mask.alpha[center(plain)]).toBe(0);
+      expect(compositing.mask.hard[center(amid)]).toBe(255);
+      expect(compositing.mask.alpha[center(amid)]).toBe(255);
+    });
   });
 
   it('counts the plan shapes as the decorations when localization falls back', () => {

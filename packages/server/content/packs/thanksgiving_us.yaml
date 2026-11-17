@@ -5,14 +5,18 @@
 # priority is omitted: list order is the placement priority (1 = first).
 # Spec attributes and product mapping for each kit item live in ../kits/thanksgiving_us.yaml.
 # Any change that can alter a decoration plan or compiled instruction is at least a MINOR version bump.
+# promptFragments.lavish (optional): the description the abundant style compiles in place of one
+# sentence per placement. scene: what the picture shows; decorations: the paragraph of what is
+# added; negative: in place of the section's negative; lit: whether it asks for electric lights.
+# scene and decorations may name nothing on the forbidden list and no snow, frost or icicles.
 
 id: thanksgiving_us.US
-version: 2.0.0
+version: 2.1.0
 holidayId: thanksgiving_us
 region: US
 displayName: Thanksgiving
 journeyEmphasis: interior
-traditionNotes: 'Harvest and gathering: autumn-leaf wreaths and garland, pumpkins and gourds, chrysanthemums, wheat and corn stalks outdoors, and a set table with flameless candlelight indoors. No Pilgrim, Native American or other costume or caricature imagery; no electric lights outdoors; no Christmas or Halloween items.'
+traditionNotes: "Harvest and gathering: autumn-leaf wreaths and garland, pumpkins and gourds, chrysanthemums, wheat and corn stalks outdoors, and a set table with flameless candlelight indoors. No Pilgrim, Native American or other costume or caricature imagery; no electric lights outdoors except the warm-white lights of the abundant style's description; no Christmas or Halloween items."
 lightingPolicy:
   bySceneType:
     house_exterior: { default: evening, offered: [source, evening] }
@@ -130,6 +134,31 @@ sceneSections:
       scene: a tasteful US Thanksgiving harvest display added to the confirmed target home in its existing daylight
       preserve: keep the same camera position, crop, perspective and lens, the roof outline, doors, windows, siding color and texture, trim, steps, railings, landscaping, sky, time of day, parked vehicles and every neighboring building exactly as photographed
       negative: no electric lights, no Christmas or Halloween items, no Pilgrim or Native American figures or costume imagery, no text, no people, no snow unless present, no new structures, nothing on neighboring homes
+      lavish:
+        scene: >-
+          a lavish, over-the-top American Thanksgiving harvest display covering the target home and
+          its yard, glowing with warm light
+        decorations: >-
+          Decorate only what this photo shows of the house: each sentence below applies only where
+          the photo already shows the thing it names, and is skipped where it does not. Outline the
+          roof edges and eaves of the target house with warm-white string lights, and swag thick
+          garlands of autumn leaves, berries and wheat, woven with warm-white lights, around every
+          window, with a small wreath of autumn leaves, wheat and small gourds in every window. If a
+          front door is visible, swag the same garland around its frame and hang a large matching
+          wreath on it, leaving the door itself as it is. On railings, posts and columns that are
+          already there, swag the garland, wrap warm-white lights and tie tall corn stalks. Beside
+          steps, a porch and a path that are already there, crowd heaps of pumpkins and gourds in
+          orange, white and green, hay bales, baskets of apples, pots of bronze, yellow and rust
+          chrysanthemums and tall lanterns with flameless candles, without hiding or replacing what
+          stands there. On open lawn or bare ground of its own yard, build more harvest groups
+          around hay bales and wheat sheaves, and lay warm-white net lights over shrubs that are
+          already there. Add no door, steps, railing, porch, path, wall, window, shrub, hedge or
+          tree of your own: only decorations.
+        negative: >-
+          no Christmas or Halloween items, no carved or glowing pumpkin faces, no Pilgrim or Native
+          American figures or costume imagery, no text, no people, no snow unless present, no new
+          structures, nothing on neighboring homes, on the sidewalk or on the street
+        lit: true
   apartment_entry:
     anchors: [unit_door, door_frame, floor_area, planter, banister, wall]
     preserve:
@@ -185,6 +214,23 @@ sceneSections:
       scene: a warm Thanksgiving harvest welcome at the user's own apartment door
       preserve: keep the camera position and crop, the door, its number plate, peephole and hardware, the corridor walls and floor, neighboring doors, light fixtures, signage and fire equipment exactly as photographed
       negative: no electric lights, nothing on neighboring doors, nothing in the corridor path, no Christmas or Halloween items, no Pilgrim or Native American figures or costume imagery, no text, no people
+      lavish:
+        scene: >-
+          a lavish, over-the-top Thanksgiving harvest welcome at the user's own apartment door
+        decorations: >-
+          Hang a large, full wreath of autumn leaves, wheat, berries and small gourds on the door
+          and frame the whole door with a thick garland of autumn leaves woven with warm-white
+          lights, running up both sides and across the top of the door frame. Crowd both sides of
+          the door, close to the wall, with pumpkins and gourds of many sizes and colors, pots of
+          bronze and yellow chrysanthemums, a bundle of corn stalks and wheat, a basket of apples
+          and tall lanterns with flameless candles. Lay a plain woven doormat at the door and wind
+          leaf garland along the banister where there is one. Keep everything tight to this door and
+          its wall so the corridor stays clear.
+        negative: >-
+          nothing on neighboring doors, nothing in the corridor path, nothing on light fixtures,
+          signage or fire equipment, no Christmas or Halloween items, no Pilgrim or Native American
+          figures or costume imagery, no text, no people
+        lit: true
   balcony:
     anchors: [balcony_railing, balcony_floor, door_frame, planter, wall]
     preserve:
@@ -239,6 +285,22 @@ sceneSections:
       scene: a tasteful US Thanksgiving harvest display on the user's own balcony in its existing daylight
       preserve: keep the camera position and crop, the railing structure, floor, balcony door and glass, exterior wall, the view beyond the railing and every neighboring balcony and unit exactly as photographed
       negative: no electric lights, no items on the railing top edge, nothing on neighboring balconies or railings, no Christmas or Halloween items, no costume imagery, no text, no people
+      lavish:
+        scene: >-
+          a lavish, over-the-top American Thanksgiving harvest display filling the user's own
+          balcony
+        decorations: >-
+          Wrap the whole balcony railing in a thick garland of autumn leaves, berries and wheat
+          woven with warm-white lights, fixed to the face of the railing, and hang a large autumn
+          wreath on the balcony door or the wall beside it. Crowd the balcony floor with heaps of
+          pumpkins and gourds in orange, white and green, pots of bronze, yellow and rust
+          chrysanthemums, a hay bale, bundles of corn stalks and wheat in the corners, a basket of
+          apples and tall lanterns with flameless candles. Fill the planters with autumn leaves,
+          small gourds and warm-white lights.
+        negative: >-
+          no items on the railing top edge, nothing on neighboring balconies or railings, no
+          Christmas or Halloween items, no costume imagery, no text, no people
+        lit: true
   interior:
     roomTypes: [dining_room, living_room, entryway, kitchen, bedroom, other]
     anchors:
@@ -331,6 +393,27 @@ sceneSections:
       scene: a warm US Thanksgiving table and room added to the existing dining room
       preserve: keep the camera position and crop, walls and wall color, windows, doors, flooring, ceiling, furniture and its positions, chairs, rugs, artwork, photographs and existing light fixtures exactly as photographed
       negative: no open flames, no Christmas or Halloween items, no Pilgrim or Native American figures or costume imagery, no text, no people or pets, no new furniture, no food unless already on the table
+      lavish:
+        scene: >-
+          a lavish, over-the-top American Thanksgiving setting for the room in the photo, warm and
+          abundant
+        decorations: >-
+          Dress any dining table for a feast without food: a long runner, a full centerpiece of
+          pumpkins, gourds, autumn leaves, wheat and berries running the length of the table, many
+          flameless candles of different heights, and a place setting with a folded napkin and a
+          small gourd at every seat. Drape thick garlands of autumn leaves woven with warm-white
+          lights along the mantel, the shelves, the window frames and any stair rail, and hang
+          autumn wreaths in the windows and on free wall space. Fill the mantel, the sideboard, the
+          shelves and the side tables with heaps of pumpkins and gourds, vases of wheat and
+          branches, lanterns and flameless candles, and stand tall pumpkins and baskets of leaves on
+          open floor where there is room. Use what this room has and skip what it has no place for;
+          every piece of furniture stays where it is and in view, and floor pieces go only on free
+          floor.
+        negative: >-
+          no open flames, no Christmas or Halloween items, no Pilgrim or Native American figures or
+          costume imagery, no text, no people or pets, no new furniture, no food unless already on
+          the table, no changed wall color, nothing blocking a doorway
+        lit: true
 heroRefs:
   - heroAssetId: hero.thanksgiving_us.dining_room.v1
     orientation: landscape

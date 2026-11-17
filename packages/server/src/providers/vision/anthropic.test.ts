@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import sharp from 'sharp';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { SceneAnalysisModelOutput } from '@hailiday/core';
@@ -14,6 +15,8 @@ import {
 } from './anthropic.js';
 import {
   FRAME_PROMPT_VERSION,
+  FRAME_ROAD_PROMPT_VERSION,
+  FRAME_ROAD_SYSTEM_PROMPT,
   FRAME_SYSTEM_PROMPT,
   FRAME_USER_PROMPT,
   JUDGE_ENHANCE_SYSTEM_PROMPT,
@@ -335,6 +338,12 @@ describe('Anthropic locate home', () => {
   }
 
   const input = { image: { bytes: jpeg, width: 64, height: 64 }, sourceAssetId: 'source-1' };
+  const sha256 = (text: string) => createHash('sha256').update(text).digest('hex');
+  /** The request of a frame without a target, as sent before the road prompt existed. */
+  const LOCATE_REQUEST_SHA256 = '8a2b1ea226435c1fb5d12e363bf723afbe31feb57bde91e4f516263c84e1d850';
+  /** The aimed frame's system prompt (`frame-2026.11.0`). */
+  const FRAME_SYSTEM_PROMPT_SHA256 =
+    '813b6e39c629cce38f2b4d846cbe123e5d4ae2bfb8b1ed181a3def99fe0fceea';
 
   it('sends the frame as it is with the frame prompts at low effort and reads one box', async () => {
     const { vision, sent } = replying({
@@ -370,6 +379,52 @@ describe('Anthropic locate home', () => {
     expect(call.promptVersion).toBe(FRAME_PROMPT_VERSION);
     expect(call.providerMode).toBe('live');
     expect(call.usage).toMatchObject({ inputTokens: 900, outputTokens: 40, calls: 1 });
+  });
+
+  it('sends a request without a target byte for byte as before', async () => {
+    const { vision, sent } = replying({ home: null, ambiguous: false, confidence: 0.9 });
+    const call = await vision.locateHome(input);
+    const params = sent[0]?.params as { system: { text: string }[] };
+    // The model, token limit, system prompt, image, user text, effort, output schema, betas and
+    // fallbacks (the format's parse function is not serialized).
+    expect(sha256(JSON.stringify(sent[0]?.params))).toBe(LOCATE_REQUEST_SHA256);
+    expect(sha256(params.system[0]?.text ?? '')).toBe(FRAME_SYSTEM_PROMPT_SHA256);
+    expect(sent[0]?.options).toMatchObject({ timeout: 20_000, maxRetries: 0 });
+    expect(call.promptVersion).toBe('frame-2026.11.0');
+  });
+
+  it('sends the road prompt for a frame taken from the road', async () => {
+    const { vision, sent } = replying({
+      home: [0.84, 0.39, 1, 0.65],
+      ambiguous: false,
+      confidence: 0.55,
+    });
+    const call = await vision.locateHome({ ...input, target: 'road' });
+    expect(sent).toHaveLength(1);
+    const params = sent[0]?.params as {
+      system: { text: string }[];
+      messages: { content: { type: string; text?: string }[] }[];
+      output_config: { effort: string };
+    };
+    expect(params.system[0]?.text).toBe(FRAME_ROAD_SYSTEM_PROMPT);
+    expect(params.messages[0]?.content.map((block) => block.type)).toEqual(['image', 'text']);
+    expect(params.messages[0]?.content[1]?.text).toBe(FRAME_USER_PROMPT);
+    expect(params.output_config.effort).toBe('low');
+    expect(sent[0]?.options).toMatchObject({ timeout: 20_000, maxRetries: 0 });
+    expect(call.promptVersion).toBe('frame-road-2026.11.0');
+    expect(call.promptVersion).toBe(FRAME_ROAD_PROMPT_VERSION);
+    expect(call.result).toEqual({
+      home: [0.84, 0.39, 1, 0.65],
+      ambiguous: false,
+      confidence: 0.55,
+    });
+    expect(call.providerMode).toBe('live');
+    // Apart from the system prompt, the request is the one an aimed frame sends.
+    const aimed = replying({ home: null, ambiguous: false, confidence: 0.9 });
+    await aimed.vision.locateHome(input);
+    const withoutSystem = (sentParams: Record<string, unknown> | undefined) =>
+      JSON.stringify({ ...sentParams, system: null });
+    expect(withoutSystem(sent[0]?.params)).toBe(withoutSystem(aimed.sent[0]?.params));
   });
 
   it('reads no home, an ambiguous frame and a degenerate box', async () => {

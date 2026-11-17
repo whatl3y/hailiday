@@ -5,6 +5,7 @@ import {
   SCENE_ANALYSIS_SCHEMA_VERSION,
   STYLES,
   type Anchor,
+  type FailureCode,
   type HolidayPack,
   type NormalizedBox,
   type SceneAnalysis,
@@ -13,7 +14,8 @@ import {
 import { loadContent, type Content } from '../../content/load.js';
 import { genericUploadGeometry } from '../../fixtures/layouts.js';
 import { geometryToModelOutput } from '../../fixtures/scene.js';
-import { buildPlan, withoutPlacements } from './builder.js';
+import { buildPlan, lightingInstructionFor, withoutPlacements } from './builder.js';
+import { planAndCompile } from './index.js';
 import { shrinkToAllowed } from './geometry.js';
 import { deriveRepair, findingsFrom, isRepairable } from './repair.js';
 import type { BuildPlanInput, ValidatorEvent } from './types.js';
@@ -632,5 +634,323 @@ describe('repair constraints', () => {
       // Below the floor nothing is carried.
       expect(findingsFrom(judge, [], { critical: 0.7, uncertain: 0.6, major: 0.7 })).toEqual([]);
     });
+  });
+});
+
+/** A copy of a pack whose sections carry no lavish description. */
+function withoutLavish(holidayPack: HolidayPack): HolidayPack {
+  const copy = structuredClone(holidayPack);
+  for (const section of Object.values(copy.sceneSections)) delete section?.promptFragments.lavish;
+  return copy;
+}
+
+/** A copy of a pack whose house exterior carries the given lavish description fields. */
+function withLavish(
+  holidayPack: HolidayPack,
+  fields: Partial<
+    NonNullable<HolidayPack['sceneSections']['house_exterior']>['promptFragments']['lavish']
+  >,
+): HolidayPack {
+  const copy = structuredClone(holidayPack);
+  const lavish = copy.sceneSections.house_exterior?.promptFragments.lavish;
+  if (!lavish) throw new Error('the house exterior has no lavish description');
+  Object.assign(lavish, fields);
+  return copy;
+}
+
+const COMPILE_OPTIONS = () => ({
+  provider: 'openai' as const,
+  modelSnapshot: 'm',
+  working: { width: 1024, height: 1024, checksum: 'c' },
+  supportsMask: true,
+});
+
+describe('the lavish tier', () => {
+  it('marks a plan as lavish when its effective style is abundant and the section has a description', () => {
+    for (const holidayId of [
+      'christmas',
+      'halloween',
+      'thanksgiving_us',
+      'new_years_eve',
+    ] as const) {
+      const lavish = pack(holidayId).sceneSections.house_exterior?.promptFragments.lavish;
+      expect(lavish, holidayId).toBeDefined();
+      const abundant = buildPlan(input(pack(holidayId), exterior(), { style: 'abundant' }));
+      expect(abundant.draft.lavish, holidayId).toEqual({ lit: lavish?.lit });
+      for (const style of ['subtle', 'classic'] as const) {
+        expect(
+          buildPlan(input(pack(holidayId), exterior(), { style })).draft.lavish,
+        ).toBeUndefined();
+      }
+      const plain = buildPlan(
+        input(withoutLavish(pack(holidayId)), exterior(), { style: 'abundant' }),
+      );
+      expect(plain.draft.lavish, holidayId).toBeUndefined();
+    }
+    const unlit = buildPlan(
+      input(withLavish(pack('christmas'), { lit: false }), exterior(), { style: 'abundant' }),
+    );
+    expect(unlit.draft.lavish).toEqual({ lit: false });
+  });
+
+  it('plans without the mark, as a section without a description, when the caller does not allow it', () => {
+    let compared = 0;
+    for (const { pack: holidayPack } of content.packs) {
+      for (const sceneType of Object.keys(holidayPack.sceneSections) as SceneType[]) {
+        const roomType =
+          sceneType === 'interior'
+            ? (holidayPack.sceneSections.interior?.roomTypes?.[0] ?? 'living_room')
+            : null;
+        const analysis: SceneAnalysis =
+          sceneType === 'house_exterior'
+            ? exterior()
+            : {
+                schemaVersion: SCENE_ANALYSIS_SCHEMA_VERSION,
+                sourceAssetId: 'sa',
+                workingImage: { width: 1024, height: 1024, checksum: 'c' },
+                ...geometryToModelOutput(
+                  genericUploadGeometry({ sceneType, roomType, width: 1024, height: 1024 }),
+                ),
+                sceneTypeMismatch: false,
+                model: { analysisModel: 't', analysisPromptVersion: 't' },
+                elapsedMs: 0,
+              };
+        const label = `${holidayPack.holidayId}.${sceneType}`;
+        const args = (packOf: HolidayPack, lavish?: boolean) =>
+          input(packOf, analysis, {
+            sceneType,
+            roomType,
+            style: 'abundant',
+            ...(lavish === undefined ? {} : { options: { lavish } }),
+          });
+        const marked = buildPlan(args(holidayPack));
+        expect(marked.draft.lavish, label).toBeDefined();
+        expect(buildPlan(args(holidayPack, true)), label).toEqual(marked);
+        const off = buildPlan(args(holidayPack, false));
+        expect(off.draft.lavish, label).toBeUndefined();
+        expect(off, label).toEqual(buildPlan(args(withoutLavish(holidayPack))));
+        const compiledOff = planAndCompile(args(holidayPack, false), COMPILE_OPTIONS);
+        const compiledPlain = planAndCompile(args(withoutLavish(holidayPack)), COMPILE_OPTIONS);
+        expect(compiledOff.compile?.request.instructionText, label).toBeDefined();
+        expect(compiledOff.compile?.request, label).toEqual(compiledPlain.compile?.request);
+        compared += 1;
+      }
+    }
+    expect(compared).toBe(15);
+  });
+
+  it('keeps the placements of a lavish plan as they are without the description', () => {
+    const lavish = buildPlan(input(pack('christmas'), exterior(), { style: 'abundant' }));
+    const plain = buildPlan(
+      input(withoutLavish(pack('christmas')), exterior(), { style: 'abundant' }),
+    );
+    expect(lavish.draft.lavish).toBeDefined();
+    expect(lavish.draft.placements.length).toBeGreaterThan(0);
+    expect(lavish.draft.placements).toEqual(plain.draft.placements);
+    expect(lavish.draft.maskBudget).toEqual(plain.draft.maskBudget);
+    expect(lavish.draft.compositeMask).toEqual(plain.draft.compositeMask);
+    expect(lavish.validator).toEqual(plain.validator);
+  });
+
+  it('steps a lavish request down to the ordinary classic plan on a home with many decorations', () => {
+    const analysis = exterior({
+      existingDecorations: {
+        present: true,
+        holidayGuess: 'christmas',
+        density: 'high',
+        boxes: [[0.22, 0.6, 0.42, 0.75]],
+      },
+    });
+    const lavish = planAndCompile(
+      input(pack('christmas'), analysis, { style: 'abundant' }),
+      COMPILE_OPTIONS,
+    );
+    const plain = planAndCompile(
+      input(withoutLavish(pack('christmas')), analysis, { style: 'abundant' }),
+      COMPILE_OPTIONS,
+    );
+    expect(lavish.built.validator.effectiveStyle).toBe('classic');
+    expect(lavish.built.draft.lavish).toBeUndefined();
+    expect(lavish.compile?.request.instructionText).toBeDefined();
+    expect(lavish.compile?.request.instructionText).toBe(plain.compile?.request.instructionText);
+  });
+
+  it('never marks the legacy combined evening plan as lavish', () => {
+    const built = buildPlan(
+      input(pack('christmas'), exterior(), { style: 'abundant', lightingMode: 'evening' }),
+    );
+    expect(built.validator.effectiveStyle).toBe('abundant');
+    expect(built.draft.lavish).toBeUndefined();
+    expect(
+      built.draft.lightingInstruction.text.startsWith('Shift the whole scene to early dusk'),
+    ).toBe(true);
+  });
+
+  it('states the lighting of a lavish plan from its description', () => {
+    const base = 'Keep the lighting, sky and time of day of the original photograph.';
+    const of = (anyLit: boolean, lightsAllowed: boolean, lavish?: { lit: boolean }) =>
+      lightingInstructionFor({ lightingMode: 'source', anyLit, lightsAllowed, lavish });
+    // The three ordinary outputs.
+    expect(of(true, true)).toBe(
+      `${base} The lit decorations are switched on and glow softly in the existing light.`,
+    );
+    expect(of(false, true)).toBe(base);
+    expect(of(true, false)).toBe(`${base} No electric lights.`);
+    // A lavish plan: the description's lights, never the placements' glow.
+    for (const anyLit of [true, false]) {
+      expect(of(anyLit, true, { lit: true })).toBe(base);
+      expect(of(anyLit, false, { lit: true })).toBe(base);
+      expect(of(anyLit, true, { lit: false })).toBe(base);
+      expect(of(anyLit, false, { lit: false })).toBe(`${base} No electric lights.`);
+    }
+    // A Thanksgiving exterior: a lit description asks for lights; the placements stay unlit.
+    const thanksgiving = pack('thanksgiving_us');
+    const lit = buildPlan(
+      input(withLavish(thanksgiving, { lit: true }), exterior(), { style: 'abundant' }),
+    );
+    expect(lit.draft.lavish).toEqual({ lit: true });
+    expect(lit.draft.lightingInstruction.text).toBe(base);
+    expect(lit.draft.placements.length).toBeGreaterThan(0);
+    expect(lit.draft.placements.every((p) => !p.lit)).toBe(true);
+    const unlit = buildPlan(
+      input(withLavish(thanksgiving, { lit: false }), exterior(), { style: 'abundant' }),
+    );
+    expect(unlit.draft.lightingInstruction.text).toBe(`${base} No electric lights.`);
+  });
+
+  it('leaves out of the forbidden-list sentence what the lavish negative already states', () => {
+    const clone = withLavish(pack('christmas'), { negative: 'no pets, no brand logos' });
+    const abundant = buildPlan(input(clone, exterior(), { style: 'abundant' }));
+    expect(abundant.draft.negatives).not.toContain('pets');
+    expect(abundant.draft.negatives).not.toContain('brand logos');
+    expect(abundant.draft.negatives).toContain('people');
+    const classic = buildPlan(input(clone, exterior(), { style: 'classic' }));
+    const ordinary = buildPlan(input(pack('christmas'), exterior(), { style: 'classic' }));
+    expect(classic.draft.negatives).toEqual(ordinary.draft.negatives);
+    expect(classic.draft.negatives).not.toContain('people');
+  });
+
+  it('fails the plan when a lavish description names a forbidden item, or snow on a photo without snow', () => {
+    const christmas = pack('christmas');
+    const decorations = christmas.sceneSections.house_exterior?.promptFragments.lavish?.decorations;
+    const santa = withLavish(christmas, { decorations: `${decorations} Add a Santa figure.` });
+    expect(buildPlan(input(santa, exterior(), { style: 'abundant' })).validator).toMatchObject({
+      passed: false,
+      failure: 'forbidden_list',
+    });
+    expect(buildPlan(input(santa, exterior(), { style: 'classic' })).validator.passed).toBe(true);
+    const icicles = withLavish(christmas, { decorations: `${decorations} Hang icicle lights.` });
+    const plain = buildPlan(input(icicles, exterior(), { style: 'abundant' }));
+    expect(plain.validator).toMatchObject({ passed: false, failure: 'forbidden_list' });
+    expect(plain.validator.events).toContainEqual({
+      rule: 'forbidden_list',
+      action: 'failed',
+      detail: 'snow_or_frost_unless_visible',
+    });
+    const winter = buildPlan(
+      input(icicles, exterior({ seasonCues: { snowVisible: true, foliage: 'bare' } }), {
+        style: 'abundant',
+      }),
+    );
+    expect(winter.validator.passed).toBe(true);
+    // The scene of the description is scanned as well.
+    const scene = christmas.sceneSections.house_exterior?.promptFragments.lavish?.scene;
+    const nativity = withLavish(christmas, { scene: `${scene} with a lit nativity` });
+    const withScene = buildPlan(input(nativity, exterior(), { style: 'abundant' }));
+    expect(withScene.validator).toMatchObject({ passed: false, failure: 'forbidden_list' });
+    expect(withScene.validator.events).toContainEqual({
+      rule: 'forbidden_list',
+      action: 'failed',
+      detail: 'religious_symbols',
+    });
+    expect(buildPlan(input(nativity, exterior(), { style: 'classic' })).validator.passed).toBe(
+      true,
+    );
+  });
+
+  it('plans every cell in the abundant style, and its repairs, without a forbidden item', () => {
+    const codes: FailureCode[] = [
+      'structure_changed',
+      'neighbor_decorated',
+      'access_blocked',
+      'privacy_regression',
+      'people_altered',
+      'text_added',
+      'camera_changed',
+      'unrequested_change',
+      'plan_not_followed',
+      'implausible_decor',
+      'lighting_implausible',
+    ];
+    const sparseCategories = ['front_door', 'door_frame', 'porch_steps', 'lawn'];
+    let checked = 0;
+    let skeletonPlaced = false;
+    for (const { pack: holidayPack } of content.packs) {
+      for (const sceneType of Object.keys(holidayPack.sceneSections) as SceneType[]) {
+        const roomType =
+          sceneType === 'interior'
+            ? (holidayPack.sceneSections.interior?.roomTypes?.[0] ?? 'living_room')
+            : null;
+        const golden: SceneAnalysis = {
+          schemaVersion: SCENE_ANALYSIS_SCHEMA_VERSION,
+          sourceAssetId: 'sa',
+          workingImage: { width: 1024, height: 1024, checksum: 'c' },
+          ...geometryToModelOutput(
+            genericUploadGeometry({ sceneType, roomType, width: 1024, height: 1024 }),
+          ),
+          sceneTypeMismatch: false,
+          model: { analysisModel: 't', analysisPromptVersion: 't' },
+          elapsedMs: 0,
+        };
+        const analyses: [string, SceneAnalysis][] = [['golden', golden]];
+        if (sceneType === 'house_exterior') {
+          // A small house: a door with its frame, steps and a lawn; no rail, columns or planters.
+          const sparse = golden.anchors.filter((a) => sparseCategories.includes(a.category));
+          expect(sparse.map((a) => a.category).sort()).toEqual([...sparseCategories].sort());
+          analyses.push(['sparse', { ...golden, anchors: sparse }]);
+        }
+        for (const [name, analysis] of analyses) {
+          const label = `${holidayPack.holidayId}.${sceneType}.${name}`;
+          const args = input(holidayPack, analysis, {
+            sceneType,
+            roomType,
+            style: 'abundant',
+          });
+          const first = buildPlan(args);
+          expect(first.validator, label).toMatchObject({ passed: true, failure: null });
+          expect(first.draft.lavish, label).toBeDefined();
+          checked += 1;
+          if (holidayPack.holidayId === 'halloween' && name === 'sparse') {
+            skeletonPlaced = first.draft.placements.some(
+              (p) => p.kitItemId === 'halloween.house_exterior.skeleton_stylized',
+            );
+          }
+          const plan = {
+            ...first.draft,
+            compiled: {
+              provider: 'openai',
+              modelSnapshot: 'm',
+              instructionText: 'x',
+              parameters: {},
+              hash: 'x',
+            },
+          };
+          for (const failed of [...codes.map((code) => [code]), codes]) {
+            const repair = deriveRepair(
+              plan,
+              first.placementKeys,
+              failed.map((code) => ({ code })),
+              null,
+            );
+            const second = buildPlan({ ...args, planVersion: 2, repair });
+            const repairLabel = `${label}.${failed.length > 1 ? 'all' : failed[0]}`;
+            expect(second.validator, repairLabel).toMatchObject({ passed: true, failure: null });
+            checked += 1;
+          }
+        }
+      }
+    }
+    expect(checked).toBe(19 * (1 + codes.length + 1));
+    expect(skeletonPlaced).toBe(true);
   });
 });

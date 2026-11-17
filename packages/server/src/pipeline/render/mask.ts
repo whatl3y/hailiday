@@ -12,6 +12,7 @@ import {
   maskCoverage,
   placementMaskParts,
   unionLocalizedMask,
+  wholeFrameMask,
   type CompositeMask,
 } from '../imaging/mask.js';
 import type { Raster } from '../imaging/raster.js';
@@ -274,16 +275,69 @@ export function decisionsChangeMask(decisions: ProtectedBoxDecisions): boolean {
 export interface ProtectedCompositing {
   decisions: ProtectedBoxDecisions;
   /**
-   * The plan mask to composite with: rebuilt with the decisions when they change it, otherwise
+   * The mask to composite with. For a lavish attempt it is the whole-frame keep-mask
+   * (`lavishKeepMask`); otherwise the plan mask rebuilt with the decisions when they change it, or
    * the plan mask itself. It is the whole mask when localization fell back.
    */
   mask: CompositeMask;
-  /** The keep-mask (the decided plan mask united with the localized boxes); null on a fallback. */
+  /**
+   * The keep-mask (the decided plan mask united with the localized boxes); null on a fallback.
+   * For a lavish attempt: the whole-frame mask with every localized item kept and none dropped.
+   */
   keep: LocalizedKeepMask | null;
   /** Restore boxes that apply (the mask builders exclude these). */
   restoreBoxes: NormalizedBox[];
   /** House numbers left `open`: the deterministic comparison skips them; the judge covers them. */
   openHouseNumbers: NormalizedBox[];
+  /** Set for a lavish attempt: what its whole-frame keep-mask kept. */
+  wholeFrame?: WholeFrameKeep;
+}
+
+/** `protectedCompositing` for a lavish attempt. */
+function lavishCompositing(
+  input: Parameters<typeof protectedCompositing>[0],
+): ProtectedCompositing {
+  const { planMask, items } = input;
+  const decisions = decideProtectedBoxes({
+    working: input.working,
+    aligned: input.aligned,
+    analysis: input.analysis,
+    ...(input.restoreBoxes ? { restoreBoxes: input.restoreBoxes } : {}),
+    padRegions: input.padRegions,
+    attributionRegions: input.attributionRegions,
+    // Tone is sampled outside the plan's own shapes.
+    edited: planMask.hard,
+    // Without decoration boxes no mark is left open: its text is always the original's.
+    decorationBoxes: [],
+  });
+  const restoreBoxes = decisions.restoreBoxes.filter((box) => box.applied).map((box) => box.box);
+  const mask = lavishKeepMask({
+    width: planMask.width,
+    height: planMask.height,
+    analysis: input.analysis,
+    padRegions: input.padRegions,
+    restoreBoxes,
+    textMarks: decisions.textMarks,
+    featherPx: planMask.featherPx,
+  });
+  const coverage = maskCoverage(mask.hard);
+  return {
+    decisions,
+    mask,
+    keep: items
+      ? {
+          mask,
+          kept: [...items],
+          dropped: [],
+          dilationPx: 0,
+          coverageBeforeCap: coverage,
+          coverage,
+        }
+      : null,
+    restoreBoxes,
+    openHouseNumbers: [],
+    wholeFrame: { area: 'whole_frame', coverage: round4(coverage), featherPx: mask.featherPx },
+  };
 }
 
 /** A house number a decoration lies on, decided `exact` instead of `open`; any other mark as is. */
@@ -303,6 +357,9 @@ function keptHouseNumber(mark: TextMarkDecision): TextMarkDecision {
  * both composite alike; the mask sent to the editor and used for registration is never changed.
  * With `keepHouseNumbers`, a house number is never left `open`: a decoration the editor laid on
  * it gets a window the size of the number's analysis box, so its digits are always the original's.
+ * A lavish attempt (`lavish`) keeps the whole frame instead: the protected boxes are decided
+ * without the localized boxes (a mark is `grown` or `exact`), and the keep-mask is
+ * `lavishKeepMask`, the same with or without localized items.
  */
 export function protectedCompositing(input: {
   working: Raster;
@@ -325,7 +382,14 @@ export function protectedCompositing(input: {
   cap?: number;
   /** Never leave a house number `open`: its analysis box always keeps the original. */
   keepHouseNumbers?: boolean;
+  /**
+   * The attempt is lavish: the keep-mask is the whole frame minus the restored boxes
+   * (`lavishKeepMask`), whatever was localized; `buildMask`, the dilation and the cap are not
+   * used, and a text mark is never left open.
+   */
+  lavish?: boolean;
 }): ProtectedCompositing {
+  if (input.lavish) return lavishCompositing(input);
   const { planMask, items } = input;
   const long = Math.max(planMask.width, planMask.height);
   const dilationFraction =
@@ -471,6 +535,57 @@ export function privacyExclusions(input: {
     ...restoreExclusions(input.restoreBoxes ?? [], input.width, input.height),
     ...input.padRegions,
   ];
+}
+
+/** What a lavish attempt keeps (`render_attempts.composite_mask.keep`). */
+export interface WholeFrameKeep {
+  area: 'whole_frame';
+  /** Share of the image the hard keep-mask covers. */
+  coverage: number;
+  /** Width of the fade around people and blurred regions, in working pixels. */
+  featherPx: number;
+}
+
+/**
+ * The keep-mask of a lavish attempt (render spec, compositing algorithm): the whole frame minus
+ * the privacy exclusions (`privacyExclusions`: people, blurred regions, text marks as decided on
+ * the edited output, the applied restore boxes of a repair, padding). People and blurred regions
+ * that are not padding fade into the kept picture across `featherPx` outside their boxes; text
+ * marks, restore boxes and padding have hard edges. The attribution rectangles are kept: the
+ * compositing restores them after the paste with the original's strokes over the kept picture's
+ * own ground (`restoreProtectedRectangles` with `relitAttribution`), or verbatim where the strokes
+ * are not found. It does not depend on what the localizer found and has no coverage cap.
+ */
+export function lavishKeepMask(input: {
+  width: number;
+  height: number;
+  analysis: SceneAnalysis;
+  padRegions: readonly NormalizedBox[];
+  /** The restore boxes of a repair that apply. */
+  restoreBoxes?: readonly NormalizedBox[];
+  /** Text-mark decisions of the edited output; without them every mark is grown. */
+  textMarks?: readonly TextMarkModeOf[];
+  featherPx: number;
+}): CompositeMask {
+  const { analysis, width, height } = input;
+  const blurred = analysis.protectedBlurRegions
+    .map((region) => region.box)
+    .filter((box) => !input.padRegions.some((pad) => sameBox(pad, box)));
+  return wholeFrameMask({
+    width,
+    height,
+    exclusions: privacyExclusions({
+      analysis,
+      attributionRegions: [],
+      padRegions: input.padRegions,
+      width,
+      height,
+      ...(input.restoreBoxes ? { restoreBoxes: input.restoreBoxes } : {}),
+      ...(input.textMarks ? { textMarks: input.textMarks } : {}),
+    }),
+    soft: [...analysis.peopleBoxes, ...blurred],
+    featherPx: input.featherPx,
+  });
 }
 
 /**

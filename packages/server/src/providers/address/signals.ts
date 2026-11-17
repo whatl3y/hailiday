@@ -19,6 +19,8 @@ import type {
 
 /** Place types that pass the place-type gate. */
 export const ADDRESS_PLACE_TYPES = ['street_address', 'premise', 'subpremise'] as const;
+/** Primary types an address suggestion may have: the types the place-type gate accepts. */
+export const SUGGESTION_PRIMARY_TYPES: readonly string[] = [...ADDRESS_PLACE_TYPES];
 /** Place types that mark a multi-unit property. */
 export const MULTI_UNIT_PLACE_TYPES = [
   'subpremise',

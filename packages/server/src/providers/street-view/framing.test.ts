@@ -6,12 +6,15 @@ import { fixturePanoramaGeometry, referenceView } from '../../fixtures/street-vi
 import { PIPELINE_DEFAULTS } from '../../pipeline/versions.js';
 import { createFixtureStreetViewProvider } from './fixture.js';
 import {
+  ViewpointFramingSchema,
+  aimAt,
   directionOf,
   frameView,
   framedViewOf,
   framingOf,
   normalizeHeading,
   pointOf,
+  wideViewOf,
   type FrameGeometry,
 } from './framing.js';
 
@@ -217,6 +220,167 @@ describe('framing a box of a Street View frame', () => {
     const edges = edgesIn(view, box, framed);
     expect(edges.top).toBeCloseTo(PARAMS.marginFraction, 1);
     expect(Math.min(edges.left, 1 - edges.right)).toBeGreaterThan(PARAMS.marginFraction);
+  });
+});
+
+describe('aiming a frame at a box', () => {
+  it('turns to the angular middle of the box at its mid-height', () => {
+    expect(aimAt(square(109.9, 10, 90), [0.83, 0.3, 1, 0.7])).toEqual({
+      heading: 149.5,
+      turnDeg: expect.closeTo(39.6, 9),
+    });
+    expect(aimAt(square(10, 3.8, 90), [0, 0.3, 0.2, 0.7])).toEqual({
+      heading: 332,
+      turnDeg: expect.closeTo(-38, 9),
+    });
+    expect(aimAt(square(200, 0, 90), [0, 0.2, 0.97, 0.8])).toEqual({
+      heading: 199.1,
+      turnDeg: expect.closeTo(-0.9, 9),
+    });
+    // A box centered on north is aimed at 0, never 360.
+    expect(aimAt(square(0, 2, 60), [0.4, 0.3, 0.6, 0.7]).heading).toBe(0);
+  });
+
+  it('gives the heading the framed view of the same box takes', () => {
+    const cases: [FrameGeometry, NormalizedBox][] = [
+      [square(6, 1.7, 60), [0.165, 0.26, 0.495, 0.615]],
+      [square(267.4, 2.4, 60), [0.287, 0.31, 0.69, 0.595]],
+      [square(120, 0, 75), [0.3, 0.35, 0.7, 0.55]],
+      [square(100, 2, 60), [0, 0.3, 0.4, 0.75]],
+      [square(10, 2, 90), [0, 0.3, 0.3, 0.7]],
+      [square(359, 2, 60), [0.6, 0.3, 0.9, 0.7]],
+      [square(1, 2, 60), [0.1, 0.3, 0.4, 0.7]],
+      [{ heading: 210, pitch: 1, fov: 80, width: 640, height: 400 }, [0.35, 0.2, 0.6, 0.8]],
+    ];
+    for (const [view, box] of cases) {
+      expect(aimAt(view, box).heading).toBe(frameView(view, box, PARAMS).heading);
+    }
+  });
+});
+
+describe('a recorded framing', () => {
+  const viewpoint: ViewpointJson = {
+    panoId: 'pano-road',
+    heading: 109.9,
+    headingMode: 'road',
+    pitch: 3.8,
+    fov: 90,
+    width: 640,
+    height: 640,
+    source: 'outdoor',
+    captureGranularity: 'month',
+    fetchedAt: null,
+    sourceCheckedAt: null,
+  };
+  const recorded = {
+    promptVersion: 'frame-2026.11.0',
+    model: 'm',
+    framedAt: '2026-11-13T00:00:00Z',
+  };
+  const reaim = {
+    heading: 149.6,
+    box: [0.842, 0.395, 1, 0.647] as NormalizedBox,
+    promptVersion: 'frame-road-2026.11.0',
+  };
+
+  it('reads the records of an aimed frame as before', () => {
+    const framed = {
+      status: 'framed',
+      heading: 355.2,
+      pitch: 5.1,
+      fov: 26.8,
+      box: [0.165, 0.26, 0.495, 0.615],
+      zoom: 2.423,
+      displayIssuedAt: '2026-11-13T00:00:00Z',
+      ...recorded,
+    };
+    expect(ViewpointFramingSchema.parse(framed)).toEqual(framed);
+    const kept = { status: 'kept', reason: 'small_gain', box: [0, 0, 1, 1], ...recorded };
+    expect(ViewpointFramingSchema.parse(kept)).toEqual(kept);
+  });
+
+  it('reads a re-aim and the reason of a frame at zoom 1', () => {
+    const zoomed = {
+      status: 'framed' as const,
+      heading: 152.5,
+      pitch: 1,
+      fov: 33.3,
+      box: [0.401, 0.395, 0.652, 0.647] as NormalizedBox,
+      zoom: 3.34,
+      reaim,
+      ...recorded,
+    };
+    expect(framingOf({ framing: zoomed })).toEqual(zoomed);
+    const filled = {
+      status: 'framed' as const,
+      heading: 149.6,
+      pitch: 3.8,
+      fov: 90,
+      box: [0.05, 0.1, 0.95, 0.9] as NormalizedBox,
+      zoom: 1,
+      reason: 'small_gain' as const,
+      reaim,
+      ...recorded,
+    };
+    expect(framingOf({ framing: filled })).toEqual(filled);
+    expect(framingOf({ framing: { ...filled, reason: 'refused_framed' } })).toMatchObject({
+      reason: 'refused_framed',
+      reaim,
+    });
+    // A re-aim without the prompt of its first call, or a reason a framed record never takes,
+    // does not read.
+    const { promptVersion: _dropped, ...withoutVersion } = reaim;
+    expect(framingOf({ framing: { ...zoomed, reaim: withoutVersion } as never })).toBeNull();
+    expect(framingOf({ framing: { ...filled, reaim: { ...reaim, heading: 360 } } })).toBeNull();
+    expect(framingOf({ framing: { ...filled, reason: 'no_home' } as never })).toBeNull();
+  });
+
+  it('gives the wide frame the framing was decided on, and the frame it shows', () => {
+    expect(wideViewOf(viewpoint)).toEqual(framedViewOf(viewpoint));
+    const zoomed: ViewpointJson = {
+      ...viewpoint,
+      framing: {
+        status: 'framed',
+        heading: 152.5,
+        pitch: 1,
+        fov: 33.3,
+        box: [0.401, 0.395, 0.652, 0.647],
+        zoom: 3.34,
+        reaim,
+        ...recorded,
+      },
+    };
+    expect(wideViewOf(zoomed)).toEqual({
+      panoId: 'pano-road',
+      heading: 149.6,
+      pitch: 3.8,
+      fov: 90,
+      width: 640,
+      height: 640,
+    });
+    // Without a re-aim the wide frame is the viewpoint's own view, also when framed.
+    const { reaim: _none, ...aimed } = zoomed.framing as Extract<
+      ViewpointJson['framing'],
+      { status: 'framed' }
+    >;
+    expect(wideViewOf({ ...viewpoint, framing: aimed })).toEqual(framedViewOf(viewpoint));
+    // A framed record at zoom 1 is fetched and shown at its own view.
+    const filled: ViewpointJson = {
+      ...viewpoint,
+      framing: {
+        status: 'framed',
+        heading: 149.6,
+        pitch: 3.8,
+        fov: 90,
+        box: [0.05, 0.1, 0.95, 0.9],
+        zoom: 1,
+        reason: 'small_gain',
+        reaim,
+        ...recorded,
+      },
+    };
+    expect(framedViewOf(filled)).toEqual(wideViewOf(filled));
+    expect(framedViewOf(filled)).toMatchObject({ heading: 149.6, pitch: 3.8, fov: 90 });
   });
 });
 

@@ -3,7 +3,7 @@ import { testConfig } from '../../config/index.js';
 import { loadFixtureData } from '../../fixtures/data.js';
 import type { FetchLike } from '../http.js';
 import { createFixtureStreetViewProvider, FIXTURE_METADATA_ERROR_PANO_PREFIX } from './fixture.js';
-import { DEFAULT_VIEWPOINT_PARAMETERS } from '../geo.js';
+import { DEFAULT_VIEWPOINT_PARAMETERS, destinationPoint } from '../geo.js';
 import { createGoogleStreetViewProvider } from './google.js';
 import { REFRESH_TARGET_POINT_RADIUS_M } from './refresh.js';
 
@@ -190,5 +190,56 @@ describe('fixture refreshPanorama', () => {
     expect((await streetView.refreshPanorama('fxSvRetiredPano', { location: far })).status).toBe(
       'missing',
     );
+  });
+});
+
+describe('fixture metadata of a place whose panoramas are found by distance', () => {
+  const config = testConfig();
+  const streetView = createFixtureStreetViewProvider({
+    publicBaseUrl: config.publicBaseUrl,
+    sessionSecret: config.sessionSecret,
+  });
+  const data = loadFixtureData();
+
+  it('answers the panorama nearest the probed point within the radius', async () => {
+    const place = data.placeById('ChIJfxMillpondRoadCapeXXX26');
+    if (!place) throw new Error('no place on the road');
+    expect(place.panoramaLookup).toBe('nearest');
+    const [p1, p2] = place.panoramas;
+    if (!p1 || !p2) throw new Error('two panoramas');
+    const target = place.destinations.targetPoint ?? place.location;
+    const at = (location: { latitude: number; longitude: number }, radiusM: number) =>
+      streetView.metadataByLocation({ location, radiusM });
+
+    expect(await at(target, 50)).toMatchObject({ status: 'OK', panoId: p1.panoId });
+    // The second panorama answers by distance alone: its probe label plays no part.
+    expect(p2.probe).toBe('track');
+    expect(await at(destinationPoint(p2.location, 0, 1), 50)).toMatchObject({
+      status: 'OK',
+      panoId: p2.panoId,
+      location: p2.location,
+      date: p2.captureDate,
+      copyright: p2.copyright,
+    });
+    // The first panorama is 5 m from the target: none within 4 m.
+    expect((await at(target, 4)).status).toBe('ZERO_RESULTS');
+  });
+
+  it('still answers by probe label for every other place', async () => {
+    const place = data.placeById('ChIJfxDriftwoodCoveCapeXX15');
+    if (!place) throw new Error('no Driftwood Cove');
+    expect(place.panoramaLookup).toBe('probe');
+    const target = place.destinations.targetPoint ?? place.location;
+    const along = destinationPoint(target, place.destinations.roadBearingDeg ?? 90, 15);
+    const expected = place.panoramas.find((panorama) => panorama.probe === 'offset_+15m');
+    expect(expected?.panoId).toBe('fxSvDriftwoodCov15p2Sv');
+    expect(await streetView.metadataByLocation({ location: along, radiusM: 50 })).toMatchObject({
+      status: 'OK',
+      panoId: expected?.panoId,
+    });
+    expect(await streetView.metadataByLocation({ location: target, radiusM: 50 })).toMatchObject({
+      status: 'OK',
+      panoId: 'fxSvDriftwoodCov15p1Sv',
+    });
   });
 });

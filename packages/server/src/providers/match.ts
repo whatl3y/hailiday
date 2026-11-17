@@ -32,9 +32,22 @@ export const DEFAULT_MATCH_THRESHOLDS: MatchThresholds = Object.freeze({
 
 /**
  * Version of the viewpoint and match algorithm, recorded with every discovery. Version 2 lets the
- * fallback points stand in for a target that answers `UNKNOWN_ERROR` in Step 1.
+ * fallback points stand in for a target that answers `UNKNOWN_ERROR` in Step 1. Version 3
+ * recognises a target on the road and offers views across it.
  */
-export const DISCOVERY_ALGORITHM_VERSION = '2';
+export const DISCOVERY_ALGORITHM_VERSION = '3';
+
+/** The first version that recognises a target on the road. */
+export const ROAD_VIEWS_ALGORITHM_VERSION = 3;
+
+/**
+ * Whether a stored discovery was made before the on-road test existed (an unreadable version
+ * counts as before).
+ */
+export function predatesRoadViews(algorithmVersion: string): boolean {
+  const version = Number(algorithmVersion);
+  return !(Number.isFinite(version) && version >= ROAD_VIEWS_ALGORITHM_VERSION);
+}
 
 export type SignalColor = 'green' | 'amber' | 'red';
 

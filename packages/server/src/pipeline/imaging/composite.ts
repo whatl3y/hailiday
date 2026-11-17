@@ -1,9 +1,15 @@
 import type { LightingMode, NormalizedBox } from '@hailiday/core';
+import { TO_LINEAR, toSrgb } from '../../fixtures/canvas.js';
 import { PIPELINE_DEFAULTS } from '../versions.js';
 import { restoreAttributionRelit, type AttributionRestoreMode } from './attribution.js';
-import { attributionRegionsOf, medianDeltaE } from './checks.js';
+import {
+  attributionRegionsOf,
+  medianDeltaE,
+  protectedRestoreLevel,
+  type RestoredProtectedBox,
+} from './checks.js';
 import { featherBand, neighbourhood, type CompositeMask } from './mask.js';
-import { copyRect, toRect, type Raster } from './raster.js';
+import { copyRect, toRect, type PxRect, type Raster } from './raster.js';
 import { alignCandidate, type AlignmentRecord, type AlignmentResult } from './registration.js';
 
 /**
@@ -368,6 +374,8 @@ export interface AlignedComposite {
   attributionRestored: boolean;
   /** How each attribution rectangle was restored, in order (empty when there are none). */
   attribution: AttributionRestoreRecord[];
+  /** The people boxes and blur regions a relight put back from the reference; null otherwise. */
+  protectedRestore: ProtectedRestore | null;
 }
 
 /** One attribution rectangle's restoration (stored with the compositing checks on the attempt). */
@@ -379,12 +387,247 @@ export interface AttributionRestoreRecord {
   gain: [number, number, number] | null;
 }
 
+/** What the protected restore of a relight did (stored with the compositing checks). */
+export interface ProtectedRestoreRecord {
+  /** Groups of touching or overlapping boxes, each restored with one gain. */
+  groups: number;
+  /** People boxes and blur regions restored. */
+  boxes: number;
+  /** The applied per-channel gain of each group, in linear light. */
+  gains: [number, number, number][];
+  /** `adapted` when the gain was measured around the group, `verbatim` when it was 1. */
+  modes: AttributionRestoreMode[];
+}
+
+/** The protected restore's result: the candidate, the record and each box with its gain. */
+export interface ProtectedRestore {
+  candidate: Raster;
+  record: ProtectedRestoreRecord;
+  restored: RestoredProtectedBox[];
+}
+
+/** Settings of the protected restore of a relight (render spec, lighting modes). */
+const PROTECTED_RESTORE = {
+  /** Growth of each box on every side, in pixels. */
+  growPx: 2,
+  /** Width of the ring the gain is measured on: this share of the long edge, at least `minRingPx`. */
+  ringFraction: 0.02,
+  minRingPx: 8,
+  /** Fewest ring pixels for a measured gain; fewer restores the group verbatim. */
+  minRingPixels: 64,
+  minGain: 0.02,
+  maxGain: 4,
+  /** Width of the feather around each group: this share of the long edge, at least `minFeatherPx`. */
+  featherFraction: 0.004,
+  minFeatherPx: 3,
+} as const;
+
+const inRect = (rect: PxRect, x: number, y: number) =>
+  x >= rect.x0 && x < rect.x1 && y >= rect.y0 && y < rect.y1;
+
+const touches = (a: PxRect, b: PxRect) =>
+  a.x0 <= b.x1 && b.x0 <= a.x1 && a.y0 <= b.y1 && b.y0 <= a.y1;
+
+function medianOfList(values: number[]): number {
+  if (values.length === 0) return 1;
+  const sorted = Float64Array.from(values).sort();
+  return sorted[Math.floor(sorted.length / 2)] as number;
+}
+
+/**
+ * Puts people boxes and blur regions back from the base of a relight (render spec, lighting
+ * modes), so their pixels are the base's, never the editor's. Each box is grown by 2 px and
+ * clipped to the frame; boxes that overlap or touch form one group, whose region is the union of
+ * its grown rectangles. Each group gets one gain per channel in linear light: the median ratio of
+ * candidate to base (base floored at 0.001) over a ring around the group's bounding rectangle,
+ * every protected rectangle and the `ignore` boxes (attribution, padding) left out, clamped to
+ * [0.02, 4] and rounded to 3 decimals before it is applied; with fewer than 64 ring pixels the
+ * gain is 1 (`verbatim`). A feather band around each region blends the gain-scaled base into the
+ * candidate in linear light (weight 1 at the region falling linearly to 0 at the band's outer
+ * edge), then every region is written as exactly `protectedRestoreLevel(base, gain)`.
+ * Deterministic; null when there is no box.
+ */
+export function restoreProtectedBoxes(input: {
+  candidate: Raster;
+  base: Raster;
+  boxes: readonly NormalizedBox[];
+  ignore?: readonly NormalizedBox[];
+}): ProtectedRestore | null {
+  const { candidate, base } = input;
+  if (input.boxes.length === 0) return null;
+  if (candidate.width !== base.width || candidate.height !== base.height) {
+    throw new RangeError('protected restore needs equal sizes');
+  }
+  const { width, height } = base;
+  const s = PROTECTED_RESTORE;
+  const long = Math.max(width, height);
+  const rects = input.boxes.map((box): PxRect => {
+    const rect = toRect(box, width, height);
+    return {
+      x0: Math.max(0, rect.x0 - s.growPx),
+      y0: Math.max(0, rect.y0 - s.growPx),
+      x1: Math.min(width, rect.x1 + s.growPx),
+      y1: Math.min(height, rect.y1 + s.growPx),
+    };
+  });
+  // Groups of boxes that overlap or touch, transitively, in the order of their first box.
+  const parent = rects.map((_, i) => i);
+  const find = (i: number): number => {
+    while (parent[i] !== i) i = parent[i] as number;
+    return i;
+  };
+  for (let i = 0; i < rects.length; i += 1) {
+    for (let j = i + 1; j < rects.length; j += 1) {
+      if (!touches(rects[i] as PxRect, rects[j] as PxRect)) continue;
+      const a = find(i);
+      const b = find(j);
+      if (a !== b) parent[Math.max(a, b)] = Math.min(a, b);
+    }
+  }
+  const members = new Map<number, number[]>();
+  for (let i = 0; i < rects.length; i += 1) {
+    const root = find(i);
+    const list = members.get(root) ?? [];
+    list.push(i);
+    members.set(root, list);
+  }
+  const groups = [...members.values()].map((indices) => {
+    const own = indices.map((i) => rects[i] as PxRect);
+    return {
+      indices,
+      rects: own,
+      bounds: {
+        x0: Math.min(...own.map((r) => r.x0)),
+        y0: Math.min(...own.map((r) => r.y0)),
+        x1: Math.max(...own.map((r) => r.x1)),
+        y1: Math.max(...own.map((r) => r.y1)),
+      },
+    };
+  });
+
+  // One gain per group and channel, measured on the candidate as delivered.
+  const ignored = (input.ignore ?? []).map((box) => toRect(box, width, height));
+  const ringPx = Math.max(s.minRingPx, Math.round(s.ringFraction * long));
+  const r3 = (v: number) => Math.round(v * 1000) / 1000;
+  const gains = groups.map(({ bounds }) => {
+    const ratios: number[][] = [[], [], []];
+    const x0 = Math.max(0, bounds.x0 - ringPx);
+    const y0 = Math.max(0, bounds.y0 - ringPx);
+    const x1 = Math.min(width, bounds.x1 + ringPx);
+    const y1 = Math.min(height, bounds.y1 + ringPx);
+    for (let y = y0; y < y1; y += 1) {
+      for (let x = x0; x < x1; x += 1) {
+        if (inRect(bounds, x, y)) continue;
+        if (rects.some((rect) => inRect(rect, x, y))) continue;
+        if (ignored.some((rect) => inRect(rect, x, y))) continue;
+        const p = (y * width + x) * 3;
+        for (let c = 0; c < 3; c += 1) {
+          (ratios[c] as number[]).push(
+            (TO_LINEAR[candidate.data[p + c] as number] as number) /
+              Math.max(0.001, TO_LINEAR[base.data[p + c] as number] as number),
+          );
+        }
+      }
+    }
+    if ((ratios[0] as number[]).length < s.minRingPixels) {
+      return { gain: [1, 1, 1] as [number, number, number], mode: 'verbatim' as const };
+    }
+    const gain = ratios.map((list) =>
+      r3(Math.min(s.maxGain, Math.max(s.minGain, medianOfList(list)))),
+    ) as [number, number, number];
+    return { gain, mode: 'adapted' as const };
+  });
+
+  // The regions, then the feather bands outside every region (the nearest group's weight).
+  const region = new Int32Array(width * height).fill(-1);
+  for (const [g, group] of groups.entries()) {
+    for (const rect of group.rects) {
+      for (let y = rect.y0; y < rect.y1; y += 1)
+        region.fill(g, y * width + rect.x0, y * width + rect.x1);
+    }
+  }
+  const featherPx = Math.max(s.minFeatherPx, Math.round(s.featherFraction * long));
+  const weight = new Float32Array(width * height);
+  const owner = new Int32Array(width * height).fill(-1);
+  for (const [g, group] of groups.entries()) {
+    const x0 = Math.max(0, group.bounds.x0 - featherPx);
+    const y0 = Math.max(0, group.bounds.y0 - featherPx);
+    const x1 = Math.min(width, group.bounds.x1 + featherPx);
+    const y1 = Math.min(height, group.bounds.y1 + featherPx);
+    for (let y = y0; y < y1; y += 1) {
+      for (let x = x0; x < x1; x += 1) {
+        const i = y * width + x;
+        if ((region[i] as number) >= 0) continue;
+        let d = Number.POSITIVE_INFINITY;
+        for (const rect of group.rects) {
+          const dx = Math.max(rect.x0 - x, 0, x - (rect.x1 - 1));
+          const dy = Math.max(rect.y0 - y, 0, y - (rect.y1 - 1));
+          d = Math.min(d, Math.max(dx, dy));
+        }
+        if (d > featherPx) continue;
+        const w = (featherPx + 1 - d) / (featherPx + 1);
+        if (w > (weight[i] as number)) {
+          weight[i] = w;
+          owner[i] = g;
+        }
+      }
+    }
+  }
+  const out: Raster = { ...candidate, data: Buffer.from(candidate.data) };
+  for (let i = 0; i < owner.length; i += 1) {
+    const g = owner[i] as number;
+    if (g < 0) continue;
+    const w = weight[i] as number;
+    const gain = (gains[g] as { gain: [number, number, number] }).gain;
+    for (let c = 0; c < 3; c += 1) {
+      const p = i * 3 + c;
+      const restored = Math.min(1, (TO_LINEAR[base.data[p] as number] as number) * gain[c]);
+      const current = TO_LINEAR[candidate.data[p] as number] as number;
+      out.data[p] = Math.round(toSrgb(w * restored + (1 - w) * current));
+    }
+  }
+  for (let i = 0; i < region.length; i += 1) {
+    const g = region[i] as number;
+    if (g < 0) continue;
+    const gain = (gains[g] as { gain: [number, number, number] }).gain;
+    for (let c = 0; c < 3; c += 1) {
+      const p = i * 3 + c;
+      out.data[p] = protectedRestoreLevel(base.data[p] as number, gain[c]);
+    }
+  }
+  const groupOf = new Map<number, number>();
+  for (const [g, group] of groups.entries()) for (const i of group.indices) groupOf.set(i, g);
+  return {
+    candidate: out,
+    record: {
+      groups: groups.length,
+      boxes: input.boxes.length,
+      gains: gains.map((entry) => [...entry.gain] as [number, number, number]),
+      modes: gains.map((entry) => entry.mode),
+    },
+    restored: input.boxes.map((box, i) => ({
+      box,
+      gain: [...(gains[groupOf.get(i) as number] as { gain: [number, number, number] }).gain] as [
+        number,
+        number,
+        number,
+      ],
+    })),
+  };
+}
+
 /**
  * Restores the attribution rectangles and the padding into a candidate. In `source` mode both are
  * copied verbatim from the working image. In a relight each attribution rectangle keeps the
  * working image's logo and copyright strokes while the ground behind them follows the new light
  * (`restoreAttributionRelit`, verbatim when the strokes are not found reliably); padding stays
- * verbatim.
+ * verbatim. `relitAttribution` restores the attribution rectangles of a `source` candidate the
+ * relight's way (a lavish attempt, whose whole frame is the editor's); every people box and blur
+ * region in `protectedBoxes` is then copied back verbatim from the working image, so those boxes
+ * hold the original's pixels also where they overlap an attribution rectangle. In a relight the
+ * people boxes and blur regions in `protectedBoxes` (padding left out) are put back from the
+ * working image first (`restoreProtectedBoxes`), so the attribution rectangles and padding win
+ * where they overlap; each restored box records those rectangles (`restoredAfter`).
  */
 export function restoreProtectedRectangles(input: {
   candidate: Raster;
@@ -392,13 +635,42 @@ export function restoreProtectedRectangles(input: {
   lightingMode: LightingMode;
   attribution: readonly NormalizedBox[];
   padRegions?: readonly NormalizedBox[];
-}): { candidate: Raster; attribution: AttributionRestoreRecord[] } {
+  relitAttribution?: boolean;
+  protectedBoxes?: readonly NormalizedBox[];
+}): {
+  candidate: Raster;
+  attribution: AttributionRestoreRecord[];
+  protectedRestore: ProtectedRestore | null;
+} {
   const { working, attribution } = input;
   const pads = input.padRegions ?? [];
   let candidate = input.candidate;
   const records: AttributionRestoreRecord[] = [];
+  const sameBox = (a: NormalizedBox, b: NormalizedBox) => a.every((value, i) => value === b[i]);
+  // The attribution rectangles and the padding are restored after the protected boxes, from the
+  // same working image, and win where they overlap a box.
+  const restoredAfter = [...attribution, ...pads];
+  const restoredBoxes =
+    input.lightingMode === 'source'
+      ? null
+      : restoreProtectedBoxes({
+          candidate,
+          base: working,
+          boxes: (input.protectedBoxes ?? []).filter(
+            (box) => !pads.some((pad) => sameBox(pad, box)),
+          ),
+          ignore: restoredAfter,
+        });
+  const protectedRestore =
+    restoredBoxes && restoredAfter.length > 0
+      ? {
+          ...restoredBoxes,
+          restored: restoredBoxes.restored.map((entry) => ({ ...entry, restoredAfter })),
+        }
+      : restoredBoxes;
+  if (protectedRestore) candidate = protectedRestore.candidate;
   for (const [index, box] of attribution.entries()) {
-    if (input.lightingMode === 'source') {
+    if (input.lightingMode === 'source' && !input.relitAttribution) {
       candidate = restoreRegion(candidate, working, box);
       records.push({ mode: 'verbatim', share: null, gain: null });
       continue;
@@ -413,8 +685,18 @@ export function restoreProtectedRectangles(input: {
       gain: restored.gain,
     });
   }
+  if (input.lightingMode === 'source' && input.relitAttribution) {
+    // The people boxes and blur regions of a lavish attempt are the original's, never a relit
+    // ground's.
+    const boxes = input.protectedBoxes ?? [];
+    if (boxes.length > 0) {
+      const out: Raster = { ...candidate, data: Buffer.from(candidate.data) };
+      for (const box of boxes) copyRect(out, working, toRect(box, working.width, working.height));
+      candidate = out;
+    }
+  }
   for (const pad of pads) candidate = restoreRegion(candidate, working, pad);
-  return { candidate, attribution: records };
+  return { candidate, attribution: records, protectedRestore };
 }
 
 const round2 = (value: number) => Math.round(value * 100) / 100;
@@ -425,7 +707,8 @@ const round2 = (value: number) => Math.round(value * 100) / 100;
  * In a relight (`evening` or `bright`), where nothing is pasted back, a warp that leaves an
  * uncovered strip deeper than `maxUncoveredInsetFraction` of the long edge is rejected
  * (`reason: 'uncovered'`, which the checks report as `camera_changed`). A rejected registration
- * has no aligned raster.
+ * has no aligned raster. With `acceptPoorFit` (`source` mode only), a transform within the limits
+ * whose fit is poor is taken unwarped instead of rejected (`reason: 'poor_fit_ignored'`).
  */
 export async function registerDelivered(input: {
   working: Raster;
@@ -434,11 +717,13 @@ export async function registerDelivered(input: {
   exclude: Uint8Array | null;
   fallbackPx: number;
   maxUncoveredInsetFraction?: number;
+  acceptPoorFit?: boolean;
 }): Promise<AlignmentResult> {
   const { working } = input;
   const long = Math.max(working.width, working.height);
   const registered = await alignCandidate(working, input.delivered, input.exclude, {
     fallbackPx: input.fallbackPx,
+    ...(input.acceptPoorFit && input.lightingMode === 'source' ? { acceptPoorFit: true } : {}),
   });
   if (!registered.aligned) return registered;
   const maxInset =
@@ -469,8 +754,11 @@ export async function registerDelivered(input: {
  * checks report as `camera_changed`); a thinner strip is kept, filled by reflection. Padding is
  * restored verbatim in both modes, and so are the attribution rectangles in `source` mode; in a
  * relight each attribution rectangle keeps the working image's logo and copyright strokes over a
- * relit ground (`restoreProtectedRectangles`). A rejected registration returns the delivered
- * output unchanged with `alignment.accepted` false.
+ * relit ground (`restoreProtectedRectangles`), after the people boxes and blur regions
+ * (`protectedBoxes`) are put back from the reference with the exposure adapted. A lavish attempt
+ * (`relitAttribution`) has its attribution rectangles restored the relight's way in `source` mode
+ * too, and its people boxes and blur regions (`protectedBoxes`) copied back verbatim after them. A
+ * rejected registration returns the delivered output unchanged with `alignment.accepted` false.
  */
 export async function alignAndComposite(input: {
   working: Raster;
@@ -478,7 +766,10 @@ export async function alignAndComposite(input: {
   lightingMode: LightingMode;
   mask: CompositeMask | null;
   exclude: Uint8Array | null;
-  /** The embedded attribution rectangle(s): verbatim in `source` mode, strokes kept in a relight. */
+  /**
+   * The embedded attribution rectangle(s): verbatim in `source` mode, strokes kept over the
+   * picture's own ground in a relight and with `relitAttribution`.
+   */
   attributionRegion?: NormalizedBox | readonly NormalizedBox[] | null;
   padRegions?: readonly NormalizedBox[];
   seamDeltaE: number;
@@ -493,6 +784,13 @@ export async function alignAndComposite(input: {
    * aligned output before compositing; `exclude` and `fallbackPx` are then not used.
    */
   registered?: AlignmentResult;
+  /** Restore the attribution rectangles with their strokes in `source` mode too. */
+  relitAttribution?: boolean;
+  /**
+   * People boxes and blur regions a relight puts back from the reference; with `relitAttribution`
+   * in `source` mode, copied back verbatim after the attribution rectangles.
+   */
+  protectedBoxes?: readonly NormalizedBox[];
 }): Promise<AlignedComposite> {
   const { working } = input;
   const long = Math.max(working.width, working.height);
@@ -518,6 +816,7 @@ export async function alignAndComposite(input: {
       photometric: null,
       attributionRestored: false,
       attribution: [],
+      protectedRestore: null,
     };
   }
   const raw = registered.aligned;
@@ -570,6 +869,8 @@ export async function alignAndComposite(input: {
     lightingMode: input.lightingMode,
     attribution,
     ...(input.padRegions ? { padRegions: input.padRegions } : {}),
+    ...(input.relitAttribution ? { relitAttribution: true } : {}),
+    ...(input.protectedBoxes ? { protectedBoxes: input.protectedBoxes } : {}),
   });
   return {
     raw,
@@ -579,5 +880,6 @@ export async function alignAndComposite(input: {
     photometric,
     attributionRestored: attribution.length > 0,
     attribution: restored.attribution,
+    protectedRestore: restored.protectedRestore,
   };
 }

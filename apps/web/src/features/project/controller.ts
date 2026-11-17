@@ -359,7 +359,8 @@ export async function discover(
     if (!isCurrent(token)) return;
     if (isApiError(error) && error.code === 'STALE_PROJECT_VERSION') {
       const fresh = await getProject(project.id).catch(() => null);
-      if (fresh && isCurrent(token)) {
+      if (!isCurrent(token)) return;
+      if (fresh) {
         setProjectData(fresh);
         await discover(token, options);
         return;
@@ -536,13 +537,35 @@ export async function changeSceneType(choice: SceneChoice, retried = false): Pro
   }
 }
 
-/** Selects one of the base candidates, loading its image on request when needed. */
+/** The view already loaded for a base candidate turned by `offset` degrees, if any. */
+function turnedViewOf(
+  candidates: readonly Candidate[],
+  baseCandidate: Candidate,
+  offset: number,
+): Candidate | undefined {
+  return candidates.find(
+    (item) =>
+      item.derivedFromCandidateId === baseCandidate.candidateId &&
+      Math.round(((item.heading - baseCandidate.heading + 540) % 360) - 180) === offset,
+  );
+}
+
+/**
+ * Selects one of the base candidates, loading its image on request when needed. A view that was
+ * turned comes back as it was left, so the turn kept for it always matches the picture on screen.
+ */
 export async function selectView(candidateId: string): Promise<void> {
   const current = state();
   const candidate = current.candidates.find((item) => item.candidateId === candidateId);
   if (!candidate || !current.project) return;
   if (candidate.displayUrl) {
-    patchProject({ selectedCandidateId: candidateId, inlineError: null });
+    const offset = current.nudgeOffsets[candidateId] ?? 0;
+    const turned = offset === 0 ? undefined : turnedViewOf(current.candidates, candidate, offset);
+    patchProject({
+      selectedCandidateId: turned?.candidateId ?? candidateId,
+      nudgeOffsets: turned ? current.nudgeOffsets : { ...current.nudgeOffsets, [candidateId]: 0 },
+      inlineError: null,
+    });
     return;
   }
   if (current.remainingDisplayLoads <= 0) return;
@@ -615,11 +638,7 @@ export async function nudge(direction: -1 | 1): Promise<void> {
     });
     return;
   }
-  const cached = current.candidates.find(
-    (item) =>
-      item.derivedFromCandidateId === base &&
-      Math.round(((item.heading - baseCandidate.heading + 540) % 360) - 180) === offset,
-  );
+  const cached = turnedViewOf(current.candidates, baseCandidate, offset);
   if (cached) {
     patchProject({
       selectedCandidateId: cached.candidateId,
@@ -1024,10 +1043,10 @@ async function handleRenderRequestError(
 
 /**
  * A render refused because the bound street photo may only be displayed. A look asked for from
- * a result leaves the result on screen with the reason in line. Otherwise the confirm screen
- * shows the photo prompt; a page that does not hold the place's display-only discovery runs
- * discovery again first, and gives the reason in line when that discovery offers a view to
- * decorate.
+ * a result opens the upload step with the reason in line; Cancel returns to the result.
+ * Otherwise the confirm screen shows the photo prompt; a page that does not hold the place's
+ * display-only discovery runs discovery again first, and gives the reason in line when that
+ * discovery offers a view to decorate.
  */
 async function showDisplayOnly(
   error: unknown,
@@ -1037,7 +1056,8 @@ async function showDisplayOnly(
   const reason = presentError(error)?.message ?? null;
   const current = state();
   if (returnPhase === 'result' && current.variant) {
-    patchProject({ phase: 'result', inlineError: reason });
+    showUpload('replace');
+    patchProject({ inlineError: reason });
     return;
   }
   if (current.discovery?.sourceMode === 'display_only' && current.candidates.length > 0) {

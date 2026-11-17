@@ -1,11 +1,13 @@
 import { readFileSync } from 'node:fs';
 import sharp from 'sharp';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { NormalizedBoxSchema, type DecorationPlan } from '@hailiday/core';
+import { NormalizedBoxSchema, type DecorationPlan, type NormalizedBox } from '@hailiday/core';
 import { testConfig } from '../config/index.js';
 import { loadContent, type Content } from '../content/load.js';
 import { sha256Hex } from '../ids/index.js';
+import { PIPELINE_DEFAULTS } from '../pipeline/versions.js';
 import { createProviders } from '../providers/create.js';
+import { frameView } from '../providers/street-view/framing.js';
 import { archetypeFor } from './archetypes.js';
 import { renderGenericScene } from './art.js';
 import { decorateImage } from './compositor.js';
@@ -26,7 +28,13 @@ import {
   type HeroOrientation,
 } from './heroes.js';
 import { renderHouse, streetViewCamera } from './house.js';
-import { loadPhotoLibrary, panoramaCrop, transformBox, type HousePhoto } from './photos.js';
+import {
+  OUTSIDE_PHOTO_FILL,
+  loadPhotoLibrary,
+  panoramaCrop,
+  transformBox,
+  type HousePhoto,
+} from './photos.js';
 import {
   fixturePanoramaFrame,
   fixturePanoramaGeometry,
@@ -239,6 +247,242 @@ describe('fixture Street View from real photos', () => {
     });
     expectValidGeometry(scene.geometry);
     expect(scene.geometry.anchors.length).toBeGreaterThan(5);
+  });
+});
+
+describe('a panorama whose home stands beside the road', () => {
+  const data = loadFixtureData();
+  const library = loadPhotoLibrary();
+  const ROAD_PLACE = 'ChIJfxMillpondRoadCapeXXX26';
+  const P1 = 'fxSvMillpondRoad26p1Sv';
+  const P2 = 'fxSvMillpondRoad26p2Sv';
+  const PARAMS = {
+    marginFraction: PIPELINE_DEFAULTS.framing.marginFraction,
+    minFovDeg: PIPELINE_DEFAULTS.framing.minFovDeg,
+    slackBelowShare: PIPELINE_DEFAULTS.framing.slackBelowShare,
+  };
+  /** A view taken from the road: pitch 3.8, fov 90, 640 by 640. */
+  const roadView = (heading: number, panoId = P1) => ({
+    panoId,
+    heading,
+    pitch: 3.8,
+    fov: 90,
+    width: 640,
+    height: 640,
+  });
+  const expectSpan = (box: NormalizedBox | undefined, x0: number, x1: number) => {
+    expect(box).toBeDefined();
+    expect(Math.abs((box?.[0] ?? NaN) - x0)).toBeLessThanOrEqual(0.001);
+    expect(Math.abs((box?.[2] ?? NaN) - x1)).toBeLessThanOrEqual(0.001);
+  };
+  const rawOf = async (png: Buffer) => sharp(png).raw().toBuffer({ resolveWithObject: true });
+  const pixel = (raw: { data: Buffer; info: { width: number; channels: number } }) => {
+    return (x: number, y: number) => {
+      const at = (y * raw.info.width + x) * raw.info.channels;
+      return [raw.data[at], raw.data[at + 1], raw.data[at + 2]];
+    };
+  };
+
+  it('frames the home in the reference view, cuts it at the edge and shows none turned away', async () => {
+    const first = data.panorama(P1);
+    const second = data.panorama(P2);
+    expect(first?.place.placeId).toBe(ROAD_PLACE);
+    expect(first?.place.panoramaLookup).toBe('nearest');
+    expect(first?.panorama.home).toEqual({ bearingDeg: 152, distanceM: 30 });
+    // The home's bearing, and the field of view and pitch of the home's distance.
+    const reference = referenceView(first!.place, first!.panorama);
+    expect(reference).toEqual({ heading: 152, fov: 60, pitch: 1.9 });
+    expect(referenceView(second!.place, second!.panorama)).toEqual({
+      heading: 176.8,
+      fov: 60,
+      pitch: 2.3,
+    });
+    // The whole facade, in the middle, at its angular size (a 12 m facade 30 m away spans 22.6
+    // degrees of the 60).
+    const framed = fixturePanoramaGeometry({ panoId: P1, ...reference, width: 640, height: 640 });
+    const facade = framed?.targetFacade;
+    expect(facade).toBeDefined();
+    expect((facade![0] + facade![2]) / 2).toBeCloseTo(0.5, 2);
+    expect(facade![2] - facade![0]).toBeCloseTo(22.62 / 60, 2);
+
+    // The view along the road: the right edge cuts the home.
+    expect(fixturePanoramaGeometry(roadView(109.9))?.targetFacade?.[2]).toBe(1);
+
+    // The view across the road to the other side: no home, still a 640 by 640 JPEG.
+    const away = fixturePanoramaFrame(roadView(332));
+    expect(away?.geometry.targetFacade).toBeUndefined();
+    expect(away?.geometry.neighborFacades).toEqual([]);
+    const rendered = await renderFixturePanorama(roadView(332));
+    const meta = await sharp(rendered?.image).metadata();
+    expect([meta.width, meta.height, meta.format]).toEqual([640, 640, 'jpeg']);
+  });
+
+  it('keeps the crop of every panorama without a home inside its photograph', () => {
+    let checked = 0;
+    for (const place of data.places) {
+      for (const panorama of place.panoramas) {
+        if (panorama.home) continue;
+        const photo = library.house(panorama.photo?.photoId ?? '');
+        if (!photo) throw new Error(panorama.panoId);
+        const reference = referenceView(place, panorama);
+        for (const turn of [-90, 0, 90]) {
+          const crop = fixturePanoramaFrame({
+            panoId: panorama.panoId,
+            heading: (reference.heading + turn + 360) % 360,
+            fov: 90,
+            pitch: reference.pitch,
+            width: 640,
+            height: 640,
+          })?.crop;
+          expect(crop, `${panorama.panoId} ${turn}`).toBeDefined();
+          expect(crop!.left).toBeGreaterThanOrEqual(0);
+          expect(crop!.top).toBeGreaterThanOrEqual(0);
+          expect(crop!.left + crop!.width).toBeLessThanOrEqual(photo.width);
+          expect(crop!.top + crop!.height).toBeLessThanOrEqual(photo.height);
+        }
+        checked += 1;
+      }
+    }
+    expect(checked).toBeGreaterThanOrEqual(20);
+  });
+
+  it("continues the photograph's edge where the crop leaves it and is flat where it misses it", async () => {
+    // Along the road the photograph fills only the right part of the frame.
+    const along = fixturePanoramaFrame(roadView(109.9));
+    const crop = along!.crop!;
+    expect(crop.left).toBeLessThan(0);
+    expect(crop.top).toBeLessThan(0);
+    const raw = await rawOf(await along!.render({ format: 'png' }));
+    const at = pixel(raw);
+    const startX = Math.round((-crop.left * 640) / crop.width);
+    const startY = Math.round((-crop.top * 640) / crop.height);
+    expect(startX).toBeGreaterThan(400);
+    expect(startY).toBeGreaterThan(100);
+    // Left of the photograph every row repeats the photograph's first column; above it every
+    // column repeats the photograph's top row.
+    for (const y of [startY + 20, 320, 400]) {
+      for (const x of [0, 100, startX - 1]) expect(at(x, y)).toEqual(at(startX, y));
+    }
+    for (const x of [startX + 10, 600]) {
+      for (const y of [0, startY - 1]) expect(at(x, y)).toEqual(at(x, startY));
+    }
+    // The photograph itself is not flat.
+    expect(at(startX + 5, 320)).not.toEqual(at(630, 320));
+
+    // Across the road the crop misses the photograph: a flat frame (but for the credit).
+    const across = fixturePanoramaFrame(roadView(332));
+    const flat = pixel(await rawOf(await across!.render({ format: 'png' })));
+    for (const [x, y] of [
+      [0, 0],
+      [320, 320],
+      [639, 0],
+      [0, 639],
+    ] as const) {
+      expect(flat(x, y)).toEqual([0xb8, 0xc2, 0xc8]);
+    }
+    expect(OUTSIDE_PHOTO_FILL).toBe('#B8C2C8');
+
+    // The same bytes every time.
+    for (const heading of [27.6, 109.9]) {
+      const a = await renderFixturePanorama(roadView(heading));
+      const b = await renderFixturePanorama(roadView(heading));
+      expect(a?.checksum).toBe(b?.checksum);
+    }
+  });
+
+  it('shows the home where the camera heading puts it', () => {
+    // Heading of a view from the first panorama; where the facade lies in it (x0, x1); for a
+    // facade off-centre or cut by the edge, the heading that aims at it and where it lies there;
+    // and the framed view of the frame finally decided on (heading, fov, zoom).
+    const rows: {
+      heading: number;
+      facade: [number, number] | null;
+      reaim: { heading: number; facade: [number, number] } | null;
+      framed: { heading: number; fov: number; zoom: number } | null;
+    }[] = [
+      {
+        heading: 152,
+        facade: [0.374, 0.626],
+        reaim: null,
+        framed: { heading: 152, fov: 33.4, zoom: 3.33 },
+      },
+      {
+        heading: 171,
+        facade: [0.163, 0.414],
+        reaim: null,
+        framed: { heading: 149.2, fov: 32.5, zoom: 3.43 },
+      },
+      {
+        heading: 171.3,
+        facade: [0.16, 0.411],
+        reaim: null,
+        framed: { heading: 149.2, fov: 32.4, zoom: 3.44 },
+      },
+      {
+        heading: 123,
+        facade: [0.697, 0.948],
+        reaim: { heading: 154.6, facade: [0.345, 0.597] },
+        framed: { heading: 151.5, fov: 33.3, zoom: 3.34 },
+      },
+      {
+        heading: 109.9,
+        facade: [0.842, 1],
+        reaim: { heading: 149.6, facade: [0.401, 0.652] },
+        framed: { heading: 152.5, fov: 33.3, zoom: 3.34 },
+      },
+      {
+        heading: 102,
+        facade: [0.93, 1],
+        reaim: { heading: 144.8, facade: [0.454, 0.706] },
+        framed: { heading: 153.4, fov: 33, zoom: 3.38 },
+      },
+      { heading: 100, facade: null, reaim: null, framed: null },
+      { heading: 92, facade: null, reaim: null, framed: null },
+      { heading: 332, facade: null, reaim: null, framed: null },
+      { heading: 27.6, facade: null, reaim: null, framed: null },
+    ];
+    for (const row of rows) {
+      const view = roadView(row.heading);
+      const facade = fixturePanoramaGeometry(view)?.targetFacade;
+      if (!row.facade) {
+        expect(facade, `${row.heading}`).toBeUndefined();
+        continue;
+      }
+      expectSpan(facade, ...row.facade);
+      let decided = view;
+      let decidedFacade = facade!;
+      if (row.reaim) {
+        // The heading that puts the box in the middle is the framed view's heading.
+        const heading = frameView(view, facade!, PARAMS).heading;
+        expect(heading, `${row.heading}`).toBe(row.reaim.heading);
+        decided = { ...view, heading };
+        decidedFacade = fixturePanoramaGeometry(decided)!.targetFacade!;
+        expectSpan(decidedFacade, ...row.reaim.facade);
+      }
+      const framed = frameView(decided, decidedFacade, PARAMS);
+      expect(framed.heading, `${row.heading}`).toBe(row.framed!.heading);
+      expect(framed.fov, `${row.heading}`).toBe(row.framed!.fov);
+      expect(framed.zoom).toBeCloseTo(row.framed!.zoom, 2);
+    }
+    // At 100 degrees a sliver of the photograph is in the frame, under a fifth of the facade.
+    const sliver = fixturePanoramaFrame(roadView(100))!;
+    expect(sliver.crop!.left + sliver.crop!.width).toBeGreaterThan(0);
+
+    // From the second panorama at 192.3 two attached homes stand about equally near the middle
+    // and are about equally large.
+    const pair = fixturePanoramaGeometry(roadView(192.3, P2))!;
+    expectSpan(pair.targetFacade, 0.176, 0.479);
+    const right = pair.neighborFacades.find((box) => box[0] > 0.5);
+    expectSpan(right, 0.512, 0.83);
+    const fromMiddle = (box: NormalizedBox) => Math.abs((box[0] + box[2]) / 2 - 0.5);
+    const area = (box: NormalizedBox) => (box[2] - box[0]) * (box[3] - box[1]);
+    expect(Math.abs(fromMiddle(pair.targetFacade!) - fromMiddle(right!))).toBeLessThanOrEqual(
+      0.005,
+    );
+    const ratio =
+      Math.min(area(pair.targetFacade!), area(right!)) /
+      Math.max(area(pair.targetFacade!), area(right!));
+    expect(ratio).toBeGreaterThanOrEqual(0.85);
   });
 });
 

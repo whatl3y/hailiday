@@ -5,14 +5,18 @@
 # priority is omitted: list order is the placement priority (1 = first).
 # Spec attributes and product mapping for each kit item live in ../kits/christmas.yaml.
 # Any change that can alter a decoration plan or compiled instruction is at least a MINOR version bump.
+# promptFragments.lavish (optional): the description the abundant style compiles in place of one
+# sentence per placement. scene: what the picture shows; decorations: the paragraph of what is
+# added; negative: in place of the section's negative; lit: whether it asks for electric lights.
+# scene and decorations may name nothing on the forbidden list and no snow, frost or icicles.
 
 id: christmas.US
-version: 2.0.0
+version: 2.1.0
 holidayId: christmas
 region: US
 displayName: Christmas
 journeyEmphasis: balanced
-traditionNotes: 'Evergreen, light and warmth: wreaths, garland, warm-white string lights, bows, lanterns and a decorated tree indoors. No religious symbols (a user selects a religious sub-tradition pack explicitly when one exists), no Santa, snowman or reindeer figures, no inflatables, no snow unless the photo already shows it.'
+traditionNotes: "Evergreen, light and warmth: wreaths, garland, warm-white string lights, bows, lanterns and a decorated tree indoors. No religious symbols (a user selects a religious sub-tradition pack explicitly when one exists), no Santa or snowman figures, no inflatables, no snow unless the photo already shows it; warm-white lit wireframe reindeer only in the abundant style's description."
 lightingPolicy:
   bySceneType:
     house_exterior: { default: evening, offered: [source, evening] }
@@ -137,6 +141,34 @@ sceneSections:
       scene: a tasteful US Christmas display added to the confirmed target home
       preserve: keep the same camera position, crop, perspective and lens, the roof outline, doors, windows, siding color and texture, trim, steps, railings, landscaping, sky, time of day, parked vehicles and every neighboring building exactly as photographed
       negative: no snow or frost unless present, no Santa, snowman or reindeer figures, no inflatables, no religious symbols, no text, no people, no new structures, nothing on neighboring homes
+      lavish:
+        scene: >-
+          a lavish, over-the-top American Christmas display covering the target home and its
+          yard: the house that wins the neighborhood lighting contest and looks like the set of
+          a holiday movie
+        decorations: >-
+          Decorate only what this photo shows of the house: each sentence below applies only where
+          the photo already shows the thing it names, and is skipped where it does not. Outline
+          every roof edge, gable, eave and ridge of the target house with warm-white C9 bulb string
+          lights, closely and evenly spaced, and hang drop-string curtain lights along the eaves.
+          Outline every window with warm-white mini lights and hang an evergreen wreath with a red
+          bow in every window. If a front door is visible, outline its frame with mini lights and
+          hang a large evergreen wreath with a big red velvet bow on it, leaving the door itself as
+          it is. On railings, posts and columns that are already there, swag thick evergreen garland
+          woven with warm-white lights and red bows. Lay warm-white net lights over shrubs and
+          bushes that are already there, and wrap the trunks of trees that are already in its yard
+          with warm-white string lights. On open lawn or bare ground of its own yard, stand a group
+          of warm-white lit wireframe reindeer and several oversized lit gift boxes; along a path
+          that is already there, line both sides with lit candy-cane stakes. Beside steps and an
+          entry that are already there, set clusters of large red and gold ornament balls, lit
+          potted evergreen trees and tall lanterns, without hiding or replacing what stands there.
+          Add no door, steps, railing, porch, path, wall, window, shrub, hedge or tree of your own:
+          only decorations.
+        negative: >-
+          no snow or frost unless present, no Santa or snowman figures, no inflatables, no
+          cartoon figures, no religious symbols, no text, no people, no new structures, nothing
+          on neighboring homes, on the sidewalk, on the street or in the sky
+        lit: true
   apartment_entry:
     anchors: [unit_door, door_frame, floor_area, planter, banister, wall]
     preserve:
@@ -200,6 +232,24 @@ sceneSections:
       scene: a tasteful Christmas welcome at the user's own apartment door
       preserve: keep the camera position and crop, the door, its number plate, peephole and hardware, the corridor walls and floor, neighboring doors, light fixtures, signage and fire equipment exactly as photographed
       negative: nothing on neighboring doors, nothing in the corridor path, no religious symbols, no Santa, snowman or reindeer figures, no inflatables, no text, no people
+      lavish:
+        scene: >-
+          a lavish, over-the-top Christmas welcome at the user's own apartment door, as festive as a
+          door can be
+        decorations: >-
+          Hang a large, full evergreen wreath with a big red velvet bow, pinecones and warm-white
+          lights on the door. Frame the whole door with thick evergreen garland woven with
+          warm-white lights, red bows and red and gold ornaments, running up both sides and across
+          the top of the door frame. Stand a lit potted evergreen tree with red bows on each side of
+          the door, close to the wall, with a tall lantern holding a flameless candle and a stack of
+          wrapped gift boxes beside each. Lay a plain red and green doormat at the door, and wind
+          lit garland along the banister where there is one. Keep everything tight to this door and
+          its wall so the corridor stays clear.
+        negative: >-
+          nothing on neighboring doors, nothing in the corridor path, nothing on light fixtures,
+          signage or fire equipment, no religious symbols, no Santa or snowman figures, no
+          inflatables, no cartoon figures, no text, no people
+        lit: true
   balcony:
     anchors: [balcony_railing, balcony_floor, door_frame, planter, wall]
     preserve:
@@ -262,6 +312,23 @@ sceneSections:
       scene: a tasteful US Christmas display on the user's own balcony
       preserve: keep the camera position and crop, the railing structure, floor, balcony door and glass, exterior wall, the view beyond the railing and every neighboring balcony and unit exactly as photographed
       negative: no items on the railing top edge, nothing on neighboring balconies or railings, no snow unless present, no religious symbols, no Santa or snowman figures, no inflatables, no text, no people
+      lavish:
+        scene: >-
+          a lavish, over-the-top American Christmas display filling the user's own balcony
+        decorations: >-
+          Wrap the whole balcony railing in thick evergreen garland woven with warm-white lights and
+          red bows, fixed to the face of the railing, and hang warm-white curtain lights down the
+          wall and around the balcony door. Hang a full evergreen wreath with a big red bow on the
+          balcony door or the wall beside it. Stand lit potted evergreen trees of different heights
+          in the corners, with tall lanterns holding flameless candles, clusters of large red and
+          gold ornament balls and a few lit gift boxes on the balcony floor between them. Add a
+          small group of warm-white lit wireframe reindeer on the floor where there is room, and
+          fill the planters with evergreen branches, pinecones and warm-white lights.
+        negative: >-
+          no items on the railing top edge, nothing on neighboring balconies or railings, no snow
+          unless present, no religious symbols, no Santa or snowman figures, no inflatables, no
+          cartoon figures, no text, no people
+        lit: true
   interior:
     roomTypes: [dining_room, living_room, entryway, kitchen, bedroom, other]
     anchors:
@@ -354,6 +421,27 @@ sceneSections:
       scene: a tasteful US Christmas interior added to the room in the photo
       preserve: keep the camera position and crop, walls and wall color, windows, doors, flooring, ceiling, furniture and its positions, chairs, rugs, artwork, photographs and existing light fixtures exactly as photographed
       negative: no religious figures, no Santa, snowman or reindeer figures, no cartoon characters or toys, no text, no people or pets, no open flames, no new furniture, no changed wall color
+      lavish:
+        scene: >-
+          a lavish, over-the-top American Christmas interior, the room dressed like the set of a
+          holiday movie
+        decorations: >-
+          Where there is open floor, stand a tall, full Christmas tree covered in warm-white lights,
+          red and gold ornaments and ribbon, with a generous pile of wrapped gifts under it. Drape
+          thick evergreen garland woven with warm-white lights, red bows and ornaments along the
+          mantel, the shelves, the window frames, the door frames and any stair rail. Hang a row of
+          knit stockings on the mantel and a wreath with a red bow in each window and on free wall
+          space. Set flameless candles, lanterns, small lit tabletop trees, nutcracker figures and
+          bowls of ornaments on the mantel, the sideboard, the shelves and the side tables. Dress
+          any dining table with a long evergreen runner, a full centerpiece and flameless candles,
+          and add red and green pillows and throws to the seating. Use what this room has and skip
+          what it has no place for; every piece of furniture stays where it is and in view, and
+          floor pieces go only on free floor.
+        negative: >-
+          no religious figures, no Santa or snowman figures, no cartoon figures or toys, no text, no
+          people or pets, no open flames, no new furniture, no changed wall color, nothing blocking
+          a doorway
+        lit: true
 heroRefs:
   - { heroAssetId: hero.christmas.exterior.v1, orientation: landscape }
   - { heroAssetId: hero.christmas.exterior.v1, orientation: portrait }

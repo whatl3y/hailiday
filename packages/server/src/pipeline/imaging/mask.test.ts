@@ -12,6 +12,7 @@ import {
   dilationHang,
   placementMaskParts,
   placementMaskShapes,
+  wholeFrameMask,
 } from './mask.js';
 
 let content: Content;
@@ -239,5 +240,64 @@ describe('composite mask dilation by shape class', () => {
     const banded = maskWith(PIPELINE_DEFAULTS.bandDilationFraction);
     expect(coverage(banded.hard)).toBeLessThanOrEqual(0.25);
     expect(banded.bandDilationPx).toBe(Math.round(0.0125 * 1536));
+  });
+});
+
+describe('whole-frame keep-mask', () => {
+  const W = 400;
+  const H = 300;
+  const person: NormalizedBox = [0.1, 0.4, 0.2, 0.8];
+  const mark: NormalizedBox = [0.6, 0.4, 0.65, 0.45];
+
+  it('keeps every pixel outside the exclusions and none inside', () => {
+    const mask = wholeFrameMask({ width: W, height: H, exclusions: [person, mark] });
+    const excluded = boxesHardMask(W, H, [person, mark], 0);
+    for (let i = 0; i < W * H; i += 1) {
+      expect(mask.hard[i], String(i)).toBe(excluded[i] ? 0 : 255);
+      if (excluded[i]) expect(mask.alpha[i]).toBe(0);
+    }
+    expect(coverage(mask.hard)).toBeCloseTo(1 - coverage(excluded), 10);
+    expect(mask).toMatchObject({ dilationPx: 0, bandDilationPx: 0, featherPx: 0 });
+  });
+
+  it('fades a soft box into the kept picture and cuts every other exclusion hard', () => {
+    const featherPx = 12;
+    const mask = wholeFrameMask({
+      width: W,
+      height: H,
+      exclusions: [person, mark],
+      soft: [person],
+      featherPx,
+    });
+    expect(mask.featherPx).toBe(featherPx);
+    const { alpha } = mask;
+    // Leaving the soft box to the right along its middle row.
+    const row = Math.round(0.6 * H) * W;
+    const right = Math.round(person[2] * W);
+    expect(alpha[row + right - 1]).toBe(0);
+    for (let d = 1; d <= featherPx + 2; d += 1) {
+      expect(alpha[row + right - 1 + d] as number).toBeGreaterThanOrEqual(
+        alpha[row + right - 2 + d] as number,
+      );
+    }
+    expect(alpha[row + right] as number).toBeLessThan(16);
+    expect(alpha[row + right] as number).toBeGreaterThan(0);
+    for (let d = featherPx; d < featherPx + 10; d += 1) expect(alpha[row + right + d]).toBe(255);
+    // The hard exclusion steps from 0 to 255 at its edge.
+    const markRow = Math.round(0.42 * H) * W;
+    const markRight = Math.round(mark[2] * W);
+    expect(alpha[markRow + markRight - 1]).toBe(0);
+    expect(alpha[markRow + markRight]).toBe(255);
+    // Without a feather the soft box steps too.
+    const stepped = wholeFrameMask({
+      width: W,
+      height: H,
+      exclusions: [person, mark],
+      soft: [person],
+      featherPx: 0,
+    });
+    expect(stepped.alpha[row + right - 1]).toBe(0);
+    expect(stepped.alpha[row + right]).toBe(255);
+    expect(Buffer.from(stepped.alpha).equals(Buffer.from(stepped.hard))).toBe(true);
   });
 });

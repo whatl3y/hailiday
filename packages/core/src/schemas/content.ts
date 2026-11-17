@@ -62,6 +62,18 @@ export const DEFAULT_SECTION_LIMITS = {
   edgeMarginFraction: 0.02,
 } as const;
 
+/**
+ * Length limits of a section's lavish description. With them the decorate request of the lavish
+ * tier stays within its instruction cap for every scene type, with two house-number sentences
+ * and every repair constraint.
+ */
+export const LAVISH_TEXT_LIMITS = {
+  scene: 300,
+  decorationsMin: 200,
+  decorations: 2000,
+  negative: 600,
+} as const;
+
 const fraction = z.number().min(0).max(1);
 const nonEmptyText = z.string().trim().min(1);
 const quantityRange = z.tuple([z.int().nonnegative(), z.int().nonnegative()]);
@@ -125,10 +137,29 @@ export const SectionLimitsSchema = z.strictObject({
 });
 export type SectionLimits = z.infer<typeof SectionLimitsSchema>;
 
+/**
+ * A section's description of the whole display for the lavish tier (the `abundant` style): the
+ * decorate request states it in place of one sentence per placement.
+ */
+export const LavishFragmentSchema = z.strictObject({
+  /** What the picture shows, in place of the section's `scene` fragment. */
+  scene: nonEmptyText.max(LAVISH_TEXT_LIMITS.scene),
+  /** The paragraph that lists what is added, in full sentences. */
+  decorations: nonEmptyText
+    .min(LAVISH_TEXT_LIMITS.decorationsMin)
+    .max(LAVISH_TEXT_LIMITS.decorations),
+  /** In place of the section's `negative` fragment. */
+  negative: nonEmptyText.max(LAVISH_TEXT_LIMITS.negative),
+  /** Whether the paragraph asks for electric lights. */
+  lit: z.boolean(),
+});
+export type LavishFragment = z.infer<typeof LavishFragmentSchema>;
+
 export const PromptFragmentsSchema = z.strictObject({
   scene: nonEmptyText,
   preserve: nonEmptyText,
   negative: nonEmptyText,
+  lavish: LavishFragmentSchema.optional(),
 });
 export type PromptFragments = z.infer<typeof PromptFragmentsSchema>;
 
@@ -420,6 +451,17 @@ export function kitInPriorityOrder(section: Pick<SceneSection, 'kit'>): KitArche
     .map((item, index) => ({ item, priority: item.priority ?? index + 1 }))
     .sort((a, b) => a.priority - b.priority)
     .map(({ item }) => item);
+}
+
+/**
+ * The lavish description a section applies for the style whose quantities a plan uses, or null:
+ * only the `abundant` style has one, and only where the section carries it.
+ */
+export function lavishFragmentFor(
+  section: Pick<SceneSection, 'promptFragments'>,
+  effectiveStyle: Style,
+): LavishFragment | null {
+  return effectiveStyle === 'abundant' ? (section.promptFragments.lavish ?? null) : null;
 }
 
 /** One kit item in a published style kit (`kit_items`). */

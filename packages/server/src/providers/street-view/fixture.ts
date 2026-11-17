@@ -105,6 +105,24 @@ export function createFixtureStreetViewProvider(options: {
     if (place.metadataStatus === 'ZERO_RESULTS' || place.panoramas.length === 0) {
       return { status: 'ZERO_RESULTS', ...NONE };
     }
+    if (place.panoramaLookup === 'nearest') {
+      // The panorama nearest the probed point within the radius (the first in file order on a
+      // tie); probe labels and probe radii play no part.
+      let closest: { panorama: (typeof place.panoramas)[number]; distance: number } | null = null;
+      for (const candidate of place.panoramas) {
+        const distance = haversineDistanceM(candidate.location, input.location);
+        if (distance <= input.radiusM && (!closest || distance < closest.distance))
+          closest = { panorama: candidate, distance };
+      }
+      if (!closest) return { status: 'ZERO_RESULTS', ...NONE };
+      return {
+        status: 'OK',
+        panoId: closest.panorama.panoId,
+        location: closest.panorama.location,
+        date: closest.panorama.captureDate,
+        copyright: closest.panorama.copyright,
+      };
+    }
     const target = place.destinations.targetPoint ?? place.location;
     let panorama = place.panoramas.find((candidate) => candidate.probe === 'target');
     if ((nearest?.distance ?? 0) > 1) {

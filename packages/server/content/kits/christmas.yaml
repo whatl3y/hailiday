@@ -7,7 +7,7 @@
 
 holidayId: christmas
 packId: christmas.US
-packVersion: 2.0.0
+packVersion: 2.1.0
 kits:
   - kitId: christmas.house_exterior
     holidayId: christmas

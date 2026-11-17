@@ -8,10 +8,11 @@
     "geocode": "Geocoding API signals: locationType (ROOFTOP, RANGE_INTERPOLATED, GEOMETRIC_CENTER, APPROXIMATE) and partialMatch.",
     "destinations": "SearchDestinations-shaped signals. structureType BUILDING with hasOutline true means geometry is available (heading mode geometry); facadeNormalDeg is the compass direction the facade faces.",
     "metadataStatus": "Street View metadata status at this place: OK when panoramas exist, ZERO_RESULTS when there is no imagery within 200 m (also used where discovery never reaches metadata), UNKNOWN_ERROR when every metadata call fails, including the one retry.",
-    "panoramas": "At most 3. The first is the probe at the target point; offsets are probes displaced along the road. distanceM and headingDeg are computed with the haversine distance and initial great-circle bearing from the panorama location to destinations.targetPoint. captureDate is YYYY-MM, YYYY or null; copyright credits the licensed fixture photograph (\"Fixture photo: <photographer> / <license>\"); a copyright ending \"(contributor imagery stand-in)\" stands in for contributor imagery, any other fixture photo for first-party imagery.",
+    "panoramaLookup": "How metadata probes find this place's panoramas: probe (the default) by the probe label within probeRadiusM; nearest answers every probe with the panorama nearest the probed point within the probe's radius, ignoring probe labels and probe radii.",
+    "panoramas": "At most 3. The first is the probe at the target point; offsets are probes displaced along the road. distanceM and headingDeg are computed with the haversine distance and initial great-circle bearing from the panorama location to destinations.targetPoint; for a place whose target point lies on the road, the first panorama's headingDeg is the heading of the first view discovery offers (across the road, to the side the target lies on). captureDate is YYYY-MM, YYYY or null; copyright credits the licensed fixture photograph (\"Fixture photo: <photographer> / <license>\"); a copyright ending \"(contributor imagery stand-in)\" stands in for contributor imagery, any other fixture photo for first-party imagery. home, on a panorama of a place whose target point lies on the road, is the compass bearing and distance from the panorama to the home: the reference view looks at the home and the photograph is laid out at the home's angular size.",
     "manualEntry": "A typed address resolves to a place when its normalized line 1 (and line 2 for units) equals one of geocodeAliases. Normalization: Unicode NFD with diacritics removed, lowercase, every character other than a-z, 0-9, # and space replaced by a space, whitespace collapsed. When city, state or ZIP differ from manualEntry the candidate is returned with partialMatch true. No match returns no candidates (ADDRESS_NOT_FOUND).",
     "scenario": "match is the discovery outcome for the autocomplete path (manual entry is capped at confirm); reason is set for skip_to_upload; render is the render scenario used for jobs whose source comes from this place.",
-    "photo": "Every panorama shows a licensed real photograph from content/photos/manifest.json (photoId), panned and zoomed to the requested view: the reference view (heading to the target, fov from the facade width and distance, pitch from the distance) frames the photo's houseFacade box; heading offsets shift the crop horizontally, pitch vertically and fov sets its size. framing scales the reference framing (more surroundings above 1) and shiftX / shiftY offset it as fractions of its size. blurredHouse blurs the whole target facade (owner-requested blur). Anchors come from the manifest, transformed into the frame. Panoramas may instead carry procedural house parameters for the SVG renderer (tests only)."
+    "photo": "Every panorama shows a licensed real photograph from content/photos/manifest.json (photoId), panned and zoomed to the requested view: the reference view (heading to the target, fov from the facade width and distance, pitch from the distance) frames the photo's houseFacade box; heading offsets shift the crop horizontally, pitch vertically and fov sets its size. framing scales the reference framing (more surroundings above 1) and shiftX / shiftY offset it as fractions of its size. blurredHouse blurs the whole target facade (owner-requested blur). Anchors come from the manifest, transformed into the frame. Panoramas may instead carry procedural house parameters for the SVG renderer (tests only). For a panorama with home the photograph is laid out at the facade's true angular size and the crop may leave it: the part of the frame outside the photograph continues the photograph's edge, and a view that misses the photograph entirely is a flat #B8C2C8 frame."
   },
   "places": [
     {
@@ -3074,6 +3075,149 @@
       },
       "geocodeAliases": ["18 thornbury crescent", "18 thornbury cres"],
       "panoramas": []
+    },
+    {
+      "placeId": "ChIJfxMillpondRoadCapeXXX26",
+      "label": "Millpond Road cape (on the road)",
+      "scenario": {
+        "match": "confirm",
+        "reason": null,
+        "render": "pass",
+        "tags": ["interpolated", "on_road"]
+      },
+      "exercises": "Confirm: the address is interpolated onto the road, so no view is aimed at the home. The first look turns to the home or, in a view without one, ends at once.",
+      "formattedAddress": "560 Millpond Rd, Kettle Fork, GA 30077, USA",
+      "primaryText": "560 Millpond Rd",
+      "secondaryText": "Kettle Fork, GA, USA",
+      "addressComponents": [
+        {
+          "longText": "560",
+          "shortText": "560",
+          "types": ["street_number"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Millpond Road",
+          "shortText": "Millpond Rd",
+          "types": ["route"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Kettle Fork",
+          "shortText": "Kettle Fork",
+          "types": ["locality", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "Georgia",
+          "shortText": "GA",
+          "types": ["administrative_area_level_1", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "United States",
+          "shortText": "US",
+          "types": ["country", "political"],
+          "languageCode": "en"
+        },
+        {
+          "longText": "30077",
+          "shortText": "30077",
+          "types": ["postal_code"],
+          "languageCode": "en"
+        }
+      ],
+      "countryCode": "US",
+      "location": {
+        "latitude": 34.1512,
+        "longitude": -83.6034
+      },
+      "viewport": {
+        "low": {
+          "latitude": 34.1499,
+          "longitude": -83.6047
+        },
+        "high": {
+          "latitude": 34.1525,
+          "longitude": -83.6021
+        }
+      },
+      "types": ["street_address"],
+      "geocode": {
+        "locationType": "RANGE_INTERPOLATED",
+        "partialMatch": false
+      },
+      "destinations": {
+        "structureType": null,
+        "hasOutline": false,
+        "targetPoint": {
+          "latitude": 34.1512,
+          "longitude": -83.6034
+        },
+        "facadeWidthM": null,
+        "roadBearingDeg": null,
+        "facadeNormalDeg": null,
+        "entranceOffsetM": null,
+        "attachedFacade": false
+      },
+      "multiUnit": false,
+      "blocked": false,
+      "metadataStatus": "OK",
+      "manualEntry": {
+        "line1": "560 Millpond Road",
+        "line2": "",
+        "city": "Kettle Fork",
+        "state": "GA",
+        "postalCode": "30077"
+      },
+      "geocodeAliases": ["560 millpond road", "560 millpond rd"],
+      "panoramaLookup": "nearest",
+      "panoramas": [
+        {
+          "panoId": "fxSvMillpondRoad26p1Sv",
+          "probe": "target",
+          "probeRadiusM": 50,
+          "location": {
+            "latitude": 34.1512153,
+            "longitude": -83.6034511
+          },
+          "captureDate": "2025-06",
+          "captureGranularity": "month",
+          "copyright": "Fixture photo: Ian MacDonald / Unsplash License",
+          "isGoogleImagery": true,
+          "distanceM": 5,
+          "headingDeg": 171.3,
+          "home": {
+            "bearingDeg": 152,
+            "distanceM": 30
+          },
+          "photo": {
+            "photoId": "house-06-dutchcolonial-summer"
+          }
+        },
+        {
+          "panoId": "fxSvMillpondRoad26p2Sv",
+          "probe": "track",
+          "probeRadiusM": 50,
+          "location": {
+            "latitude": 34.1511987,
+            "longitude": -83.6033131
+          },
+          "captureDate": "2025-06",
+          "captureGranularity": "month",
+          "copyright": "Fixture photo: ARRHEN FEJOKWU / Unsplash License",
+          "isGoogleImagery": true,
+          "distanceM": 8,
+          "headingDeg": 271,
+          "home": {
+            "bearingDeg": 176.8,
+            "distanceM": 24.7
+          },
+          "photo": {
+            "photoId": "house-09-townhouses-summer"
+          }
+        }
+      ]
     }
   ]
 }

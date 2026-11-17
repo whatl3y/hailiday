@@ -1,11 +1,11 @@
-import { DEFAULT_JUDGE_THRESHOLDS } from '@hailiday/core';
+import { DEFAULT_JUDGE_THRESHOLDS, type SceneType } from '@hailiday/core';
 
 /**
  * Version of the deterministic planning-and-compilation code as a whole (plan builder, validator
  * and per-provider compiler templates). Any change that alters a compiled request bumps it; the
  * provider name is appended so a provider switch also yields a new variant key.
  */
-export const COMPILER_RELEASE = '2026.11.10';
+export const COMPILER_RELEASE = '2026.11.16';
 
 /** The `compilerVersion` stamped on render jobs and plans for an image-edit provider. */
 export function compilerVersionFor(provider: string): string {
@@ -91,11 +91,15 @@ export const PIPELINE_DEFAULTS = {
    * Putting the judge's spots back from the original (`source` decorate attempts). A rejected
    * attempt with no repair after it whose critical findings each have a box (a confident major
    * with a box is put back too; one without is recorded) is composited again with those boxes
-   * restored and goes on as a doubted look when at least `minKeptShare` of the decorations'
-   * area lies outside the restored boxes, at least one planned placement keeps
-   * `minPlacementShare` of its region, and the deterministic checks of the restored picture pass.
-   * A doubted look that is delivered as it stands has the boxes of its doubts restored the same
-   * way when that keeps at least `minKeptShareDoubt` of the decorations. The boxes are grown by
+   * restored, and so is a rejected lavish first attempt with a repair still open (outside
+   * pre-delivery review) when every critical finding is about a detail of the home and every
+   * confident major has a box (all of them put back, nothing recorded; otherwise it is
+   * repaired). The restored attempt goes on as a doubted look when at least `minKeptShare` of
+   * the decorations' area lies outside the restored boxes, at least one planned placement keeps
+   * `minPlacementShare` of its region, and the deterministic checks of the restored picture
+   * pass. A doubted look without the lavish mark that is delivered as it stands has the boxes of
+   * its doubts restored the same way when that keeps at least `minKeptShareDoubt` of the
+   * decorations (a lavish one goes on as the editor drew it). The boxes are grown by
    * `growFraction` of the long edge on every side: wider than a repair's restore boxes
    * (`restoreBoxGrowFraction`), because no judge sees the restored picture and the judge's boxes
    * are given to two decimals.
@@ -155,12 +159,19 @@ export const PIPELINE_DEFAULTS = {
   photometric: { ringFraction: 0.03, toleranceDeltaE: 1 },
   /**
    * Compiled instruction caps of decorate requests (as photographed, or the legacy combined
-   * evening plan), for every provider family. Both stay far below
-   * the vendors' prompt limits (the OpenAI image edit endpoint accepts prompts up to 32,000
-   * characters for its GPT image models) while leaving room for every planned placement of the
-   * classic and abundant styles.
+   * evening plan), for every provider family. Over a cap, placement sentences are dropped. A
+   * request of the lavish tier has none; the pack limits its description so that the request
+   * stays within the `source` cap. Both caps stay far below the vendors' prompt limits (the
+   * OpenAI image edit endpoint accepts prompts up to 32,000 characters for its GPT image models).
    */
-  instructionCaps: { source: 4000, evening: 5000 },
+  instructionCaps: { source: 6000, evening: 5000 },
+  /**
+   * The scene types whose `abundant` look is decorated from the pack's lavish description (the
+   * plan carries the `lavish` mark). Every other scene type is planned and composited in
+   * `abundant` as a section without a description is; their sections carry descriptions that are
+   * not used yet.
+   */
+  lavishSceneTypes: ['house_exterior'] as readonly SceneType[],
   /** Deterministic check thresholds. */
   checks: {
     maxTranslationFraction: 0.003,
@@ -464,6 +475,13 @@ export const PIPELINE_DEFAULTS = {
     minConfidence: 0.5,
     /** Timeout of the locate call. */
     locateTimeoutMs: 20_000,
+    /**
+     * A located box whose left or right side lies within this share of the frame's width from
+     * that edge is cut by the edge.
+     */
+    edgeCutFraction: 0.02,
+    /** A frame taken from the road is turned toward the located home only for a turn of at least this many degrees. */
+    reaimMinTurnDeg: 3,
   },
 } as const;
 

@@ -214,6 +214,20 @@
   font-size: var(--text-2xl);
 }
 
+/* What to do with the views, under the question and the address. */
+.confirm__guide {
+  margin-top: var(--space-1);
+  max-width: 44ch;
+}
+
+/* A view of the road is chosen and turned before it is confirmed: from 600px wide the first
+   viewport also shows the line that says so, the views and the look buttons under the picture. */
+@media (min-width: 600px) {
+  .project .confirm--road {
+    --stage-peek: 296px;
+  }
+}
+
 /* The primary action and the other route on one line beside the question. */
 .confirm__actions {
   flex-direction: row;

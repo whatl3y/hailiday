@@ -4,6 +4,7 @@ import {
   fidelityModeFor,
   flattenSpecAttributes,
   kitInPriorityOrder,
+  lavishFragmentFor,
   type ForbiddenItem,
   type HolidayPack,
   type LightingMode,
@@ -17,7 +18,7 @@ import {
 } from '@hailiday/core';
 import { PIPELINE_DEFAULTS } from '../versions.js';
 import { PLACEMENT_GEOMETRY, placementGeometry, roundBox, type Grid } from './geometry.js';
-import { FORBIDDEN_NEGATIVES } from './phrases.js';
+import { FORBIDDEN_NEGATIVES, SNOW_PATTERN } from './phrases.js';
 import { clipShapes, shapesCoverage } from './shapes.js';
 import type { BuildPlanInput, BuiltPlan, PlanDraft, PlanKitItem, ValidatorEvent } from './types.js';
 import {
@@ -74,13 +75,17 @@ const EVENING_BLOCK =
 /**
  * The compiled lighting instruction for a plan (render spec, lighting modes). Decorate attempts
  * are planned as photographed; a relit look (`evening`, `bright`) relights the decorated photo
- * afterwards, so only the legacy combined `evening` plan carries the dusk block.
+ * afterwards, so only the legacy combined `evening` plan carries the dusk block. A plan decorated
+ * from a lavish description takes its lights from that description: the placements' lit flags do
+ * not reach its prompt, and "No electric lights." is stated only when the description asks for
+ * none and the lighting policy allows none.
  */
 export function lightingInstructionFor(input: {
   lightingMode: LightingMode;
   anyLit: boolean;
   lightsAllowed: boolean;
   eveningGuidance?: string | undefined;
+  lavish?: { lit: boolean } | undefined;
 }): string {
   if (input.lightingMode === 'evening') {
     return input.eveningGuidance
@@ -88,6 +93,9 @@ export function lightingInstructionFor(input: {
       : EVENING_BLOCK;
   }
   const base = 'Keep the lighting, sky and time of day of the original photograph.';
+  if (input.lavish) {
+    return input.lavish.lit || input.lightsAllowed ? base : `${base} No electric lights.`;
+  }
   if (!input.lightsAllowed) return `${base} No electric lights.`;
   return input.anyLit
     ? `${base} The lit decorations are switched on and glow softly in the existing light.`
@@ -246,6 +254,15 @@ export function buildPlan(input: BuildPlanInput): BuiltPlan {
   if (style !== input.style) {
     events.push({ rule: 'existing_decorations', action: 'flagged', detail: `style:${style}` });
   }
+  // The section's lavish description applies when the style whose quantities the plan uses is
+  // `abundant`, the plan is decorated as photographed (never the legacy combined evening plan),
+  // the caller allows it (`options.lavish`) and the plan is not the ordinary repair of a lavish
+  // attempt (`adjustments.ordinary`). Otherwise the plan is built as for a section without one.
+  const lavishAllowed =
+    input.lightingMode !== 'evening' &&
+    input.options?.lavish !== false &&
+    adjustments?.ordinary !== true;
+  const lavish = lavishAllowed ? lavishFragmentFor(section, style) : null;
   const kit = planKitItems(section, input.kitAttributes);
   const allowed = new Set<string>(
     effectiveSectionAnchors(section, {
@@ -397,10 +414,17 @@ export function buildPlan(input: BuildPlanInput): BuiltPlan {
       };
     });
 
+  const snowVisible = analysis.seasonCues.snowVisible;
+  const lavishTexts = lavish ? [lavish.scene, lavish.decorations] : [];
   const violations = forbiddenViolations(input.pack.forbidden, [
     section.promptFragments.scene,
+    ...lavishTexts,
     ...placements.map((placement) => placement.specText),
   ]);
+  // A description cannot be left out for a photo without snow the way a single placement is.
+  if (!snowVisible && lavishTexts.some((text) => SNOW_PATTERN.test(text))) {
+    violations.push('snow_or_frost_unless_visible');
+  }
   const conflict = existingDecorConflict(analysis.existingDecorations, input.pack.holidayId);
   if (conflict)
     events.push({ rule: 'existing_decorations', action: 'flagged', detail: 'conflict' });
@@ -413,7 +437,6 @@ export function buildPlan(input: BuildPlanInput): BuiltPlan {
     events.push({ rule: 'non_empty', action: 'failed' });
   }
 
-  const snowVisible = analysis.seasonCues.snowVisible;
   const fidelityMode = fidelityModeFor(input.lightingMode);
   const draft: PlanDraft = {
     schemaVersion: DECORATION_PLAN_SCHEMA_VERSION,
@@ -444,6 +467,7 @@ export function buildPlan(input: BuildPlanInput): BuiltPlan {
     compilerVersion: input.compilerVersion,
     ...(input.climate ? { climate: input.climate } : {}),
     placements,
+    ...(lavish ? { lavish: { lit: lavish.lit } } : {}),
     ...(maskBudget ? { maskBudget } : {}),
     preserve: {
       ...(analysis.targetFacade ? { targetFacade: analysis.targetFacade } : {}),
@@ -462,7 +486,7 @@ export function buildPlan(input: BuildPlanInput): BuiltPlan {
     negatives: negativesFor(input.pack, {
       snowVisible,
       sceneType: input.sceneType,
-      coveredBy: section.promptFragments.negative,
+      coveredBy: lavish ? lavish.negative : section.promptFragments.negative,
     }),
     lightingInstruction: {
       mode: input.lightingMode,
@@ -471,6 +495,7 @@ export function buildPlan(input: BuildPlanInput): BuiltPlan {
         anyLit: placements.some((placement) => placement.lit),
         lightsAllowed,
         eveningGuidance: input.pack.lightingPolicy.eveningGuidance,
+        lavish: lavish ? { lit: lavish.lit } : undefined,
       }),
     },
     ...(input.repair && input.repair.constraints.length > 0

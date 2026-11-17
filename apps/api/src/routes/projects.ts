@@ -49,6 +49,7 @@ import {
   captureGranularityOf,
   copyrightClassOf,
   decideMatch,
+  predatesRoadViews,
   type DiscoveryResult,
 } from '@hailiday/server/providers';
 import type { ApiDeps } from '../deps.js';
@@ -63,6 +64,7 @@ import {
   coordinateExpiry,
   discoveryDto,
   issuedDisplayUrl,
+  primaryOf,
   refreshDiscoveryMode,
   storedCandidateOf,
   type StoredCandidate,
@@ -78,6 +80,7 @@ import {
   offeredFor,
   projectDto,
   projectExpiry,
+  projectHasLook,
   startingLookFor,
   supersedeActiveJob,
 } from '../domain/projects.js';
@@ -93,6 +96,8 @@ import {
 import { assertSpendAllowed, chargeCall } from '../domain/spend.js';
 
 const NUDGE_FOV_RANGE = { min: 60, max: 90 } as const;
+/** Display loads a discovery of a place on the road issues: the views across to both sides. */
+const ROADSIDE_DISPLAY_LOADS = 2;
 
 function stale(current: number): AppError<'STALE_PROJECT_VERSION'> {
   return new AppError('STALE_PROJECT_VERSION', { currentProjectVersion: current });
@@ -616,6 +621,21 @@ async function runDiscovery(
       }
       return null;
     }
+    // A discovery made before the on-road test, whose primary was aimed at the resolved point,
+    // may have offered a view along the road with no home in it. While the project has no look
+    // from it, the stored row of the current version is dropped so this request runs discovery
+    // again (the bound source stays bound until another view is confirmed).
+    if (
+      row.matchClass !== 'skip_to_upload' &&
+      predatesRoadViews(row.algorithmVersion) &&
+      primaryOf(row)?.headingMode === 'point' &&
+      !(await projectHasLook(deps, project.id))
+    ) {
+      if (row.projectVersion === project.projectVersion) {
+        await deps.db.deleteFrom('sourceDiscoveries').where('id', '=', row.id).execute();
+      }
+      return null;
+    }
     const fresh = await loadOwnedProject(deps, auth, project.id);
     const freshProperty = await loadProperty(deps, fresh);
     return {
@@ -637,7 +657,12 @@ async function runDiscovery(
   const started = Date.now();
   const streetView = await streetViewProviderFor(deps, auth.audience);
   const isFixture = streetView ? streetView.mode === 'fixture' : true;
-  await assertSpendAllowed(deps, ['street_view_static_display'], isFixture);
+  // Room for the display loads a place on the road issues at discovery.
+  await assertSpendAllowed(
+    deps,
+    Array.from({ length: ROADSIDE_DISPLAY_LOADS }, () => 'street_view_static_display' as const),
+    isFixture,
+  );
 
   const blocked = await isPlaceBlocked(deps.db, property.placeId, now);
 
@@ -765,11 +790,23 @@ async function runDiscovery(
   const stored = decision.matchClass === 'skip_to_upload' ? [] : ranked.map(storedCandidateOf);
   const primaryStored = stored.find((candidate) => candidate.isPrimary) ?? stored[0] ?? null;
   if (primaryStored && sourceMode !== 'unavailable') {
-    try {
-      await issueDisplayLoad(deps, deps.db, auth, { property, projectId: project.id, isFixture });
-      primaryStored.displayUrlIssuedAt = now.toISOString();
-    } catch (error) {
-      if (!(error instanceof AppError) || error.code !== 'RATE_LIMITED') throw error;
+    // The primary's picture; for a place on the road that may be decorated, also the view across
+    // to the other side (the next in rank), so both sides of the road arrive with their picture.
+    const decoratable = sourceMode === 'persist' || sourceMode === 'transient';
+    const eager = result.road?.onRoad && decoratable ? ROADSIDE_DISPLAY_LOADS : 1;
+    const issued = [primaryStored, ...stored.filter((candidate) => candidate !== primaryStored)];
+    for (const candidate of issued.slice(0, eager)) {
+      try {
+        await issueDisplayLoad(deps, deps.db, auth, {
+          property,
+          projectId: project.id,
+          isFixture,
+        });
+        candidate.displayUrlIssuedAt = now.toISOString();
+      } catch (error) {
+        if (!(error instanceof AppError) || error.code !== 'RATE_LIMITED') throw error;
+        break;
+      }
     }
   }
   const bind =
@@ -800,6 +837,7 @@ async function runDiscovery(
     estimatedFacadePx: primary?.estimatedFacadePx ?? null,
     timedOut: result.timedOut,
     metadataCalls: result.metadataCalls,
+    road: result.road ?? null,
     boundSourceAssetId: null,
   };
   const durationMs = Date.now() - started;

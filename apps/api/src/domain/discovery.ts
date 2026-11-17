@@ -9,6 +9,7 @@ import {
 } from '@hailiday/core';
 import { addMs } from '@hailiday/server/clock';
 import {
+  sql,
   toJson,
   type Project,
   type Property,
@@ -24,10 +25,20 @@ import {
   recordPermissionEvaluation,
   streetViewSourceMode,
 } from '@hailiday/server/policy';
-import type { StreetViewProvider, ViewCandidate } from '@hailiday/server/providers';
+import {
+  predatesRoadViews,
+  type StreetViewProvider,
+  type ViewCandidate,
+} from '@hailiday/server/providers';
 import type { ApiDeps } from '../deps.js';
 import type { AuthState } from '../auth/session.js';
-import { discoveredCandidates, projectExpiry } from './projects.js';
+import {
+  activeJobOf,
+  discoveredCandidates,
+  latestDiscovery,
+  projectExpiry,
+  projectHasLook,
+} from './projects.js';
 import {
   evaluateFor,
   refreshStreetViewPolicyOf,
@@ -91,6 +102,40 @@ export function storedCandidateOf(candidate: ViewCandidate): StoredCandidate {
 
 export function asStoredCandidates(value: readonly Record<string, unknown>[]): StoredCandidate[] {
   return value as unknown as StoredCandidate[];
+}
+
+/** The primary discovered candidate of a stored discovery (else its first), null without any. */
+export function primaryOf(
+  row: Pick<Row<'sourceDiscoveries'>, 'candidates'>,
+): StoredCandidate | null {
+  const stored = asStoredCandidates(discoveredCandidates(row.candidates));
+  return stored.find((candidate) => candidate.isPrimary) ?? stored[0] ?? null;
+}
+
+/**
+ * Whether a bound Street View source must be confirmed again before it is decorated: it was aimed
+ * at the resolved point, the project has no look and no look in the making, and the place's latest
+ * discovery either predates the on-road test with a `point` primary or now offers road views.
+ * Returns that discovery's candidate count, else null.
+ */
+export async function reconfirmationNeeded(
+  deps: Pick<ApiDeps, 'db'>,
+  project: Project,
+  source: SourceAsset,
+): Promise<number | null> {
+  if (project.kind !== 'address') return null;
+  if (source.kind !== 'street_view') return null;
+  if (source.viewpoint?.headingMode !== 'point') return null;
+  if (await activeJobOf(deps, project.id)) return null;
+  if (await projectHasLook(deps, project.id)) return null;
+  const row = await latestDiscovery(deps, project.id);
+  if (!row || row.matchClass === 'skip_to_upload') return null;
+  const primary = primaryOf(row);
+  if (!primary) return null;
+  const outdated = predatesRoadViews(row.algorithmVersion)
+    ? primary.headingMode === 'point'
+    : primary.headingMode === 'road';
+  return outdated ? discoveredCandidates(row.candidates).length : null;
 }
 
 function normalizeHeading(value: number): number {
@@ -189,8 +234,7 @@ export async function refreshDiscoveryMode(
   row: Row<'sourceDiscoveries'>,
 ): Promise<Row<'sourceDiscoveries'>> {
   if (row.matchClass === 'skip_to_upload' || row.sourceMode === 'unavailable') return row;
-  const stored = asStoredCandidates(discoveredCandidates(row.candidates));
-  const primary = stored.find((candidate) => candidate.isPrimary) ?? stored[0];
+  const primary = primaryOf(row);
   if (!primary) return row;
   const policy = await deps.db
     .selectFrom('assetPolicies')
@@ -248,7 +292,8 @@ function viewpointMatches(source: SourceAsset, candidate: StoredCandidate): bool
  * Binds a Street View candidate as the project's active source inside a transaction: an existing
  * source asset with the same frozen view is reused (its template-derived policy brought up to the
  * current template, and its mode set from its own policy evaluated for `audience`, so a source an
- * operator denied stays display-only; `NO_STREET_VIEW` when that policy no longer allows display);
+ * operator denied stays display-only; `NO_STREET_VIEW` when that policy no longer allows display;
+ * its recorded heading mode set to the candidate's);
  * otherwise a `ready` `street_view` asset is created in `streetViewMode` with its own asset policy
  * from the current template. The project version is incremented by compare-and-set
  * (`STALE_PROJECT_VERSION` when it moved). Every read goes through `trx` (the capability states
@@ -342,6 +387,17 @@ export async function bindCandidate(
       source = await trx
         .updateTable('sourceAssets')
         .set({ streetViewMode: mode })
+        .where('id', '=', source.id)
+        .returningAll()
+        .executeTakeFirstOrThrow();
+    }
+    // The same view confirmed from a later discovery records what that discovery says it is.
+    if (source.viewpoint && source.viewpoint.headingMode !== candidate.headingMode) {
+      source = await trx
+        .updateTable('sourceAssets')
+        .set({
+          viewpoint: sql<string>`jsonb_set(viewpoint, '{headingMode}', to_jsonb(${candidate.headingMode}::text))`,
+        })
         .where('id', '=', source.id)
         .returningAll()
         .executeTakeFirstOrThrow();

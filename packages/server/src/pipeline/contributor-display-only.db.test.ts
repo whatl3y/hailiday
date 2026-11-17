@@ -7,7 +7,8 @@ import type { PipelineDeps } from './context.js';
 import { runStreetViewRevalidation } from './jobs/commerce-and-coverage.js';
 import { generateShareCard } from './jobs/share-card.js';
 import { runRenderJob } from './render/job.js';
-import { ReviewStateError, approveReview } from './render/review.js';
+import { heldKeys } from './render/publish.js';
+import { ReviewStateError, approveReview, heldAttemptOf } from './render/review.js';
 import { readJob } from './render/transitions.js';
 import {
   createPipelineTestDeps,
@@ -18,11 +19,16 @@ import {
 /**
  * Worker-side decisions on Street View imagery credited to someone other than Google, under
  * `STREET_VIEW_CONTRIBUTOR_IMAGERY=display_only`: the render job's own evaluation, the share card,
- * revalidation and a reviewer's approval each read the setting from the deps they are given.
+ * revalidation and a reviewer's approval each read the setting from the deps they are given. A
+ * reviewer's approval also brings a Street View source's policy row up to the template of the
+ * configured `STREET_VIEW_USE_POLICY` before it decides.
  */
 
 /** The fixture place whose street photos stand in for contributor imagery (not Google's). */
 const CONTRIBUTOR_PLACE = 'ChIJfxPinonMesaAdobeXXXXX17';
+
+/** A fixture place whose street photos are attributed to Google. */
+const GOOGLE_PLACE = 'ChIJfxLanternHillColonial01';
 
 let base: PipelineDeps & { close(): Promise<void> };
 
@@ -300,6 +306,80 @@ describe('contributor imagery switched to display_only, worker side', () => {
     expect(await assetsOf()).toEqual([]);
 
     const asset = await approveReview(base, { jobId: job.id, reviewerUserId: reviewer });
+    expect(asset).toMatchObject({ jobId: job.id, distributable: true });
+    expect(await readJob(base.db, job.id)).toMatchObject({ state: 'succeeded' });
+    expect(await reviewsOf()).toEqual([{ decision: 'approve' }]);
+  });
+});
+
+describe('a look held before the Street View use policy was tightened', () => {
+  /** The same deps with `STREET_VIEW_USE_POLICY=display_only` and the AI capability live. */
+  function tightened(deps: PipelineDeps): PipelineDeps {
+    return {
+      ...deps,
+      config: {
+        ...deps.config,
+        streetView: { ...deps.config.streetView, usePolicy: 'display_only' },
+      },
+      capabilities: {
+        ...deps.capabilities,
+        state: async () => 'live_public',
+      },
+    };
+  }
+
+  it('is refused on approval once the policy is brought up to the current template', async () => {
+    const made = await createStreetViewSource(base, {
+      placeId: GOOGLE_PLACE,
+      streetViewMode: 'persist',
+    });
+    expect(made.source.isGoogleImagery).toBe(true);
+    const job = await createRenderJobRecord(base, { ...made, reviewMode: 'pre_delivery' });
+    expect((await runRenderJob(base, { renderJobId: job.id })).state).toBe('needs_review');
+    const reviewer = await createReviewer();
+    const policyId = made.source.assetPolicyId;
+    expect(policyId).not.toBeNull();
+    const policyEdit = async () =>
+      (
+        await base.db
+          .selectFrom('assetPolicies')
+          .select('edit')
+          .where('id', '=', policyId as string)
+          .executeTakeFirstOrThrow()
+      ).edit;
+    const reviewsOf = () =>
+      base.db.selectFrom('reviews').select('decision').where('jobId', '=', job.id).execute();
+    const assetsOf = () =>
+      base.db.selectFrom('renderAssets').select('id').where('jobId', '=', job.id).execute();
+    const attempt = await heldAttemptOf(base.db, job);
+    expect(attempt).not.toBeNull();
+    const held = heldKeys(job.id, (attempt as { id: string }).id);
+    const heldFiles = async () => ({
+      delivered: (await base.storage.head('private', held.delivered)) !== null,
+      download: (await base.storage.head('private', held.download)) !== null,
+    });
+    const filesBefore = await heldFiles();
+    expect(filesBefore.delivered).toBe(true);
+
+    // The stored row still carries the template the look was held under.
+    expect(await policyEdit()).toBe('allowed');
+    await expect(
+      approveReview(tightened(base), { jobId: job.id, reviewerUserId: reviewer }),
+    ).rejects.toBeInstanceOf(ReviewStateError);
+    expect(await policyEdit()).toBe('unknown');
+    // Nothing was decided or published, and the look still waits for a reviewer.
+    expect(await readJob(base.db, job.id)).toMatchObject({
+      state: 'needs_review',
+      reviewCompletedAt: null,
+    });
+    expect(await reviewsOf()).toEqual([]);
+    expect(await assetsOf()).toEqual([]);
+    expect(await heldFiles()).toEqual(filesBefore);
+
+    // Under the default use policy the same refresh restores the template and the look is
+    // published.
+    const asset = await approveReview(base, { jobId: job.id, reviewerUserId: reviewer });
+    expect(await policyEdit()).toBe('allowed');
     expect(asset).toMatchObject({ jobId: job.id, distributable: true });
     expect(await readJob(base.db, job.id)).toMatchObject({ state: 'succeeded' });
     expect(await reviewsOf()).toEqual([{ decision: 'approve' }]);

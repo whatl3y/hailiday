@@ -955,6 +955,7 @@ export async function runBakeoff(deps: BakeoffDeps): Promise<BakeoffReport> {
           lightingMode: 'source',
           compilerVersion: compilerVersionFor(provider),
           permissionEvaluationId: `example:${example.exampleId}`,
+          options: { lavish: PIPELINE_DEFAULTS.lavishSceneTypes.includes(example.sceneType) },
         },
         () => ({
           provider,

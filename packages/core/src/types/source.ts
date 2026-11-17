@@ -103,8 +103,12 @@ export const DISCOVERY_NEXT_ACTIONS = ['render', 'confirm_place', 'upload_photo'
 export const DiscoveryNextActionSchema = z.enum(DISCOVERY_NEXT_ACTIONS);
 export type DiscoveryNextAction = z.infer<typeof DiscoveryNextActionSchema>;
 
-/** What a candidate's explicit heading was aimed at. */
-export const HEADING_MODES = ['geometry', 'point'] as const;
+/**
+ * What a candidate's explicit heading was aimed at: `geometry` the building geometry target;
+ * `point` the resolved point; `road` the target lies on the road, the view looks across or along
+ * it and its centre is not aimed at the home.
+ */
+export const HEADING_MODES = ['geometry', 'point', 'road'] as const;
 export const HeadingModeSchema = z.enum(HEADING_MODES);
 export type HeadingMode = z.infer<typeof HeadingModeSchema>;
 

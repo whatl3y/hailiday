@@ -5,6 +5,7 @@ import {
   type CompiledRequest,
   type DecorationPlan,
   type FailureCode,
+  type LavishFragment,
   type PromptFragments,
   type RelightLightingMode,
 } from '@hailiday/core';
@@ -210,6 +211,27 @@ export const KEEP_MARKS =
 export const KEEP_MARKS_EXTERIOR =
   'Do not alter or cover house numbers, signs or logos. A listed decoration may replace an existing wreath, planter or hanging basket at its spot.';
 
+/**
+ * The fixed sentences of a decorate request in the lavish tier, where the section's description
+ * stands in place of the placement sentences: what is added, the lights of a lit description,
+ * realism, the way to the door (outdoors and at a balcony, or inside a home), and the output.
+ */
+export const LAVISH_ADDED = 'Only decorations are added, and there are a great many of them.';
+export const LAVISH_LIGHTS_ON =
+  'Every light on the decorations is switched on and visibly glowing.';
+export const LAVISH_REALISM =
+  'Use believable real-world scale, secure attachments and contact shadows that match the existing light, so that it looks like a real photograph of real, professionally installed decorations.';
+export const LAVISH_ACCESS_EXTERIOR = 'Keep the doors, the steps and the paths clear to walk on.';
+export const LAVISH_ACCESS_INTERIOR = 'Keep every doorway and walking route clear.';
+export const LAVISH_OUTPUT = 'Return the same photograph with these decorations added.';
+
+/** The access sentence of a lavish request by scene type. */
+export function lavishAccessSentence(sceneType: PlanDraft['sceneType']): string {
+  return sceneType === 'house_exterior' || sceneType === 'balcony'
+    ? LAVISH_ACCESS_EXTERIOR
+    : LAVISH_ACCESS_INTERIOR;
+}
+
 /** How many recorded house numbers get a sentence of their own. */
 const HOUSE_NUMBER_SENTENCES = 2;
 
@@ -245,17 +267,89 @@ function preserveBlock(plan: PlanDraft, content: CompileContent): string {
   return `Keep the camera position, crop and perspective, and keep ${list} exactly as they are in shape and position. ${EVENING_KEEP}`;
 }
 
+/** Pack text on one line: line breaks and runs of spaces become single spaces. */
+function oneLine(text: string): string {
+  return text.trim().replace(/\s+/g, ' ');
+}
+
 /**
- * Compiles a plan into the provider request (render spec, prompt compilation): fixed blocks in
- * order (scope, preserve, placements, lighting, protect, negatives, output), capped by length so
- * lower-priority placements are dropped before preserve or protect text is shortened.
- * Deterministic: the same plan compiles to byte-identical output.
+ * The section's lavish description when the plan is decorated from it: the plan carries the
+ * `lavish` record and is compiled as photographed. Such a plan cannot be compiled without the
+ * description it was planned from.
  */
-export function compilePlan(
+function lavishDescriptionOf(plan: PlanDraft, content: CompileContent): LavishFragment | null {
+  if (!plan.lavish || plan.lightingMode === 'evening') return null;
+  const description = content.fragments.lavish;
+  if (!description) {
+    throw new Error(`The ${plan.sceneType} section has no lavish description for a lavish plan`);
+  }
+  return description;
+}
+
+/**
+ * The scope sentence of a lavish request. A house exterior names the house's own yard and, when
+ * the plan has a target facade, where the house is in the image: with no placement sentences,
+ * nothing else tells the editor which building of the photo is meant.
+ */
+export function lavishScopeSentence(
+  plan: Pick<PlanDraft, 'sceneType' | 'preserve'>,
+  lavish: Pick<LavishFragment, 'scene'>,
+): string {
+  const facade = plan.preserve.targetFacade;
+  const subject =
+    plan.sceneType === 'house_exterior'
+      ? facade
+        ? `${SUBJECT_WORDS.house_exterior}, the building ${positionWords(facade)}, and its own yard`
+        : `${SUBJECT_WORDS.house_exterior} and its own yard`
+      : SUBJECT_WORDS[plan.sceneType];
+  return `Edit only the target ${subject} in the attached photo to show ${oneLine(lavish.scene).replace(/[.\s]+$/, '')}, in the lighting of the original photograph.`;
+}
+
+/**
+ * The instruction of the lavish tier: scope, the section's preserve fragment, the description of
+ * everything that is added, realism, lighting, protect, negatives (ending with the way to the
+ * door kept clear) and output. It has no placement sentences.
+ */
+function lavishInstruction(
+  plan: PlanDraft,
+  content: CompileContent,
+  lavish: LavishFragment,
+): string {
+  const negatives = [
+    sentence(lavish.negative),
+    plan.negatives.length > 0 ? `Also add no ${joinList(plan.negatives)}.` : '',
+    keepMarksSentence(plan.sceneType),
+    ...houseNumberSentences(plan),
+    ...(plan.repairConstraints ?? []).map((constraint) => sentence(constraint.instruction)),
+    lavishAccessSentence(plan.sceneType),
+  ]
+    .filter(Boolean)
+    .join(' ');
+  return [
+    lavishScopeSentence(plan, lavish),
+    sentence(content.fragments.preserve),
+    LAVISH_ADDED,
+    sentence(lavish.decorations),
+    plan.lavish?.lit ? LAVISH_LIGHTS_ON : '',
+    LAVISH_REALISM,
+    plan.lightingInstruction.text,
+    PROTECT,
+    negatives,
+    LAVISH_OUTPUT,
+  ]
+    .filter(Boolean)
+    .join(' ');
+}
+
+/**
+ * The instruction of a plan compiled from its placements: one sentence per placement, capped by
+ * length so lower-priority placements are dropped before preserve or protect text is shortened.
+ */
+function placementInstruction(
   plan: PlanDraft,
   content: CompileContent,
   options: CompileOptions,
-): CompileResult {
+): { instructionText: string; droppedPlacementIds: string[] } {
   const evening = plan.lightingMode === 'evening';
   // A decorate request is compiled as photographed unless it is the legacy combined evening plan.
   const decorateLighting = evening ? 'evening' : 'source';
@@ -321,6 +415,27 @@ export function compilePlan(
     instructionText = assemble();
   }
   const droppedPlacementIds = placements.filter((p) => !kept.has(p.id)).map((p) => p.id);
+  return { instructionText, droppedPlacementIds };
+}
+
+/**
+ * Compiles a plan into the provider request (render spec, prompt compilation): fixed blocks in
+ * order (scope, preserve, placements, lighting, protect, negatives, output), capped by length so
+ * lower-priority placements are dropped before preserve or protect text is shortened. A plan
+ * marked `lavish` states the section's lavish description in place of the placement sentences:
+ * nothing is dropped and no provider mask is sent. Deterministic: the same plan compiles to
+ * byte-identical output.
+ */
+export function compilePlan(
+  plan: PlanDraft,
+  content: CompileContent,
+  options: CompileOptions,
+): CompileResult {
+  const lavish = lavishDescriptionOf(plan, content);
+  // A lavish request has no placement sentences, so nothing is dropped for the length cap.
+  const { instructionText, droppedPlacementIds } = lavish
+    ? { instructionText: lavishInstruction(plan, content, lavish), droppedPlacementIds: [] }
+    : placementInstruction(plan, content, options);
 
   const settings = resolveImageEditSettings(options.settings);
   const parameters = providerParameters(
@@ -329,7 +444,9 @@ export function compilePlan(
     options.lowerQuality,
     settings,
   );
+  // The plan's mask covers only its placements; a lavish edit is not bounded by them.
   const useMask =
+    !lavish &&
     settings.providerMask === 'tight' &&
     options.supportsMask &&
     plan.fidelityMode === 'composite_additive' &&
@@ -383,6 +500,22 @@ export function compilePlan(
 export const RELIGHT_KEEP =
   'Every existing object, decoration, architectural detail, plant and piece of furniture stays exactly as it is, in the same place, with the same shape, material and color. Nothing is added, removed, moved, replaced or restyled, and the camera position, lens and framing do not change.';
 
+/**
+ * The ambient, decorations and exposure sentences of the evening relight of a lavish, lit
+ * display: the home stays the brightest thing in the picture, and no decoration is named because
+ * the lights are everywhere.
+ */
+export const LAVISH_RELIGHT_AMBIENT =
+  'Only the lighting changes: the sky becomes a deep, luminous dusk blue and the ambient light falls, and the decorated home becomes the brightest thing in the picture.';
+export const LAVISH_RELIGHT_DECORATIONS =
+  'Every light on its decorations is switched on and glows brightly, and together the many bulbs wash the surfaces around them with their glow, so the home stays bright and clearly readable, not dark.';
+export const LAVISH_RELIGHT_EXPOSURE =
+  'Photorealistic, as photographed with a good camera at dusk, with a bright festive glow, crisp bulbs, no haze and no lens flares.';
+
+/** The decorations sentence of the bright relight of a lavish base, which names no decoration. */
+export const LAVISH_BRIGHT_RELIGHT_DECORATIONS =
+  'The lights on the holiday decorations stay on and glow; any other bulbs, candles and lanterns on the decorations stay lit too.';
+
 /** The stronger keep clause of a relight repair after the first relight changed the photo. */
 export const RELIGHT_REPAIR_KEEP =
   'The previous relight changed the photograph itself. Change nothing but the light: every edge, object, decoration, window and door must line up exactly with the input photograph, and nothing may be added, removed, redrawn or restyled.';
@@ -422,8 +555,11 @@ export interface RelightRepair {
 export interface RelightCompileInput {
   /** The light the relight produces: early evening, or the bright look. */
   target: RelightLightingMode;
-  /** The accepted daylight plan whose decorations the relight keeps (and names when lit). */
-  basePlan: Pick<DecorationPlan, 'sceneType' | 'placements' | 'compilerVersion'>;
+  /**
+   * The accepted daylight plan whose decorations the relight keeps (and names when lit, unless
+   * it was decorated from a lavish description).
+   */
+  basePlan: Pick<DecorationPlan, 'sceneType' | 'placements' | 'compilerVersion' | 'lavish'>;
   provider: CompilerProvider;
   /** Configured request settings; unset fields take `DEFAULT_IMAGE_EDIT_SETTINGS`. */
   settings?: Partial<ImageEditSettings>;
@@ -482,21 +618,30 @@ function relightRepairSentence(target: RelightLightingMode, codes: readonly Fail
   return RELIGHT_REPAIR_KEEP;
 }
 
-/** The instruction blocks of an evening relight. */
+/**
+ * The instruction blocks of an evening relight. `lavishLit`: the base was decorated from a lavish
+ * description that asks for electric lights; outside a room its lights then glow brightly and the
+ * home stays the brightest thing in the picture.
+ */
 function eveningRelightBlocks(
   sceneType: DecorationPlan['sceneType'],
   named: readonly string[],
   repair: string,
+  lavishLit: boolean,
 ): string[] {
   const interior = interiorScene(sceneType);
+  const lavish = lavishLit && !interior;
   const scope = interior
     ? 'Relight this exact photograph of a room to early evening: dusk outside the windows and the room lit warmly by its own lamps.'
     : 'Relight this exact photograph to early evening at blue hour, about twenty minutes after sunset.';
   const ambient = interior
     ? 'Only the lighting changes: the daylight fades to a warm, dim lamp-lit evening and the windows show deep dusk blue outside.'
-    : 'Only the lighting changes: the ambient light becomes a deep dusk blue and the scene is darker overall.';
-  const decorations =
-    named.length > 0
+    : lavish
+      ? LAVISH_RELIGHT_AMBIENT
+      : 'Only the lighting changes: the ambient light becomes a deep dusk blue and the scene is darker overall.';
+  const decorations = lavish
+    ? LAVISH_RELIGHT_DECORATIONS
+    : named.length > 0
       ? `The lights already on the decorations glow warmly and cast soft light on nearby surfaces: ${proseList(named)}; any other bulbs, candles and lanterns already on the decorations glow too.`
       : 'Any bulbs, candles and lanterns already on the decorations glow warmly and cast soft light on nearby surfaces.';
   const fixtures = interior
@@ -509,14 +654,20 @@ function eveningRelightBlocks(
     ambient,
     decorations,
     fixtures,
-    'Photorealistic, natural dusk exposure as photographed with a good camera.',
+    lavish
+      ? LAVISH_RELIGHT_EXPOSURE
+      : 'Photorealistic, natural dusk exposure as photographed with a good camera.',
   ];
 }
 
-/** The instruction blocks of a bright relight (the tested instruction, with the lit decorations named). */
-function brightRelightBlocks(named: readonly string[], repair: string): string[] {
-  const decorations =
-    named.length > 0
+/**
+ * The instruction blocks of a bright relight (the tested instruction, with the lit decorations
+ * named; a lavish base names none).
+ */
+function brightRelightBlocks(named: readonly string[], repair: string, lavish: boolean): string[] {
+  const decorations = lavish
+    ? LAVISH_BRIGHT_RELIGHT_DECORATIONS
+    : named.length > 0
       ? `The lights on the holiday decorations stay on and glow: ${proseList(named)}; any other bulbs, candles and lanterns on the decorations stay lit too.`
       : 'The lights on the holiday decorations stay on and glow.';
   return [
@@ -535,7 +686,10 @@ function brightRelightBlocks(named: readonly string[], repair: string): string[]
  * and decoration. `evening`: dusk ambient light, the decorations' own bulbs glowing, warm windows,
  * porch or room lights on. `bright`: the space bright, airy and cheerful as on a sunny day with
  * every light on, shadows lifted, the decorations' lights still glowing, no haze or blown-out
- * highlights. Both name the base plan's lit decorations (at most six). A repair adds a stronger
+ * highlights. Both name the base plan's lit decorations (at most six). A relight of a base decorated
+ * from a lavish description names none: the bright relight says that every decoration's lights
+ * stay on, and the evening relight of a lit base outside a room states that every light is on and
+ * that the home stays the brightest thing in the picture. A repair adds a stronger
  * keep clause (or, for implausible light alone, a natural-light sentence for the target) and may
  * lower the quality one step. The request is marked as a relight (`kind`, `parameters.relight`)
  * with its target (`parameters.relight_target`), which the fixture editor answers with the
@@ -543,12 +697,14 @@ function brightRelightBlocks(named: readonly string[], repair: string): string[]
  * output.
  */
 export function compileRelightRequest(input: RelightCompileInput): CompiledRequest {
-  const named = litDecorationNames(input.basePlan);
+  const lavish = input.basePlan.lavish;
+  // The decorations of a lavish base are the whole description, not its advisory placements.
+  const named = lavish ? [] : litDecorationNames(input.basePlan);
   const repair = relightRepairSentence(input.target, input.repair?.codes ?? []);
   const instructionText = [
     ...(input.target === 'bright'
-      ? brightRelightBlocks(named, repair)
-      : eveningRelightBlocks(input.basePlan.sceneType, named, repair)),
+      ? brightRelightBlocks(named, repair, lavish !== undefined)
+      : eveningRelightBlocks(input.basePlan.sceneType, named, repair, lavish?.lit === true)),
     PROTECT,
     'Return the same photograph with only the light changed.',
   ]

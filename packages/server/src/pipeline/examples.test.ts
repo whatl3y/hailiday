@@ -1,8 +1,9 @@
 import sharp from 'sharp';
 import { beforeAll, describe, expect, it } from 'vitest';
-import type { CompiledRequest, NormalizedBox } from '@hailiday/core';
+import { isLavishPlan, type CompiledRequest, type NormalizedBox } from '@hailiday/core';
 import { loadContent, type Content } from '../content/load.js';
 import type { EditOutcome, ImageEditor, VisionModel } from '../providers/types.js';
+import { LAVISH_ADDED } from './compile/compiler.js';
 import { ExampleCameraChangedError, renderExamplePair, type ExampleDaylight } from './examples.js';
 import { medianDeltaE } from './imaging/checks.js';
 import { decodeRaster } from './imaging/raster.js';
@@ -243,6 +244,111 @@ describe('example renders register the output like the render job', () => {
     expect(await redness((await render(localizing)).after)).toBeGreaterThan(120);
     // Without a localization (the call fails), the plan mask restores the original there.
     expect(await redness((await render(manifestVision)).after)).toBeLessThan(60);
+  });
+
+  it('keeps the whole frame of a lavish example without asking the localizer, as the render job does', async () => {
+    // Top-left sky: no Christmas placement is planned there.
+    const box: NormalizedBox = [0.02, 0.02, 0.1, 0.1];
+    let calls = 0;
+    const silent = {
+      providerId: 'fixture',
+      mode: 'fixture',
+      localizeAdditions: async () => {
+        calls += 1;
+        return {
+          result: { added: [], otherChanges: [] },
+          usage: { inputTokens: 0, outputTokens: 0, calls: 1 },
+          model: 'stand-in',
+          promptVersion: 'stand-in',
+          elapsedMs: 0,
+          providerMode: 'fixture' as const,
+        };
+      },
+    } as unknown as VisionModel;
+    const render = (exampleId: string, style: 'abundant' | 'classic') => {
+      const example = content.examples.find((e) => e.exampleId === exampleId);
+      if (!example) throw new Error(exampleId);
+      return renderExamplePair(
+        {
+          content,
+          imageEditor: reframingEditor(
+            { dx: 0, dy: 0, scale: 1, rotationDeg: 0, aspect: 1 },
+            { width: 1536, height: 1024 },
+            { paint: { box, color: [220, 20, 20] } },
+          ),
+          vision: silent,
+          styleKitVersionId: 'kit',
+          modelSnapshot: 'stand-in',
+        },
+        { ...example, style },
+      );
+    };
+    const redness = async (jpeg: Buffer) => {
+      const image = await decodeRaster(jpeg);
+      const x = Math.round(0.06 * image.width);
+      const y = Math.round(0.06 * image.height);
+      const p = (y * image.width + x) * 3;
+      return (image.data[p] as number) - (image.data[p + 1] as number);
+    };
+    // The evening example returns the daylight composite it relit, with its plan.
+    const lavish = await render('example.christmas.house_exterior.classic.evening.v1', 'abundant');
+    expect(isLavishPlan(lavish.relightBase?.plan as Parameters<typeof isLavishPlan>[0])).toBe(true);
+    expect(calls).toBe(0);
+    expect(await redness(lavish.relightBase?.image as Buffer)).toBeGreaterThan(120);
+    // Without the mark the localizer is asked, finds nothing, and the plan mask restores the sky.
+    const classic = await render('example.christmas.house_exterior.classic.evening.v1', 'classic');
+    expect(isLavishPlan(classic.relightBase?.plan as Parameters<typeof isLavishPlan>[0])).toBe(
+      false,
+    );
+    expect(calls).toBe(1);
+    expect(await redness(classic.relightBase?.image as Buffer)).toBeLessThan(60);
+  });
+
+  it('plans an abundant apartment entry example without the lavish mark and localizes it, as the render job does', async () => {
+    let calls = 0;
+    const localizing = {
+      providerId: 'fixture',
+      mode: 'fixture',
+      localizeAdditions: async () => {
+        calls += 1;
+        return {
+          result: { added: [], otherChanges: [] },
+          usage: { inputTokens: 0, outputTokens: 0, calls: 1 },
+          model: 'stand-in',
+          promptVersion: 'stand-in',
+          elapsedMs: 0,
+          providerMode: 'fixture' as const,
+        };
+      },
+    } as unknown as VisionModel;
+    const example = content.examples.find(
+      (e) => e.exampleId === 'example.christmas.apartment_entry.classic.bright.v1',
+    );
+    if (!example) throw new Error('example');
+    // The pack's section has a lavish description; the scene type does not use it.
+    expect(
+      content.packFor('christmas')?.pack.sceneSections.apartment_entry?.promptFragments.lavish,
+    ).toBeDefined();
+    const requests: CompiledRequest[] = [];
+    const pair = await renderExamplePair(
+      {
+        content,
+        imageEditor: reframingEditor(
+          { dx: 0, dy: 0, scale: 1, rotationDeg: 0, aspect: 1 },
+          { width: 1536, height: 1024 },
+          { requests },
+        ),
+        vision: localizing,
+        styleKitVersionId: 'kit',
+        modelSnapshot: 'stand-in',
+      },
+      { ...example, style: 'abundant' },
+    );
+    // The dim hallway is relit, so the daylight composite and its plan come back.
+    expect(pair.relightBase?.plan.style).toBe('abundant');
+    expect(isLavishPlan(pair.relightBase?.plan as Parameters<typeof isLavishPlan>[0])).toBe(false);
+    expect(requests[0]?.instructionText).not.toContain(LAVISH_ADDED);
+    expect(calls).toBe(1);
   });
 
   it('renders an evening example as the relight of its daylight composite', async () => {

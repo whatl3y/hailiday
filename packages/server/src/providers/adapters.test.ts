@@ -773,3 +773,119 @@ describe('Google address diagnostics', () => {
     expect(isProviderError(placesError) && placesError.providerMessage).toBe('Invalid field mask.');
   });
 });
+
+describe('Google address suggestions', () => {
+  const KEY = 'AIzaSyTestServerKey1234567890';
+  const PREDICTIONS = {
+    suggestions: [
+      {
+        placePrediction: {
+          placeId: 'place-1',
+          structuredFormat: {
+            mainText: { text: '560 Millpond Rd' },
+            secondaryText: { text: 'Kettle Fork, GA, USA' },
+          },
+        },
+      },
+    ],
+  };
+  const REJECTED = {
+    error: {
+      code: 400,
+      message: `Invalid value at 'included_primary_types' (${KEY})`,
+      status: 'INVALID_ARGUMENT',
+    },
+  };
+
+  /** A fetch that answers each request with the next status (the last one repeats). */
+  function answering(statuses: number[]) {
+    const bodies: Record<string, unknown>[] = [];
+    let index = 0;
+    const fetchImpl = vi.fn(async (_url: string, init?: RequestInit) => {
+      bodies.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+      const status = statuses[Math.min(index, statuses.length - 1)] as number;
+      index += 1;
+      const body = status === 200 ? PREDICTIONS : status === 400 ? REJECTED : { error: {} };
+      return new Response(JSON.stringify(body), {
+        status,
+        headers: { 'content-type': 'application/json' },
+      });
+    });
+    return { fetchImpl, bodies };
+  }
+
+  const providerWith = (fetchImpl: ReturnType<typeof answering>['fetchImpl'], logger?: Logger) =>
+    createGoogleAddressProvider({
+      serverKey: KEY,
+      sessionSecret: 'session-secret-for-tests-0123456789',
+      fetch: fetchImpl,
+      ...(logger ? { logger } : {}),
+    });
+
+  it('sends the address types with every request', async () => {
+    const { fetchImpl, bodies } = answering([200]);
+    const result = await providerWith(fetchImpl).suggest({
+      query: '560 Millpond',
+      sessionToken: 'token-1',
+    });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(bodies[0]).toEqual({
+      input: '560 Millpond',
+      sessionToken: 'token-1',
+      includedRegionCodes: ['us'],
+      includedPrimaryTypes: ['street_address', 'premise', 'subpremise'],
+    });
+    expect((bodies[0]?.includedPrimaryTypes as string[]).length).toBeLessThanOrEqual(5);
+    expect(result).toMatchObject({
+      called: true,
+      suggestions: [{ placeId: 'place-1', primaryText: '560 Millpond Rd' }],
+    });
+  });
+
+  it('asks again without the types when Google rejects them, and says so once', async () => {
+    const { logger, warn } = capturingLogger();
+    const { fetchImpl, bodies } = answering([400, 200, 400, 200]);
+    const provider = providerWith(fetchImpl, logger);
+    const first = await provider.suggest({ query: '560 Millpond', sessionToken: 'token-1' });
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(bodies[1]).toEqual({
+      input: '560 Millpond',
+      sessionToken: 'token-1',
+      includedRegionCodes: ['us'],
+    });
+    expect(first).toMatchObject({ called: true, sessionToken: 'token-1' });
+    expect(first.suggestions.map((suggestion) => suggestion.placeId)).toEqual(['place-1']);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0]?.[0]).toMatchObject({
+      operation: 'Autocomplete type restriction',
+      httpStatus: 400,
+      failureKind: 'invalid_request',
+    });
+    expect(JSON.stringify(warn.mock.calls)).not.toContain(KEY);
+
+    const second = await provider.suggest({ query: '560 Millpond', sessionToken: 'token-2' });
+    expect(fetchImpl).toHaveBeenCalledTimes(4);
+    expect(bodies[2]?.includedPrimaryTypes).toBeDefined();
+    expect(bodies[3]?.includedPrimaryTypes).toBeUndefined();
+    expect(second.suggestions).toHaveLength(1);
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it('fails as before when the unrestricted request is rejected too, or on another status', async () => {
+    const twice = answering([400, 400]);
+    const rejected = await providerWith(twice.fetchImpl)
+      .suggest({ query: '560 Millpond', sessionToken: 'token-1' })
+      .catch((caught: unknown) => caught);
+    expect(isProviderError(rejected) && rejected.kind).toBe('invalid_request');
+    expect(twice.fetchImpl).toHaveBeenCalledTimes(2);
+
+    for (const status of [429, 500]) {
+      const once = answering([status, 200]);
+      const failed = await providerWith(once.fetchImpl)
+        .suggest({ query: '560 Millpond', sessionToken: 'token-1' })
+        .catch((caught: unknown) => caught);
+      expect(isProviderError(failed)).toBe(true);
+      expect(once.fetchImpl).toHaveBeenCalledTimes(1);
+    }
+  });
+});

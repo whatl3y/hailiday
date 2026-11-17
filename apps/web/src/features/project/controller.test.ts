@@ -33,6 +33,7 @@ import {
   chooseLook,
   closeProject,
   notYourPlace,
+  nudge,
   onUploadAttached,
   openProject,
   replacePhoto,
@@ -978,6 +979,96 @@ describe('No Street View after discovery', () => {
   });
 });
 
+describe('a view that was turned', () => {
+  type View = ReturnType<typeof useProjectStore.getState>['candidates'][number];
+
+  function view(candidateId: string, heading: number, derivedFromCandidateId: string | null) {
+    return {
+      candidateId,
+      derivedFromCandidateId,
+      isPrimary: candidateId === 'c-1',
+      rank: 1,
+      displayUrl: `https://cdn.test/${candidateId}.jpg`,
+      heading,
+      headingMode: 'road',
+      pitch: 3.4,
+      fov: 90,
+    } as unknown as View;
+  }
+
+  function showViews(extra: View[] = [], nudgeOffsets: Record<string, number> = {}) {
+    useProjectStore.setState({
+      ...INITIAL_PROJECT_FLOW,
+      project: project({ kind: 'address' }),
+      phase: 'confirm',
+      candidates: [view('c-1', 171.3, null), view('c-2', 27.6, null), ...extra],
+      baseCandidateIds: ['c-1', 'c-2'],
+      selectedCandidateId: 'c-1',
+      remainingDisplayLoads: 4,
+      nudgeOffsets,
+    });
+  }
+
+  const selected = () => useProjectStore.getState().selectedCandidateId;
+
+  it('comes back as it was left when its chip is chosen again, and the next turn goes on from it', async () => {
+    showViews();
+    api.putViewpoint.mockResolvedValueOnce({
+      candidate: view('c-1-left', 156.3, 'c-1'),
+      remainingDisplayLoads: 3,
+    } as never);
+    await nudge(-1);
+    expect(selected()).toBe('c-1-left');
+
+    await selectView('c-2');
+    expect(selected()).toBe('c-2');
+    await selectView('c-1');
+    // The picture on screen is the turned one, and the turn kept for the view says so.
+    expect(selected()).toBe('c-1-left');
+    expect(useProjectStore.getState().nudgeOffsets['c-1']).toBe(-15);
+    expect(api.putViewpoint).toHaveBeenCalledTimes(1);
+
+    // One more turn left is one step from the picture on screen: 30 degrees from the base view.
+    api.putViewpoint.mockResolvedValueOnce({
+      candidate: view('c-1-left-2', 141.3, 'c-1'),
+      remainingDisplayLoads: 2,
+    } as never);
+    await nudge(-1);
+    expect(api.putViewpoint).toHaveBeenLastCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        candidateId: 'c-1',
+        nudge: expect.objectContaining({ headingDelta: -30 }),
+      }),
+    );
+    expect(selected()).toBe('c-1-left-2');
+
+    // Turning back shows the pictures already loaded, in order, without a request.
+    await nudge(1);
+    expect(selected()).toBe('c-1-left');
+    await nudge(1);
+    expect(selected()).toBe('c-1');
+    expect(api.putViewpoint).toHaveBeenCalledTimes(2);
+  });
+
+  it('stays as it is when the chip of the view on screen is chosen', async () => {
+    showViews([view('c-1-left', 156.3, 'c-1')], { 'c-1': -15 });
+    useProjectStore.setState({ selectedCandidateId: 'c-1-left' });
+    await selectView('c-1');
+    expect(selected()).toBe('c-1-left');
+    expect(useProjectStore.getState().nudgeOffsets['c-1']).toBe(-15);
+  });
+
+  it('shows the view as discovered, with no turn kept, when its turned picture is not held', async () => {
+    showViews([], { 'c-1': -15 });
+    useProjectStore.setState({ selectedCandidateId: 'c-2' });
+    await selectView('c-1');
+    expect(selected()).toBe('c-1');
+    expect(useProjectStore.getState().nudgeOffsets['c-1']).toBe(0);
+    expect(api.putViewpoint).not.toHaveBeenCalled();
+  });
+});
+
 describe('a render refused because the view behind the place changed', () => {
   const streetViewSource = {
     ...project().activeSource!,
@@ -1180,11 +1271,15 @@ describe('a render refused because the view behind the place changed', () => {
 
     it('asks about the place again with the reason in line when the chosen view may only be displayed', async () => {
       const place = onConfirmWith('persist', 'c-2');
-      api.createRender.mockRejectedValue(refused());
+      useProjectStore.setState({ autoStarted: true });
+      // A second render request would be accepted, so a discovery that started one would show.
+      api.createRender
+        .mockRejectedValueOnce(refused())
+        .mockResolvedValue(queued(renderStatus({ state: 'queued' })));
       api.getProject.mockResolvedValue(place);
       api.runSourceDiscovery.mockResolvedValue({
         project: place,
-        discovery: discoveryIn('persist'),
+        discovery: { ...discoveryIn('persist'), matchClass: 'auto_start', nextAction: 'render' },
       });
       await requestRender();
       const state = useProjectStore.getState();
@@ -1196,7 +1291,7 @@ describe('a render refused because the view behind the place changed', () => {
       expect(state.selectedCandidateId).toBe('c-1');
     });
 
-    it('keeps the result on screen with the reason in line when another look is refused', async () => {
+    it('opens the upload step with the reason when another look is refused, and Cancel restores the result', async () => {
       const place = confirmedPlace(1);
       useProjectStore.setState({
         ...INITIAL_PROJECT_FLOW,
@@ -1213,15 +1308,95 @@ describe('a render refused because the view behind the place changed', () => {
         look: { holidayId: 'christmas', style: 'abundant', lightingMode: 'source' },
       });
       await settle();
-      const state = useProjectStore.getState();
+      let state = useProjectStore.getState();
       expect(api.createRender).toHaveBeenCalledTimes(1);
-      expect(state.phase).toBe('result');
-      expect(state.variant).toBe(current);
-      expect(state.look).toEqual(lookOf(current));
+      expect(state.phase).toBe('upload');
+      expect(state.uploadContext).toBe('replace');
+      expect(state.uploadReturnPhase).toBe('result');
       expect(state.inlineError).toBe(t('error.SOURCE_NOT_EDITABLE'));
+      expect(state.variant).toBe(current);
       expect(state.pending).toBeNull();
       expect(api.runSourceDiscovery).not.toHaveBeenCalled();
       expect(api.getProject).not.toHaveBeenCalled();
+
+      cancelUpload();
+      state = useProjectStore.getState();
+      expect(state.phase).toBe('result');
+      expect(state.variant).toBe(current);
+      expect(state.look).toEqual(lookOf(current));
+      expect(state.inlineError).toBeNull();
+    });
+
+    it('shows the photo prompt when the place has looks but their list could not be read', async () => {
+      const place = confirmedPlace(2);
+      api.getProject.mockResolvedValue(place);
+      api.listVariants.mockRejectedValue(new Error('offline'));
+      api.createRender.mockRejectedValue(refused());
+      api.runSourceDiscovery.mockResolvedValue({
+        project: place,
+        discovery: discoveryIn('display_only'),
+      });
+      await openProject(place.id, null);
+      await settle();
+      const state = useProjectStore.getState();
+      expect(api.createRender).toHaveBeenCalledTimes(1);
+      expect(api.runSourceDiscovery).toHaveBeenCalledTimes(1);
+      expect(state.variant).toBeNull();
+      expect(state.phase).toBe('confirm');
+      const { container } = render(createElement(MemoryRouter, null, createElement(ConfirmPlace)));
+      expect(container.textContent).toContain(t('interim.explain'));
+    });
+
+    it("leaves another place's confirm screen alone when discovery answers after the person moved on", async () => {
+      const place = onConfirmWith('persist', 'c-2');
+      api.createRender.mockRejectedValue(refused());
+      api.getProject.mockResolvedValue(place);
+      let answer: (value: Awaited<ReturnType<typeof api.runSourceDiscovery>>) => void = () => {};
+      api.runSourceDiscovery.mockReturnValue(new Promise((resolve) => (answer = resolve)));
+      const run = requestRender();
+      await settle();
+      expect(api.runSourceDiscovery).toHaveBeenCalledTimes(1);
+      closeProject();
+      // Another place, on its own confirm screen.
+      onConfirmWith('persist', 'c-1');
+      answer({ project: place, discovery: discoveryIn('persist') });
+      await run;
+      await settle();
+      const state = useProjectStore.getState();
+      expect(state.phase).toBe('confirm');
+      expect(state.inlineError).toBeNull();
+      expect(state.selectedCandidateId).toBe('c-1');
+    });
+
+    it('changes nothing when the person left during the re-read of a stale place', async () => {
+      const place = onConfirmWith('persist', 'c-2');
+      api.createRender.mockRejectedValue(refused());
+      let answerSecondRead: (value: Awaited<ReturnType<typeof api.getProject>>) => void = () => {};
+      api.getProject
+        .mockResolvedValueOnce(place)
+        .mockReturnValueOnce(new Promise((resolve) => (answerSecondRead = resolve)));
+      api.runSourceDiscovery.mockRejectedValue(
+        apiError('STALE_PROJECT_VERSION', { details: { currentProjectVersion: 9 } }),
+      );
+      const run = requestRender();
+      await settle();
+      expect(api.getProject).toHaveBeenCalledTimes(2);
+      closeProject();
+      const projectChanges = vi.fn();
+      const appChanges = vi.fn();
+      const stopProject = useProjectStore.subscribe(projectChanges);
+      const stopApp = useAppStore.subscribe(appChanges);
+      answerSecondRead(place);
+      await run;
+      await settle();
+      stopProject();
+      stopApp();
+      expect(projectChanges).not.toHaveBeenCalled();
+      expect(appChanges).not.toHaveBeenCalled();
+      const state = useProjectStore.getState();
+      expect(state.phase).toBe(INITIAL_PROJECT_FLOW.phase);
+      expect(state.inlineError).toBeNull();
+      expect(api.runSourceDiscovery).toHaveBeenCalledTimes(1);
     });
 
     it('keeps the photo prompt on screen without reading the place again', async () => {

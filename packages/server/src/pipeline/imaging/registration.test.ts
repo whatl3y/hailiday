@@ -3,9 +3,9 @@ import sharp from 'sharp';
 import { beforeAll, describe, expect, it } from 'vitest';
 import type { NormalizedBox } from '@hailiday/core';
 import { medianDeltaE } from './checks.js';
-import { alignAndComposite, pasteBack } from './composite.js';
+import { alignAndComposite, pasteBack, registerDelivered } from './composite.js';
 import { buildCompositeMask, featherBand, type CompositeMask } from './mask.js';
-import { decodeRaster, resizeRaster, toRect, type Raster } from './raster.js';
+import { decodeRaster, resizeRaster, shiftRaster, toRect, type Raster } from './raster.js';
 import {
   alignCandidate,
   maxDisplacement,
@@ -253,5 +253,78 @@ describe('registration before paste-back', () => {
     }
     // Replication would make the whole strip one value per row.
     expect(replicatedRows).toBeLessThan(working.height * 0.9);
+  });
+});
+
+describe('a poor fit of a lavish decorate output', () => {
+  /** The scene shifted by `dx` with strong noise on every pixel: a poor gradient correlation. */
+  function noisyShift(dx: number): Raster {
+    const shifted = shiftRaster(decorated, dx, 0);
+    const data = Buffer.from(shifted.data);
+    let seed = 11;
+    for (let i = 0; i < data.length; i += 3) {
+      seed = (seed * 1_103_515_245 + 12_345) & 0x7fffffff;
+      const noise = (seed / 0x7fffffff - 0.5) * 160;
+      for (let c = 0; c < 3; c += 1) {
+        data[i + c] = Math.max(0, Math.min(255, Math.round((data[i + c] as number) + noise)));
+      }
+    }
+    return { ...shifted, data };
+  }
+
+  it('is taken unwarped and recorded, while a move out of range or another aspect is still rejected', async () => {
+    const candidate = noisyShift(12);
+    const plain = await alignCandidate(working, candidate, mask.hard, { fallbackPx: 3 });
+    expect(plain.aligned).toBeNull();
+    expect(plain.record).toMatchObject({ accepted: false, reason: 'poor_fit' });
+    expect(plain.record.score).toBeLessThan(0.5);
+
+    const ignored = await alignCandidate(working, candidate, mask.hard, {
+      fallbackPx: 3,
+      acceptPoorFit: true,
+    });
+    expect(ignored.record).toMatchObject({
+      accepted: true,
+      applied: false,
+      reason: 'poor_fit_ignored',
+      uncoveredFraction: 0,
+    });
+    expect(ignored.aligned?.data.equals(candidate.data)).toBe(true);
+    expect(registrationRecord(ignored.record)).toMatchObject({ reason: 'poor_fit_ignored' });
+
+    // Only in `source` mode: a relight keeps today's rule.
+    for (const [lightingMode, accepted] of [
+      ['source', true],
+      ['evening', false],
+      ['bright', false],
+    ] as const) {
+      const registered = await registerDelivered({
+        working,
+        delivered: candidate,
+        lightingMode,
+        exclude: mask.hard,
+        fallbackPx: 3,
+        acceptPoorFit: true,
+      });
+      expect(registered.record.accepted, lightingMode).toBe(accepted);
+    }
+
+    const zoomed = await alignCandidate(
+      working,
+      reframed({ dx: 0, dy: 0, scale: 0.86, rotationDeg: 0, aspect: 1 }),
+      mask.hard,
+      { acceptPoorFit: true },
+    );
+    expect(zoomed.record).toMatchObject({ accepted: false, reason: 'out_of_range' });
+    const square = await decodeRaster(
+      await sharp(decorated.data, {
+        raw: { width: working.width, height: working.height, channels: 3 },
+      })
+        .resize(1024, 1024, { fit: 'fill' })
+        .png()
+        .toBuffer(),
+    );
+    const other = await alignCandidate(working, square, mask.hard, { acceptPoorFit: true });
+    expect(other.record).toMatchObject({ accepted: false, reason: 'aspect' });
   });
 });

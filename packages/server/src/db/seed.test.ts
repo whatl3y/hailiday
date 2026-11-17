@@ -110,8 +110,8 @@ describe('seed', () => {
     expect(christmas).toMatchObject({
       enabled: true,
       promotionStart: '2026-11-27',
-      version: '2.0.0',
-      majorMinor: '2.0',
+      version: '2.1.0',
+      majorMinor: '2.1',
     });
     expect(christmas.heroAssetId).not.toBeNull();
     const nye = await db

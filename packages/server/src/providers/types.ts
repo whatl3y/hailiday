@@ -223,6 +223,34 @@ export interface ViewCandidate {
    * a point of the cross around the target (`cross_<n|e|s|w>_15m` with the default offsets).
    */
   probe: string;
+  /**
+   * Which view of a target on the road this is: one of the two views across the road, the view
+   * along it, or one of the views around a panorama with no known road; transient (never
+   * persisted). Absent for a view aimed at the target.
+   */
+  roadView?: 'side' | 'along' | 'around';
+}
+
+/** What discovery found out about the road at a place without building geometry. */
+export interface RoadEvidence {
+  /** The target lies on the road: the candidates are the roadside views. */
+  onRoad: boolean;
+  /** Bearing from the lead panorama to the second one, to 0.1 degree; null when none was found. */
+  trackBearingDeg: number | null;
+  /**
+   * How many other panoramas that could give a track lie along the same line through the lead
+   * panorama as the one taken; null when none was found.
+   */
+  trackAgreement: number | null;
+  /**
+   * Where the second panorama was first seen: in Steps 1 and 2 (`alternates`), or only by the
+   * cross around the lead panorama (`cross`); null when none was found.
+   */
+  trackSource: 'alternates' | 'cross' | null;
+  /** Signed offset of the target from the track in meters, to 0.1 (positive: right of the bearing). */
+  crossTrackM: number | null;
+  /** Metadata calls the cross around the lead panorama made (0 to 4). */
+  crossProbes: number;
 }
 
 export interface DiscoveryResult {
@@ -234,6 +262,8 @@ export interface DiscoveryResult {
   metadataCalls: number;
   durationMs: number;
   timedOut: boolean;
+  /** The on-road test of a place without building geometry; null or absent for a place with it. */
+  road?: RoadEvidence | null;
 }
 
 export interface FetchedStreetView {
@@ -255,7 +285,10 @@ export interface StreetViewProvider {
     options?: CallOptions,
   ): Promise<StreetViewMetadata>;
   metadataByPano(panoId: string, options?: CallOptions): Promise<StreetViewMetadata>;
-  /** Free metadata probes: radius ladder, alternates at ±15/±30 m, view parameters, ordering. */
+  /**
+   * Free metadata probes: radius ladder, alternates at ±15/±30 m, view parameters, ordering and,
+   * without building geometry, the on-road test and roadside views.
+   */
   discoverCandidates(
     input: DiscoveryInput,
     options?: CallOptions & { budgetMs?: number },
@@ -427,18 +460,25 @@ export interface LocateHomeInput {
   image: ImageInput;
   sourceAssetId: string;
   fixture?: FixtureHint;
+  /**
+   * Which home the call looks for. Omitted: the home the frame is aimed at (at or nearest its
+   * center). `road`: the frame was taken from the road without being aimed at a building, so the
+   * home may be anywhere in it, also cut by the left or right edge.
+   */
+  target?: 'road';
 }
 
 /**
  * The home a Street View frame is aimed at: a tight box around its whole visible building (roof
  * to ground, with its porch and an attached garage), or null when no home is in the frame.
  * `ambiguous` when two homes are equally likely the target (a boundary between attached or close
- * neighbors, or two about equally near and prominent).
+ * neighbors, or two about equally near and prominent). For a `road` target the box ends at the
+ * frame's edge where that edge cuts the home off.
  */
 export interface LocateHomeResult {
   home: NormalizedBox | null;
   ambiguous: boolean;
-  /** Confidence from 0 to 1 that `home` is the target home and its box is right. */
+  /** Confidence from 0 to 1 that `home` is the target home and its box covers its visible part. */
   confidence: number;
 }
 

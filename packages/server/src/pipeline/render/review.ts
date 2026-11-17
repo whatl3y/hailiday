@@ -12,6 +12,8 @@ import {
   evaluatePermission,
   isPropertyBlocked,
   permissionSettingsOf,
+  refreshStreetViewPolicy,
+  streetViewPolicyTemplateFor,
 } from '../../policy/index.js';
 import type { DbOrTx } from '../../db/client.js';
 import type { RenderAsset, RenderAttempt, RenderJob } from '../../db/schema.js';
@@ -148,13 +150,21 @@ export async function approveReview(
       .where('id', '=', fromVariant ? (fallback?.basePlanId as string) : attempt.decorationPlanId)
       .executeTakeFirstOrThrow(),
   ]);
-  const policy = source.assetPolicyId
-    ? ((await deps.db
-        .selectFrom('assetPolicies')
-        .selectAll()
-        .where('id', '=', source.assetPolicyId)
-        .executeTakeFirst()) ?? null)
-    : null;
+  // A Street View source's policy is first brought up to the current template, so a use policy
+  // tightened since the look was held decides the approval.
+  const policy = !source.assetPolicyId
+    ? null
+    : source.kind === 'street_view'
+      ? await refreshStreetViewPolicy(
+          deps.db,
+          source.assetPolicyId,
+          streetViewPolicyTemplateFor(deps.config),
+        )
+      : ((await deps.db
+          .selectFrom('assetPolicies')
+          .selectAll()
+          .where('id', '=', source.assetPolicyId)
+          .executeTakeFirst()) ?? null);
   // A capability with no row (outside local environments) permits nothing.
   const capabilityState = await capabilityStateFor(deps, aiCapabilityFor(source.kind));
   const permission = capabilityState

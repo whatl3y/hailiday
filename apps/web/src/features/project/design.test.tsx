@@ -114,6 +114,12 @@ describe('the project, upload and shop stylesheets', () => {
     );
   });
 
+  it('keeps room from 600px under a view of the road for its line, its views and the look buttons', () => {
+    expect(plain(projectCss)).toMatch(
+      /@media \(min-width: 600px\) \{\s*\.project \.confirm--road \{\s*--stage-peek: 296px;\s*\}\s*\}/,
+    );
+  });
+
   it('draws the result options as hairline rows with a quiet summary and a padded panel', () => {
     expect(rule(disclosureCss, '.disclosure')).toMatch(/border-top: 1px solid var\(--line\)/);
     const label = rule(disclosureCss, '.disclosure__label');

@@ -85,6 +85,8 @@ const landingAndAddress = {
   'confirm.noMoreViews': 'No more views are available for this address.',
   'confirm.viewChanged':
     'The street photo of this place has changed. Check the current view before we decorate it.',
+  'confirm.roadGuide':
+    "Choose the view that shows your home, then look left or right until it's in the middle.",
   'confirm.chooseHolidayFirst': 'Choose a holiday to decorate for.',
   'confirm.yes': 'Yes, decorate this place',
   'confirm.none': 'None of these. Upload a photo instead.',

@@ -29,13 +29,16 @@ function canNudgeIn(state: ProjectFlowState, direction: -1 | 1): boolean {
  * "Is this the right place?": the candidate Street View frame on a stage as large as the screen
  * allows, shown as it is, with its attribution beneath it; then on paper the question, the
  * address and one primary action with the other route beside it, and under that up to three
- * views and bounded nudges within the display budget. In display-only mode the same screen
- * becomes the interim photo prompt.
+ * views and bounded nudges within the display budget. A view of the road adds one line under the
+ * address saying what to do with the views, and keeps a smaller stage so that the views and the
+ * nudges show in the first viewport. In display-only mode the same screen becomes the interim
+ * photo prompt.
  */
 export function ConfirmPlace() {
   const navigate = useNavigate();
   const headingId = useId();
   const pickerId = useId();
+  const guideId = useId();
   const headingRef = useRef<HTMLHeadingElement>(null);
   const flow = useProjectStore();
   const holidayId = useAppStore(currentHolidayId);
@@ -53,6 +56,9 @@ export function ConfirmPlace() {
   if (!project || !candidate) return null;
 
   const interim = flow.discovery?.sourceMode === 'display_only';
+  // A view of the road is not aimed at the home: the person picks the side and turns it. A
+  // turned view carries the mode of the view it was turned from.
+  const roadGuide = !interim && candidate.headingMode === 'road';
   const budgetSpent = flow.remainingDisplayLoads <= 0;
   const selectedBase = baseCandidateOf(flow, flow.selectedCandidateId);
   const address = flow.displayAddress ?? project.property?.formattedAddress ?? null;
@@ -86,7 +92,10 @@ export function ConfirmPlace() {
   );
 
   return (
-    <section className="confirm" aria-labelledby={headingId}>
+    <section
+      className={roadGuide ? 'confirm confirm--road' : 'confirm'}
+      aria-labelledby={headingId}
+    >
       <StreetViewStage
         candidate={candidate}
         logo={flow.discovery?.attribution?.logo ?? 'google_maps'}
@@ -103,6 +112,11 @@ export function ConfirmPlace() {
               {t('confirm.heading')}
             </h1>
             {address ? <p className="project__address">{address}</p> : null}
+            {roadGuide ? (
+              <p id={guideId} className="fine confirm__guide">
+                {t('confirm.roadGuide')}
+              </p>
+            ) : null}
           </div>
           {!interim && !needsHoliday ? primary : null}
         </div>
@@ -170,7 +184,12 @@ export function ConfirmPlace() {
           ) : (
             <div className="views">
               {flow.baseCandidateIds.length > 1 ? (
-                <div className="views__list" role="group" aria-label={t('confirm.views')}>
+                <div
+                  className="views__list"
+                  role="group"
+                  aria-label={t('confirm.views')}
+                  aria-describedby={roadGuide ? guideId : undefined}
+                >
                   {flow.baseCandidateIds.map((id, index) => {
                     const item = flow.candidates.find((entry) => entry.candidateId === id);
                     const unavailable = !item?.displayUrl && budgetSpent;

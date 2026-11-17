@@ -6,9 +6,10 @@ import type { SourceAsset, ViewpointJson } from '../../db/schema.js';
 import { fixturePanoramaGeometry, renderFixturePanorama } from '../../fixtures/street-view.js';
 import { sha256Hex } from '../../ids/index.js';
 import { createSilentLogger } from '../../logger/index.js';
+import { openReservations } from '../../ledger/index.js';
 import { evaluatePermission, permissionSettingsOf } from '../../policy/index.js';
 import { ProviderError } from '../../providers/errors.js';
-import { frameView, framedViewOf } from '../../providers/street-view/framing.js';
+import { aimAt, frameView, framedViewOf } from '../../providers/street-view/framing.js';
 import type {
   AnalyzeSceneInput,
   LocateHomeInput,
@@ -18,6 +19,7 @@ import type {
   VisionCallResult,
   VisionModel,
 } from '../../providers/types.js';
+import { fixtureRoadHome } from '../../providers/vision/fixture.js';
 import { keys } from '../../storage/keys.js';
 import { providerLegsFor, type PipelineDeps } from '../context.js';
 import { prepareWorkingImage } from '../imaging/working.js';
@@ -26,6 +28,8 @@ import {
   createPipelineTestDeps,
   createRenderJobRecord,
   createStreetViewSource,
+  fixturePlace,
+  primaryViewpoint,
 } from '../testing.js';
 import { PIPELINE_DEFAULTS } from '../versions.js';
 import { frameStreetViewSource, framingDecision } from './framing.js';
@@ -56,6 +60,8 @@ const PARAMS = {
 
 interface Seen {
   locate: number;
+  /** The input of every locate call, in order. */
+  located: LocateHomeInput[];
   subStagesAtLocate: (string | null)[];
   /** The job's sub-stage when its working image was stored (after the framing step). */
   subStagesAtWorking: (string | null)[];
@@ -86,6 +92,7 @@ function watched(
 ) {
   const seen: Seen = {
     locate: 0,
+    located: [],
     subStagesAtLocate: [],
     subStagesAtWorking: [],
     fetches: [],
@@ -97,6 +104,7 @@ function watched(
     ...innerVision,
     async locateHome(input, callOptions) {
       seen.locate += 1;
+      seen.located.push(input);
       const jobId = options.jobId?.();
       if (jobId) seen.subStagesAtLocate.push((await readJob(deps.db, jobId))?.subStage ?? null);
       return options.locate
@@ -1948,4 +1956,827 @@ describe('the write guards of the take-back', { timeout: 120_000 }, () => {
       if (other) await endJob(other);
     }
   });
+});
+
+/** The fixture place whose target point lies on the road, and its two panoramas. */
+const ROAD_PLACE = 'ChIJfxMillpondRoadCapeXXX26';
+const ROAD_P1 = 'fxSvMillpondRoad26p1Sv';
+const ROAD_P2 = 'fxSvMillpondRoad26p2Sv';
+
+/** A view of a road panorama as a road candidate takes it (pitch 3.8, fov 90). */
+function roadView(heading: number, panoId = ROAD_P1): StreetViewView {
+  return { panoId, heading, pitch: 3.8, fov: 90, width: 640, height: 640 };
+}
+
+/** A `ready` Street View source bound to a view of the road place with heading mode `road`. */
+async function roadSource(
+  heading: number,
+  options: { panoId?: string; mode?: 'persist' | 'transient' } = {},
+) {
+  const view = roadView(heading, options.panoId);
+  return createStreetViewSource(base, {
+    placeId: ROAD_PLACE,
+    streetViewMode: options.mode ?? 'persist',
+    view: {
+      panoId: view.panoId,
+      heading: view.heading,
+      pitch: view.pitch,
+      fov: view.fov,
+      headingMode: 'road',
+    },
+  });
+}
+
+/**
+ * What the fixture shows and answers for a road view whose home is re-aimed: the home it first
+ * locates (or `firstBox`), the re-aimed view, the home in it and the framed view of that home.
+ */
+function reaimedRoad(heading: number, firstBox?: NormalizedBox) {
+  const road = roadView(heading);
+  const first = firstBox ?? fixtureRoadHome(fixturePanoramaGeometry(road)!).home;
+  if (!first) throw new Error('the road frame shows no home');
+  const reaimed: StreetViewView = { ...road, heading: aimAt(road, first).heading };
+  const second = fixturePanoramaGeometry(reaimed)?.targetFacade;
+  if (!second) throw new Error('the re-aimed frame shows no home');
+  const zoomed = frameView(reaimed, second, PARAMS);
+  const framed: StreetViewView = {
+    ...reaimed,
+    heading: zoomed.heading,
+    pitch: zoomed.pitch,
+    fov: zoomed.fov,
+  };
+  return { road, first, reaimed, second, framed, zoom: Math.round(zoomed.zoom * 1000) / 1000 };
+}
+
+/** Locate answers in call order; a null entry (or none) leaves the fixture's own answer. */
+function answers(...scripted: (LocateHomeResult | null)[]) {
+  let call = 0;
+  return async (input: LocateHomeInput, inner: VisionModel) => {
+    const answer = await inner.locateHome(input);
+    const result = scripted[call] ?? null;
+    call += 1;
+    return result ? { ...answer, result } : answer;
+  };
+}
+
+/** The checksum of the fixture frame of a view. */
+async function frameChecksum(view: StreetViewView): Promise<string> {
+  return (await renderFixturePanorama(view))!.checksum;
+}
+
+/** The framing charges of a job as `[sku, kind, reservationId]`, by SKU. */
+async function framingLines(jobId: string) {
+  return (await framingCharges(jobId)).map((line) => [line.sku, line.kind, line.reservationId]);
+}
+
+/** The scene a fixture call was given for a view. */
+function sceneOf(view: StreetViewView) {
+  return {
+    kind: 'street_view',
+    panoId: view.panoId,
+    heading: view.heading,
+    fov: view.fov,
+    pitch: view.pitch,
+  };
+}
+
+/** Expects a job refused at once in `preparing`, with nothing recorded and the source ready. */
+async function expectRefusedAtOnce(
+  made: Made,
+  result: Awaited<ReturnType<typeof look>>,
+  calls: { locate: number; fetches: number },
+) {
+  expect(result.state).toBe('failed');
+  expect(result.job).toMatchObject({
+    failureKind: 'source_rejected',
+    failureDetail: 'facade_not_in_frame',
+    subStage: null,
+    sceneAnalysisId: null,
+    workingObjectKey: null,
+  });
+  expect(result.seen.locate).toBe(calls.locate);
+  expect(result.seen.fetches).toHaveLength(calls.fetches);
+  // No working image, no analysis, no attempt, no enhancement.
+  expect(result.seen.analyzed).toEqual([]);
+  expect(await analysesOf(made.source.id)).toEqual([]);
+  expect(
+    await base.storage.head('private', keys.working(result.job!.id, 'working.png')),
+  ).toBeNull();
+  expect(
+    await base.db
+      .selectFrom('renderAttempts')
+      .select('id')
+      .where('jobId', '=', result.job!.id)
+      .execute(),
+  ).toEqual([]);
+  expect(
+    await base.db
+      .selectFrom('sourceEnhancements')
+      .select('id')
+      .where('sourceAssetId', '=', made.source.id)
+      .execute(),
+  ).toEqual([]);
+  expect(await openReservations(base.db, result.job!.id)).toEqual([]);
+  // The source is not declined and records nothing: the same view can be asked for again.
+  const row = await sourceRow(made.source.id);
+  expect(row.state).toBe('ready');
+  expect(row.declinedCode).toBeNull();
+  expect(row.viewpoint?.framing).toBeUndefined();
+  expect(await looksOf(made.source.id)).toEqual([]);
+}
+
+describe('framing a view taken from the road', { timeout: 120_000 }, () => {
+  it('frames a home in the middle without a re-aim', async () => {
+    const made = await roadSource(152);
+    const road = roadView(152);
+    const box = fixtureRoadHome(fixturePanoramaGeometry(road)!).home!;
+    const zoomed = frameView(road, box, PARAMS);
+    const framed = { ...road, heading: zoomed.heading, pitch: zoomed.pitch, fov: zoomed.fov };
+    const result = await look(made);
+    expect(result.state).toBe('succeeded');
+    expect(result.seen.locate).toBe(1);
+    expect(result.seen.located[0]?.target).toBe('road');
+    expect(result.seen.fetches).toEqual([road, framed]);
+    const row = await sourceRow(made.source.id);
+    expect(row.viewpoint?.framing).toMatchObject({
+      status: 'framed',
+      heading: framed.heading,
+      pitch: framed.pitch,
+      fov: framed.fov,
+      box,
+      promptVersion: 'frame-road-2026.11.0',
+    });
+    expect(row.viewpoint?.framing).not.toHaveProperty('reaim');
+    expect(row.viewpoint?.framing).not.toHaveProperty('reason');
+    expect(await storedChecksum(made.source.id)).toBe(await frameChecksum(framed));
+    expect(await framingLines(result.job!.id)).toEqual([
+      ['street_view_static_fetch', 'charge', null],
+      ['vision_call', 'charge', null],
+    ]);
+  });
+
+  it('turns to a home off to one side, then frames it', async () => {
+    const made = await roadSource(123);
+    const expected = reaimedRoad(123);
+    const result = await look(made);
+    expect(result.state).toBe('succeeded');
+
+    // The first call asks for the home anywhere in the road frame; the second, with the
+    // ordinary prompt, for the home in the re-aimed frame.
+    expect(result.seen.located).toHaveLength(2);
+    const [first, second] = result.seen.located;
+    expect(first?.target).toBe('road');
+    expect(sha256Hex(Buffer.from(first!.image.bytes))).toBe(await frameChecksum(expected.road));
+    expect(first?.fixture?.scene).toEqual(sceneOf(expected.road));
+    expect(second).not.toHaveProperty('target');
+    expect(sha256Hex(Buffer.from(second!.image.bytes))).toBe(await frameChecksum(expected.reaimed));
+    expect(second?.fixture?.scene).toEqual(sceneOf(expected.reaimed));
+
+    // The road view, the re-aimed view (same panorama, pitch and fov), then the framed view.
+    expect(result.seen.fetches).toEqual([expected.road, expected.reaimed, expected.framed]);
+    const row = await sourceRow(made.source.id);
+    expect(row.viewpoint?.framing).toEqual({
+      status: 'framed',
+      heading: expected.framed.heading,
+      pitch: expected.framed.pitch,
+      fov: expected.framed.fov,
+      box: expected.second,
+      zoom: expected.zoom,
+      promptVersion: 'frame-2026.11.0',
+      model: expect.any(String),
+      framedAt: expect.any(String),
+      reaim: {
+        heading: expected.reaimed.heading,
+        box: expected.first,
+        promptVersion: 'frame-road-2026.11.0',
+      },
+    });
+    // The viewpoint's identity stays the candidate's.
+    expect(row.viewpoint).toMatchObject({ heading: 123, pitch: 3.8, fov: 90, headingMode: 'road' });
+    expect(row.viewpointKey).toBe(made.source.viewpointKey);
+
+    // The stored frame and the working image are the framed view's, analyzed once.
+    const framedFrame = (await renderFixturePanorama(expected.framed))!;
+    expect(await storedChecksum(made.source.id)).toBe(framedFrame.checksum);
+    expect(row.checksumSha256).toBe(framedFrame.checksum);
+    const working = await prepareWorkingImage(framedFrame.image, 'street_view');
+    expect(result.job?.workingChecksumSha256).toBe(working.checksum);
+    expect(result.seen.analyzed.map((input) => input.fixture?.scene)).toEqual([
+      sceneOf(expected.framed),
+    ]);
+
+    // Two fetches and two calls, each charged directly on the framing stage.
+    expect(await framingLines(result.job!.id)).toEqual([
+      ['street_view_static_fetch', 'charge', null],
+      ['street_view_static_fetch', 'charge', null],
+      ['vision_call', 'charge', null],
+      ['vision_call', 'charge', null],
+    ]);
+
+    // A later look reuses the framed frame: no call, no fetch.
+    const next = await look(made, { holidayId: 'halloween' });
+    expect(next.state).toBe('succeeded');
+    expect(next.seen.locate).toBe(0);
+    expect(next.seen.fetches).toEqual([]);
+    expect(await framingCharges(next.job!.id)).toEqual([]);
+  });
+
+  it('turns to a home the edge cuts, then frames it', async () => {
+    const made = await roadSource(109.9);
+    const expected = reaimedRoad(109.9);
+    expect(expected.first[2]).toBe(1);
+    expect(Math.abs(expected.reaimed.heading - 149.6)).toBeLessThan(1);
+    const result = await look(made);
+    expect(result.state).toBe('succeeded');
+    expect(result.seen.located.map((input) => input.target ?? null)).toEqual(['road', null]);
+    expect(result.seen.fetches).toEqual([expected.road, expected.reaimed, expected.framed]);
+    expect((await sourceRow(made.source.id)).viewpoint?.framing).toMatchObject({
+      status: 'framed',
+      heading: expected.framed.heading,
+      fov: expected.framed.fov,
+      box: expected.second,
+      promptVersion: 'frame-2026.11.0',
+      reaim: { heading: expected.reaimed.heading, box: expected.first },
+    });
+  });
+
+  it('turns to a home the edge cuts although it reaches the middle third', async () => {
+    const made = await roadSource(152);
+    const cut: NormalizedBox = [0.45, 0.3, 1, 0.7];
+    const expected = reaimedRoad(152, cut);
+    const result = await look(made, {
+      locate: answers({ home: cut, ambiguous: false, confidence: 0.9 }),
+    });
+    expect(result.state).toBe('succeeded');
+    expect(result.seen.locate).toBe(2);
+    expect(result.seen.fetches.slice(0, 2)).toEqual([expected.road, expected.reaimed]);
+    expect(expected.reaimed.heading).toBe(aimAt(expected.road, cut).heading);
+    expect((await sourceRow(made.source.id)).viewpoint?.framing).toMatchObject({
+      status: 'framed',
+      reaim: { heading: expected.reaimed.heading, box: cut },
+    });
+  });
+
+  it('ends at once in a view without a home, and declines nothing', async () => {
+    const made = await roadSource(332);
+    expect(fixturePanoramaGeometry(roadView(332))?.targetFacade).toBeUndefined();
+    const first = await look(made);
+    await expectRefusedAtOnce(made, first, { locate: 1, fetches: 1 });
+    expect(first.seen.located[0]?.target).toBe('road');
+    expect(first.seen.fetches).toEqual([roadView(332)]);
+    expect(await framingLines(first.job!.id)).toEqual([['vision_call', 'charge', null]]);
+
+    // The road frame stays the stored frame.
+    expect(await storedChecksum(made.source.id)).toBe(await frameChecksum(roadView(332)));
+
+    // The same view asked for again runs the step again on the stored frame and ends the same
+    // way.
+    const again = await look(made, { holidayId: 'halloween' });
+    await expectRefusedAtOnce(made, again, { locate: 1, fetches: 0 });
+    expect(again.seen.located[0]?.target).toBe('road');
+    expect(await framingLines(again.job!.id)).toEqual([['vision_call', 'charge', null]]);
+  });
+
+  it('frames the home at a later look of a source whose view was refused', async () => {
+    // The first look is answered no home and refused; the next look gets the fixture's own
+    // answer (the home in the middle) and frames it.
+    const made = await roadSource(152);
+    const refused = await look(made, {
+      locate: answers({ home: null, ambiguous: false, confidence: 0.9 }),
+    });
+    await expectRefusedAtOnce(made, refused, { locate: 1, fetches: 1 });
+    const next = await look(made, { holidayId: 'halloween' });
+    expect(next.state).toBe('succeeded');
+    expect(next.seen.locate).toBe(1);
+    expect((await sourceRow(made.source.id)).viewpoint?.framing?.status).toBe('framed');
+  });
+
+  it('ends at once for two equal homes', async () => {
+    const made = await roadSource(192.3, { panoId: ROAD_P2 });
+    const result = await look(made);
+    await expectRefusedAtOnce(made, result, { locate: 1, fetches: 1 });
+    expect(await framingLines(result.job!.id)).toEqual([['vision_call', 'charge', null]]);
+  });
+
+  it('ends at once for a home in the middle located with too little confidence', async () => {
+    const made = await roadSource(152);
+    const box = fixtureRoadHome(fixturePanoramaGeometry(roadView(152))!).home!;
+    const result = await look(made, {
+      locate: answers({ home: box, ambiguous: false, confidence: 0.3 }),
+    });
+    await expectRefusedAtOnce(made, result, { locate: 1, fetches: 1 });
+  });
+
+  it('keeps the road frame of a home in the middle that already fills it', async () => {
+    const made = await roadSource(152);
+    const filling: NormalizedBox = [0.05, 0.1, 0.95, 0.9];
+    const result = await look(made, {
+      locate: answers({ home: filling, ambiguous: false, confidence: 0.9 }),
+    });
+    expect(result.state).toBe('succeeded');
+    expect(result.seen.locate).toBe(1);
+    expect(result.seen.fetches).toEqual([roadView(152)]);
+    expect((await sourceRow(made.source.id)).viewpoint?.framing).toMatchObject({
+      status: 'kept',
+      reason: 'small_gain',
+      box: filling,
+      promptVersion: 'frame-road-2026.11.0',
+    });
+  });
+
+  it('makes the re-aimed frame the source frame when zooming in gains too little', async () => {
+    const made = await roadSource(109.9);
+    const expected = reaimedRoad(109.9);
+    const filling: NormalizedBox = [0.05, 0.1, 0.95, 0.9];
+    const result = await look(made, {
+      locate: answers(null, { home: filling, ambiguous: false, confidence: 0.9 }),
+    });
+    expect(result.state).toBe('succeeded');
+    expect(result.seen.locate).toBe(2);
+    // No third fetch: the re-aimed frame is the source's frame.
+    expect(result.seen.fetches).toEqual([expected.road, expected.reaimed]);
+    const row = await sourceRow(made.source.id);
+    expect(row.viewpoint?.framing).toMatchObject({
+      status: 'framed',
+      heading: expected.reaimed.heading,
+      pitch: 3.8,
+      fov: 90,
+      box: filling,
+      zoom: 1,
+      reason: 'small_gain',
+      promptVersion: 'frame-2026.11.0',
+      reaim: {
+        heading: expected.reaimed.heading,
+        box: expected.first,
+        promptVersion: 'frame-road-2026.11.0',
+      },
+    });
+    const reaimedFrame = (await renderFixturePanorama(expected.reaimed))!;
+    expect(await storedChecksum(made.source.id)).toBe(reaimedFrame.checksum);
+    expect(result.seen.analyzed.map((input) => input.fixture?.scene)).toEqual([
+      sceneOf(expected.reaimed),
+    ]);
+    const working = await prepareWorkingImage(reaimedFrame.image, 'street_view');
+    expect(result.job?.workingChecksumSha256).toBe(working.checksum);
+    expect(await framingLines(result.job!.id)).toEqual([
+      ['street_view_static_fetch', 'charge', null],
+      ['vision_call', 'charge', null],
+      ['vision_call', 'charge', null],
+    ]);
+  });
+
+  const disagreeing: [string, LocateHomeResult][] = [
+    ['no home', { home: null, ambiguous: false, confidence: 0.9 }],
+    ['an ambiguous frame', { home: null, ambiguous: true, confidence: 0.9 }],
+    ['a home off to one side', { home: [0.7, 0.3, 0.95, 0.7], ambiguous: false, confidence: 0.9 }],
+    [
+      'a home located with too little confidence',
+      { home: [0.4, 0.4, 0.65, 0.65], ambiguous: false, confidence: 0.3 },
+    ],
+  ];
+  for (const [name, second] of disagreeing) {
+    it(`ends at once when the re-aimed frame shows ${name}`, async () => {
+      const made = await roadSource(109.9);
+      const expected = reaimedRoad(109.9);
+      const result = await look(made, { locate: answers(null, second) });
+      // One re-aim at most: two calls and two fetches, then the refusal.
+      await expectRefusedAtOnce(made, result, { locate: 2, fetches: 2 });
+      expect(result.seen.fetches).toEqual([expected.road, expected.reaimed]);
+      expect(await framingLines(result.job!.id)).toEqual([
+        ['street_view_static_fetch', 'charge', null],
+        ['vision_call', 'charge', null],
+        ['vision_call', 'charge', null],
+      ]);
+    });
+  }
+
+  it('records the framing of a transient road source and counts one display load', async () => {
+    const made = await roadSource(109.9, { mode: 'transient' });
+    const expected = reaimedRoad(109.9);
+    const result = await look(made);
+    expect(result.state).toBe('succeeded');
+    const row = await sourceRow(made.source.id);
+    expect(row.objectKey).toBeNull();
+    expect(row.viewpoint?.framing).toMatchObject({
+      status: 'framed',
+      fov: expected.framed.fov,
+      reaim: { heading: expected.reaimed.heading },
+      displayIssuedAt: row.viewpoint?.framing?.framedAt,
+    });
+    expect(await framingLines(result.job!.id)).toEqual([
+      ['street_view_static_display', 'charge', null],
+      ['street_view_static_fetch', 'charge', null],
+      ['street_view_static_fetch', 'charge', null],
+      ['vision_call', 'charge', null],
+      ['vision_call', 'charge', null],
+    ]);
+    expect(await displayLoadsOf(made.projectId)).toBe(1);
+  });
+});
+
+describe('what stops a road re-aim', { timeout: 120_000 }, () => {
+  /**
+   * Settings whose `nth` provider pause check after the first locate answer is paused: the
+   * Street View check before the re-aim fetch is the first, the vision check before the second
+   * call the second.
+   */
+  function pausedAfterFirstAnswer(nth: number) {
+    let counting = false;
+    let checks = 0;
+    const settings = {
+      ...base.settings,
+      async isProviderPaused(provider: string) {
+        if (counting) {
+          checks += 1;
+          if (checks === nth) return true;
+        }
+        return base.settings.isProviderPaused(provider);
+      },
+    };
+    const locate = async (input: LocateHomeInput, inner: VisionModel) => {
+      const answer = await inner.locateHome(input);
+      counting = true;
+      return answer;
+    };
+    return { deps: { ...base, settings }, locate };
+  }
+
+  const failure = () =>
+    new ProviderError('fixture-street-view', 'provider_error', 'down', { retryable: false });
+
+  const cases: [
+    string,
+    (expected: ReturnType<typeof reaimedRoad>) => Parameters<typeof look>[1],
+    string[],
+  ][] = [
+    [
+      'Street View paused before the re-aim fetch',
+      () => pausedAfterFirstAnswer(1),
+      ['vision_call'],
+    ],
+    [
+      'the re-aim fetch fails',
+      (expected) => ({
+        fetch: async (view) => {
+          if (view.heading === expected.reaimed.heading) throw failure();
+        },
+      }),
+      ['vision_call'],
+    ],
+    [
+      'the re-aimed frame does not decode',
+      (expected) => ({
+        fetched: (view, fetched) =>
+          view.heading === expected.reaimed.heading
+            ? { ...fetched, bytes: Buffer.from('not a picture') }
+            : fetched,
+      }),
+      ['street_view_static_fetch', 'vision_call'],
+    ],
+    [
+      'vision paused before the second call',
+      () => pausedAfterFirstAnswer(2),
+      ['street_view_static_fetch', 'vision_call'],
+    ],
+    [
+      'the second call fails',
+      () => {
+        let calls = 0;
+        return {
+          locate: async (input, inner) => {
+            calls += 1;
+            if (calls === 2) throw failure();
+            return inner.locateHome(input);
+          },
+        };
+      },
+      ['street_view_static_fetch', 'vision_call'],
+    ],
+    [
+      'the framed fetch fails',
+      (expected) => ({
+        fetch: async (view) => {
+          if (view.fov === expected.framed.fov) throw failure();
+        },
+      }),
+      ['street_view_static_fetch', 'vision_call', 'vision_call'],
+    ],
+    [
+      'the first call fails',
+      () => ({
+        locate: async () => {
+          throw failure();
+        },
+      }),
+      [],
+    ],
+  ];
+  for (const [name, options, charged] of cases) {
+    it(`ends the look as a provider failure, declining and recording nothing, when ${name}`, async () => {
+      const made = await roadSource(109.9);
+      const expected = reaimedRoad(109.9);
+      const result = await look(made, options(expected));
+      expect(result.state).toBe('failed');
+      expect(result.job).toMatchObject({
+        failureKind: 'provider_error',
+        failureDetail: null,
+        sceneAnalysisId: null,
+      });
+      expect(result.seen.analyzed).toEqual([]);
+      const row = await sourceRow(made.source.id);
+      expect(row.state).toBe('ready');
+      expect(row.declinedCode).toBeNull();
+      expect(row.viewpoint?.framing).toBeUndefined();
+      expect(await storedChecksum(made.source.id)).toBe(await frameChecksum(expected.road));
+      expect(await openReservations(base.db, result.job!.id)).toEqual([]);
+      // The calls and fetches that were made stay charged.
+      expect((await framingCharges(result.job!.id)).map((line) => line.sku)).toEqual(charged);
+    });
+  }
+
+  it('goes on with the road frame when only the framed fetch fails and no re-aim was needed', async () => {
+    const made = await roadSource(152);
+    const road = roadView(152);
+    const result = await look(made, {
+      fetch: async (view) => {
+        if (view.fov !== road.fov) throw failure();
+      },
+    });
+    expect(result.state).toBe('succeeded');
+    expect(result.seen.locate).toBe(1);
+    expect(result.seen.fetches).toHaveLength(2);
+    const row = await sourceRow(made.source.id);
+    expect(row.state).toBe('ready');
+    expect(row.viewpoint?.framing).toBeUndefined();
+    expect(await storedChecksum(made.source.id)).toBe(await frameChecksum(road));
+    const working = await prepareWorkingImage(
+      (await renderFixturePanorama(road))!.image,
+      'street_view',
+    );
+    expect(result.job?.workingChecksumSha256).toBe(working.checksum);
+    expect((await framingCharges(result.job!.id)).map((line) => line.sku)).toEqual(['vision_call']);
+  });
+
+  /** A persist road source whose first look was made from its road frame, with no framing. */
+  async function roadSourceWithLook(heading: number) {
+    const made = await roadSource(heading);
+    const off = {
+      ...base,
+      config: { ...base.config, streetView: { ...base.config.streetView, framing: false } },
+    };
+    expect((await look(made, { deps: off })).state).toBe('succeeded');
+    expect(await looksOf(made.source.id)).toHaveLength(1);
+    expect((await sourceRow(made.source.id)).viewpoint?.framing).toBeUndefined();
+    return made;
+  }
+
+  /** Expects a later look of a road source with a look made from its road frame, recording nothing. */
+  async function expectWentOnWithRoadFrame(
+    made: Made,
+    result: Awaited<ReturnType<typeof look>>,
+    heading: number,
+  ) {
+    expect(result.state).toBe('succeeded');
+    expect(result.seen.locate).toBe(1);
+    const row = await sourceRow(made.source.id);
+    expect(row.state).toBe('ready');
+    expect(row.declinedCode).toBeNull();
+    expect(row.viewpoint?.framing).toBeUndefined();
+    expect(await storedChecksum(made.source.id)).toBe(await frameChecksum(roadView(heading)));
+    const working = await prepareWorkingImage(
+      (await renderFixturePanorama(roadView(heading)))!.image,
+      'street_view',
+    );
+    expect(result.job?.workingChecksumSha256).toBe(working.checksum);
+    expect(await looksOf(made.source.id)).toHaveLength(2);
+  }
+
+  it('goes on with the road frame of a source that has a look when no single home is settled', async () => {
+    const made = await roadSourceWithLook(109.9);
+    const result = await look(made, {
+      holidayId: 'halloween',
+      locate: answers({ home: null, ambiguous: true, confidence: 0.9 }),
+    });
+    await expectWentOnWithRoadFrame(made, result, 109.9);
+    expect((await framingCharges(result.job!.id)).map((line) => line.sku)).toEqual(['vision_call']);
+  });
+
+  it('goes on with the road frame of a source that has a look when the first call fails', async () => {
+    const made = await roadSourceWithLook(109.9);
+    const result = await look(made, {
+      holidayId: 'halloween',
+      locate: async () => {
+        throw failure();
+      },
+    });
+    await expectWentOnWithRoadFrame(made, result, 109.9);
+    expect(await framingCharges(result.job!.id)).toEqual([]);
+  });
+
+  it('declines nothing for a run canceled while it located no home', async () => {
+    const made = await roadSource(332);
+    const result = await look(made, {
+      locate: async (input, inner) => {
+        const answer = await inner.locateHome(input);
+        const job = await base.db
+          .selectFrom('renderJobs')
+          .select('id')
+          .where('projectId', '=', made.projectId)
+          .executeTakeFirstOrThrow();
+        await terminateRenderJob(base, { jobId: job.id, to: 'canceled' });
+        return answer;
+      },
+    });
+    expect(result.state).toBe('canceled');
+    expect(result.job).toMatchObject({ state: 'canceled', failureKind: null });
+    const row = await sourceRow(made.source.id);
+    expect(row.state).toBe('ready');
+    expect(row.viewpoint?.framing).toBeUndefined();
+    expect(await openReservations(base.db, result.job!.id)).toEqual([]);
+  });
+});
+
+describe('a re-aimed frame the analysis refuses', { timeout: 120_000 }, () => {
+  /** An analysis that refuses only the zoomed frame of a re-aimed road view. */
+  function refusingZoomed(expected: ReturnType<typeof reaimedRoad>) {
+    return (input: AnalyzeSceneInput, answer: AnalysisAnswer): AnalysisAnswer =>
+      input.fixture?.scene?.kind === 'street_view' &&
+      input.fixture.scene.fov === expected.framed.fov
+        ? noHome(answer)
+        : answer;
+  }
+
+  it('goes back to the re-aimed frame, not the road frame', async () => {
+    const made = await roadSource(109.9);
+    const expected = reaimedRoad(109.9);
+    const result = await look(made, { analysis: refusingZoomed(expected) });
+    expect(result.state).toBe('succeeded');
+    const row = await sourceRow(made.source.id);
+    expect(row.state).toBe('ready');
+    expect(row.viewpoint?.framing).toMatchObject({
+      status: 'framed',
+      heading: expected.reaimed.heading,
+      pitch: 3.8,
+      fov: 90,
+      box: expected.second,
+      zoom: 1,
+      reason: 'refused_framed',
+      reaim: {
+        heading: expected.reaimed.heading,
+        box: expected.first,
+        promptVersion: 'frame-road-2026.11.0',
+      },
+    });
+    expect(row.viewpoint?.framing).not.toHaveProperty('displayIssuedAt');
+    expect(result.seen.fetches).toEqual([
+      expected.road,
+      expected.reaimed,
+      expected.framed,
+      expected.reaimed,
+    ]);
+    const reaimedFrame = (await renderFixturePanorama(expected.reaimed))!;
+    expect(await storedChecksum(made.source.id)).toBe(reaimedFrame.checksum);
+    expect(result.seen.analyzed.map((input) => input.fixture?.scene)).toEqual([
+      sceneOf(expected.framed),
+      sceneOf(expected.reaimed),
+    ]);
+    const working = await prepareWorkingImage(reaimedFrame.image, 'street_view');
+    expect(result.job?.workingChecksumSha256).toBe(working.checksum);
+    expect((await framingCharges(result.job!.id)).map((line) => line.sku)).toEqual([
+      'street_view_static_fetch',
+      'street_view_static_fetch',
+      'street_view_static_fetch',
+      'vision_call',
+      'vision_call',
+    ]);
+  });
+
+  it('declines the source when the re-aimed frame is refused too', async () => {
+    const made = await roadSource(109.9);
+    const expected = reaimedRoad(109.9);
+    const result = await look(made, { analysis: (_input, answer) => noHome(answer) });
+    expect(result.state).toBe('failed');
+    expect(result.job).toMatchObject({
+      failureKind: 'source_rejected',
+      failureDetail: 'facade_not_in_frame',
+    });
+    expect(result.seen.analyzed).toHaveLength(2);
+    // One take-back fetch, of the re-aimed view.
+    expect(result.seen.fetches).toEqual([
+      expected.road,
+      expected.reaimed,
+      expected.framed,
+      expected.reaimed,
+    ]);
+    const row = await sourceRow(made.source.id);
+    expect(row.state).toBe('declined');
+    expect(row.viewpoint?.framing).toMatchObject({
+      status: 'framed',
+      heading: expected.reaimed.heading,
+      zoom: 1,
+      reason: 'refused_framed',
+    });
+  });
+
+  it('declines a re-aimed frame at zoom 1 the analysis refuses, with nothing to take back', async () => {
+    const made = await roadSource(109.9);
+    const expected = reaimedRoad(109.9);
+    const result = await look(made, {
+      locate: answers(null, { home: [0.05, 0.1, 0.95, 0.9], ambiguous: false, confidence: 0.9 }),
+      analysis: (_input, answer) => noHome(answer),
+    });
+    expect(result.state).toBe('failed');
+    expect(result.job?.failureDetail).toBe('facade_not_in_frame');
+    expect(result.seen.fetches).toEqual([expected.road, expected.reaimed]);
+    expect(result.seen.analyzed).toHaveLength(1);
+    expect((await sourceRow(made.source.id)).state).toBe('declined');
+  });
+
+  it('takes a road framing without a re-aim back to the road frame', async () => {
+    const made = await roadSource(152);
+    const road = roadView(152);
+    const box = fixtureRoadHome(fixturePanoramaGeometry(road)!).home!;
+    const zoomed = frameView(road, box, PARAMS);
+    const result = await look(made, {
+      analysis: (input, answer) =>
+        input.fixture?.scene?.kind === 'street_view' && input.fixture.scene.fov === zoomed.fov
+          ? noHome(answer)
+          : answer,
+    });
+    expect(result.state).toBe('succeeded');
+    expect(result.seen.fetches.map((view) => [view.heading, view.fov])).toEqual([
+      [152, 90],
+      [zoomed.heading, zoomed.fov],
+      [152, 90],
+    ]);
+    expect((await sourceRow(made.source.id)).viewpoint?.framing).toMatchObject({
+      status: 'kept',
+      reason: 'refused_framed',
+      promptVersion: 'frame-road-2026.11.0',
+    });
+  });
+});
+
+describe('views aimed at the place keep their rules', { timeout: 120_000 }, () => {
+  for (const headingMode of ['point', 'geometry'] as const) {
+    async function aimedSource() {
+      const primary = await primaryViewpoint(base, fixturePlace(FRAMED_PLACE));
+      const { panoId, heading, pitch, fov } = primary.viewpoint;
+      return createStreetViewSource(base, {
+        placeId: FRAMED_PLACE,
+        streetViewMode: 'persist',
+        view: { panoId, heading, pitch, fov, headingMode },
+      });
+    }
+
+    it(`keeps a ${headingMode} frame whose home is off to one side, without a re-aim`, async () => {
+      const made = await aimedSource();
+      expect(made.source.viewpoint?.headingMode).toBe(headingMode);
+      const side: NormalizedBox = [0.7, 0.3, 0.95, 0.7];
+      const result = await look(made, {
+        locate: answers({ home: side, ambiguous: false, confidence: 0.9 }),
+      });
+      expect(result.state).toBe('succeeded');
+      expect(result.seen.locate).toBe(1);
+      expect(result.seen.located[0]).not.toHaveProperty('target');
+      expect(result.seen.fetches).toHaveLength(1);
+      expect((await sourceRow(made.source.id)).viewpoint?.framing).toEqual({
+        status: 'kept',
+        reason: 'ambiguous',
+        box: side,
+        promptVersion: 'frame-2026.11.0',
+        model: expect.any(String),
+        framedAt: expect.any(String),
+      });
+    });
+
+    it(`keeps a ${headingMode} frame without a home and goes on`, async () => {
+      const made = await aimedSource();
+      const result = await look(made, {
+        locate: answers({ home: null, ambiguous: false, confidence: 0.9 }),
+      });
+      expect(result.state).toBe('succeeded');
+      expect(result.seen.analyzed).toHaveLength(1);
+      expect((await sourceRow(made.source.id)).viewpoint?.framing).toMatchObject({
+        status: 'kept',
+        reason: 'no_home',
+      });
+    });
+
+    it(`goes on with a ${headingMode} frame when the first locate call fails`, async () => {
+      const made = await aimedSource();
+      const result = await look(made, {
+        locate: async () => {
+          throw new ProviderError('fixture-vision', 'provider_error', 'down', { retryable: false });
+        },
+      });
+      expect(result.state).toBe('succeeded');
+      expect(result.seen.locate).toBe(1);
+      expect(result.seen.analyzed).toHaveLength(1);
+      const row = await sourceRow(made.source.id);
+      expect(row.state).toBe('ready');
+      expect(row.viewpoint?.framing).toBeUndefined();
+      expect(await storedChecksum(made.source.id)).toBe(await wideChecksum(made));
+    });
+  }
 });

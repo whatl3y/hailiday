@@ -10,7 +10,7 @@ import {
   type NormalizedBox,
   type SceneAnalysis,
 } from '@hailiday/core';
-import { buildCompositeMask } from '../imaging/mask.js';
+import { buildCompositeMask, wholeFrameMask, type CompositeMask } from '../imaging/mask.js';
 import { toRect } from '../imaging/raster.js';
 import { prepareWorkingImage } from '../imaging/working.js';
 import { PIPELINE_DEFAULTS } from '../versions.js';
@@ -499,5 +499,146 @@ describe('a composite with spots restored', () => {
     const p = ((centre.y0 + 2) * width + centre.x0 + 2) * 3;
     expect(before.candidate.data[p]).not.toBe(working.raster.data[p]);
     expect(after.deterministic.codes).toEqual([]);
+  });
+});
+
+describe('spots restored with a soft width', () => {
+  const W = 200;
+  const H = 120;
+  /** A whole-frame keep-mask, with every pixel kept at full strength. */
+  const whole = (): CompositeMask =>
+    wholeFrameMask({ width: W, height: H, exclusions: [], featherPx: 0 });
+  const rectOf = (box: NormalizedBox) => {
+    const [grown] = restoredAreas([box], W, H) as [NormalizedBox];
+    return toRect(grown, W, H);
+  };
+
+  it('fades the original out across the width outside a restored box and keeps it exact inside', () => {
+    const mask = whole();
+    const box: NormalizedBox = [0.4, 0.4, 0.5, 0.6];
+    const softPx = 12;
+    const restored = withRestoredSpots(mask, [box], { softPx });
+    const rect = rectOf(box);
+    for (let y = rect.y0; y < rect.y1; y += 1) {
+      for (let x = rect.x0; x < rect.x1; x += 1) {
+        expect(restored.alpha[y * W + x]).toBe(0);
+        expect(restored.hard[y * W + x]).toBe(0);
+      }
+    }
+    // Along the row through the box's middle, right of it: from about 0 up to full by the width.
+    const y = Math.round((rect.y0 + rect.y1) / 2);
+    const ramp = Array.from({ length: softPx + 4 }, (_, d) => restored.alpha[y * W + rect.x1 + d]);
+    expect(ramp[0]).toBeLessThan(16);
+    for (let d = 1; d < ramp.length; d += 1) {
+      expect(ramp[d] as number).toBeGreaterThanOrEqual(ramp[d - 1] as number);
+      expect((ramp[d] as number) - (ramp[d - 1] as number)).toBeLessThan(64);
+    }
+    expect(ramp[softPx - 1]).toBeLessThan(255);
+    expect(ramp[softPx]).toBe(255);
+    // Outside the boxes the hard mask is as it was, and nothing is raised anywhere.
+    for (let i = 0; i < W * H; i += 1) {
+      const x = i % W;
+      const yy = Math.floor(i / W);
+      const inside = x >= rect.x0 && x < rect.x1 && yy >= rect.y0 && yy < rect.y1;
+      if (!inside) expect(restored.hard[i]).toBe(mask.hard[i]);
+      expect(restored.alpha[i] as number).toBeLessThanOrEqual(mask.alpha[i] as number);
+    }
+    expect(restored.checksum).not.toBe(mask.checksum);
+  });
+
+  it('never raises a lower alpha: the fade only adds original pixels', () => {
+    const base = buildCompositeMask({
+      width: W,
+      height: H,
+      regions: [[0.3, 0.3, 0.7, 0.7]],
+      dilationFraction: 0.04,
+      featherFraction: 0.02,
+    });
+    const restored = withRestoredSpots(base, [[0.45, 0.45, 0.5, 0.5]], { softPx: 20 });
+    let lowered = 0;
+    for (let i = 0; i < W * H; i += 1) {
+      expect(restored.alpha[i] as number).toBeLessThanOrEqual(base.alpha[i] as number);
+      if ((restored.alpha[i] as number) < (base.alpha[i] as number)) lowered += 1;
+    }
+    expect(lowered).toBeGreaterThan(0);
+  });
+
+  it('is byte for byte the hard restore without a width (or with 0)', () => {
+    const mask = whole();
+    const boxes: NormalizedBox[] = [[0.4, 0.4, 0.5, 0.6]];
+    const hard = withRestoredSpots(mask, boxes);
+    for (const options of [{}, { softPx: 0 }]) {
+      const again = withRestoredSpots(mask, boxes, options);
+      expect(Buffer.from(again.alpha).equals(Buffer.from(hard.alpha))).toBe(true);
+      expect(Buffer.from(again.hard).equals(Buffer.from(hard.hard))).toBe(true);
+      expect(again.checksum).toBe(hard.checksum);
+    }
+    // The hard restore keeps full strength right next to the box.
+    const rect = rectOf(boxes[0] as NormalizedBox);
+    const y = Math.round((rect.y0 + rect.y1) / 2);
+    expect(hard.alpha[y * W + rect.x1]).toBe(255);
+    // With a width the hard mask is the same; only the alpha fades.
+    const soft = withRestoredSpots(mask, boxes, { softPx: 12 });
+    expect(Buffer.from(soft.hard).equals(Buffer.from(hard.hard))).toBe(true);
+    expect(soft.checksum).toBe(hard.checksum);
+    expect(soft.alpha[y * W + rect.x1]).toBeLessThan(16);
+  });
+
+  it('fades a box at the frame edge only inside the frame', () => {
+    const mask = whole();
+    const box: NormalizedBox = [0, 0, 0.1, 0.15];
+    const softPx = 10;
+    const restored = withRestoredSpots(mask, [box], { softPx });
+    const rect = rectOf(box);
+    expect(rect.x0).toBe(0);
+    expect(rect.y0).toBe(0);
+    for (let y = 0; y < rect.y1; y += 1) {
+      for (let x = 0; x < rect.x1; x += 1) expect(restored.alpha[y * W + x]).toBe(0);
+    }
+    // Right of the box along the top row, and below it along the left column.
+    const right = Array.from({ length: softPx + 2 }, (_, d) => restored.alpha[rect.x1 + d]);
+    const below = Array.from({ length: softPx + 2 }, (_, d) => restored.alpha[(rect.y1 + d) * W]);
+    for (const ramp of [right, below]) {
+      expect(ramp[0]).toBeLessThan(16);
+      for (let d = 1; d < ramp.length; d += 1) {
+        expect(ramp[d] as number).toBeGreaterThanOrEqual(ramp[d - 1] as number);
+      }
+      expect(ramp[softPx]).toBe(255);
+    }
+  });
+
+  it('two boxes closer than the width: zero inside both, no step and nothing above either fade between them', () => {
+    const mask = whole();
+    const softPx = 16;
+    const a: NormalizedBox = [0.3, 0.4, 0.35, 0.6];
+    const ra = rectOf(a);
+    // The second box's grown area starts 8 px right of the first's.
+    const gap = 8;
+    const growPx = Math.round(0.3 * W) - ra.x0;
+    const bx0 = (ra.x1 + gap + growPx) / W;
+    const b: NormalizedBox = [bx0, 0.4, bx0 + 0.05, 0.6];
+    const rb = rectOf(b);
+    expect(rb.x0 - ra.x1).toBe(gap);
+    const both = withRestoredSpots(mask, [a, b], { softPx });
+    const onlyA = withRestoredSpots(mask, [a], { softPx });
+    const onlyB = withRestoredSpots(mask, [b], { softPx });
+    for (const rect of [ra, rb]) {
+      for (let y = rect.y0; y < rect.y1; y += 1) {
+        for (let x = rect.x0; x < rect.x1; x += 1) expect(both.alpha[y * W + x]).toBe(0);
+      }
+    }
+    const y = Math.round((ra.y0 + ra.y1) / 2);
+    const between = Array.from({ length: gap }, (_, d) => both.alpha[y * W + ra.x1 + d] as number);
+    for (let d = 0; d < gap; d += 1) {
+      const i = y * W + ra.x1 + d;
+      expect(between[d]).toBeLessThanOrEqual(onlyA.alpha[i] as number);
+      expect(between[d]).toBeLessThanOrEqual(onlyB.alpha[i] as number);
+    }
+    expect(Math.max(...between)).toBeLessThan(255);
+    for (let d = 1; d < gap; d += 1) {
+      expect(Math.abs((between[d] as number) - (between[d - 1] as number))).toBeLessThan(64);
+    }
+    expect(between[0]).toBeLessThan(16);
+    expect(between[gap - 1]).toBeLessThan(16);
   });
 });

@@ -380,9 +380,11 @@ export interface AlignmentRecord extends SimilarityEstimate {
   uncoveredInsetPx?: number;
   /**
    * Why the candidate was not accepted. `uncovered`: in a relight, where nothing is pasted back,
-   * the warp left a strip deeper than the configured inset (see `alignAndComposite`).
+   * the warp left a strip deeper than the configured inset (see `alignAndComposite`). On an
+   * accepted candidate, `poor_fit_ignored`: the fit was poor and the candidate was taken unwarped
+   * (`acceptPoorFit`).
    */
-  reason?: 'aspect' | 'out_of_range' | 'poor_fit' | 'uncovered';
+  reason?: 'aspect' | 'out_of_range' | 'poor_fit' | 'poor_fit_ignored' | 'uncovered';
 }
 
 /** The registration as stored on the attempt, rounded for a stable record. */
@@ -418,13 +420,15 @@ export interface AlignmentResult {
  * good fit, the candidate is warped into alignment (a transform under `identityPx` is applied as
  * identity, leaving the candidate byte for byte). A small transform with a poor fit is accepted
  * unwarped when it stays within `fallbackPx` (the legacy residual tolerance); anything else is
- * rejected, which the checks report as `camera_changed`.
+ * rejected, which the checks report as `camera_changed`. With `acceptPoorFit`, a transform within
+ * the limits whose fit is poor is accepted unwarped whatever its size (`reason:
+ * 'poor_fit_ignored'`); a transform out of range or a wrong aspect is still rejected.
  */
 export async function alignCandidate(
   working: Raster,
   delivered: Raster,
   exclude: Uint8Array | null,
-  options: { fallbackPx?: number; limits?: RegistrationLimits } = {},
+  options: { fallbackPx?: number; limits?: RegistrationLimits; acceptPoorFit?: boolean } = {},
 ): Promise<AlignmentResult> {
   const limits = options.limits ?? REGISTRATION_LIMITS;
   const { width, height } = working;
@@ -491,6 +495,19 @@ export async function alignCandidate(
     return {
       aligned: candidate,
       record: { ...estimate, accepted: true, applied: false, uncoveredFraction: 0, ...resampled },
+    };
+  }
+  if (inRange && options.acceptPoorFit) {
+    return {
+      aligned: candidate,
+      record: {
+        ...estimate,
+        accepted: true,
+        applied: false,
+        uncoveredFraction: 0,
+        ...resampled,
+        reason: 'poor_fit_ignored',
+      },
     };
   }
   const result = rejected(inRange ? 'poor_fit' : 'out_of_range', estimate);
