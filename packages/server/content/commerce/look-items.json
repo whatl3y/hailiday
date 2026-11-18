@@ -1,0 +1,278 @@
+{
+  "version": 1,
+  "description": "Decorations typical of a lavish look that no kit item of the same scene covers, in our own words. Shown only for a lavish plan; no products attached.",
+  "lookItems": [
+    {
+      "lookItemKey": "christmas.house_exterior.abundant.c9_roofline_lights",
+      "holidayId": "christmas",
+      "sceneType": "house_exterior",
+      "style": "abundant",
+      "ourTitle": "Warm white C9 bulb string lights for the roofline, 25–50 ft run",
+      "anchorCategory": "roofline",
+      "searchPhrase": "c9 warm white christmas lights outdoor",
+      "sortOrder": 1
+    },
+    {
+      "lookItemKey": "christmas.house_exterior.abundant.eave_curtain_lights",
+      "holidayId": "christmas",
+      "sceneType": "house_exterior",
+      "style": "abundant",
+      "ourTitle": "Warm white drop-string curtain lights for the eaves",
+      "anchorCategory": "eaves",
+      "searchPhrase": "warm white icicle curtain lights outdoor",
+      "sortOrder": 2
+    },
+    {
+      "lookItemKey": "christmas.house_exterior.abundant.window_door_mini_lights",
+      "holidayId": "christmas",
+      "sceneType": "house_exterior",
+      "style": "abundant",
+      "ourTitle": "Warm white mini lights to outline windows and the door frame",
+      "anchorCategory": "window_frame",
+      "searchPhrase": "warm white mini string lights outdoor",
+      "sortOrder": 3
+    },
+    {
+      "lookItemKey": "christmas.house_exterior.abundant.shrub_net_lights",
+      "holidayId": "christmas",
+      "sceneType": "house_exterior",
+      "style": "abundant",
+      "ourTitle": "Warm white net lights for shrubs and bushes",
+      "searchPhrase": "warm white net lights outdoor",
+      "sortOrder": 4
+    },
+    {
+      "lookItemKey": "christmas.house_exterior.abundant.tree_trunk_wrap_lights",
+      "holidayId": "christmas",
+      "sceneType": "house_exterior",
+      "style": "abundant",
+      "ourTitle": "Warm white lights for wrapping tree trunks",
+      "searchPhrase": "tree trunk wrap lights warm white",
+      "sortOrder": 5
+    },
+    {
+      "lookItemKey": "christmas.house_exterior.abundant.lit_wireframe_reindeer",
+      "holidayId": "christmas",
+      "sceneType": "house_exterior",
+      "style": "abundant",
+      "ourTitle": "Warm white lit wireframe reindeer for the lawn, set of 2–3",
+      "anchorCategory": "lawn",
+      "searchPhrase": "warm white lighted wire reindeer outdoor",
+      "sortOrder": 6
+    },
+    {
+      "lookItemKey": "christmas.house_exterior.abundant.lit_gift_boxes",
+      "holidayId": "christmas",
+      "sceneType": "house_exterior",
+      "style": "abundant",
+      "ourTitle": "Oversized lit gift box decorations for the lawn, red and gold, set of 3",
+      "anchorCategory": "lawn",
+      "searchPhrase": "lighted christmas gift box decorations outdoor",
+      "sortOrder": 7
+    },
+    {
+      "lookItemKey": "christmas.house_exterior.abundant.candy_cane_path_stakes",
+      "holidayId": "christmas",
+      "sceneType": "house_exterior",
+      "style": "abundant",
+      "ourTitle": "Lit candy-cane pathway stakes, red and white, set of 6",
+      "anchorCategory": "walkway_edge",
+      "searchPhrase": "lighted candy cane pathway markers",
+      "sortOrder": 8
+    },
+    {
+      "lookItemKey": "christmas.house_exterior.abundant.large_ornament_balls",
+      "holidayId": "christmas",
+      "sceneType": "house_exterior",
+      "style": "abundant",
+      "ourTitle": "Extra large red and gold ornament balls for the steps, shatterproof",
+      "anchorCategory": "porch_steps",
+      "searchPhrase": "extra large outdoor christmas ornament balls",
+      "sortOrder": 9
+    },
+    {
+      "lookItemKey": "halloween.house_exterior.abundant.black_wreath_orange_bow",
+      "holidayId": "halloween",
+      "sceneType": "house_exterior",
+      "style": "abundant",
+      "ourTitle": "Black wreath with an orange bow for the front door, 20–24 in.",
+      "anchorCategory": "front_door",
+      "searchPhrase": "black halloween wreath orange bow",
+      "sortOrder": 1
+    },
+    {
+      "lookItemKey": "halloween.house_exterior.abundant.giant_spider",
+      "holidayId": "halloween",
+      "sceneType": "house_exterior",
+      "style": "abundant",
+      "ourTitle": "Giant black spider for a wall or roof, 4–6 ft span",
+      "searchPhrase": "giant black spider halloween outdoor",
+      "sortOrder": 2
+    },
+    {
+      "lookItemKey": "halloween.house_exterior.abundant.bat_silhouettes_wall",
+      "holidayId": "halloween",
+      "sceneType": "house_exterior",
+      "style": "abundant",
+      "ourTitle": "Flat black bat silhouettes for the walls, flock of 12–20",
+      "searchPhrase": "black bat wall decorations outdoor",
+      "sortOrder": 3
+    },
+    {
+      "lookItemKey": "halloween.house_exterior.abundant.hay_bales",
+      "holidayId": "halloween",
+      "sceneType": "house_exterior",
+      "style": "abundant",
+      "ourTitle": "Decorative straw bales for the porch and path, set of 2",
+      "anchorCategory": "porch_steps",
+      "searchPhrase": "decorative hay bales",
+      "sortOrder": 4
+    },
+    {
+      "lookItemKey": "halloween.house_exterior.abundant.hanging_tree_lanterns",
+      "holidayId": "halloween",
+      "sceneType": "house_exterior",
+      "style": "abundant",
+      "ourTitle": "Hanging lanterns with flameless candles for tree branches",
+      "searchPhrase": "hanging halloween lanterns outdoor flameless",
+      "sortOrder": 5
+    },
+    {
+      "lookItemKey": "thanksgiving_us.house_exterior.abundant.eave_string_lights",
+      "holidayId": "thanksgiving_us",
+      "sceneType": "house_exterior",
+      "style": "abundant",
+      "ourTitle": "Warm white string lights for the roof edges and eaves",
+      "anchorCategory": "eaves",
+      "searchPhrase": "outdoor warm white string lights",
+      "sortOrder": 1
+    },
+    {
+      "lookItemKey": "thanksgiving_us.house_exterior.abundant.window_leaf_wreaths",
+      "holidayId": "thanksgiving_us",
+      "sceneType": "house_exterior",
+      "style": "abundant",
+      "ourTitle": "Small autumn leaf, wheat and gourd wreaths for the windows, 12–16 in.",
+      "anchorCategory": "window_frame",
+      "searchPhrase": "14 inch autumn leaf wreath wheat",
+      "sortOrder": 2
+    },
+    {
+      "lookItemKey": "thanksgiving_us.house_exterior.abundant.hay_bales",
+      "holidayId": "thanksgiving_us",
+      "sceneType": "house_exterior",
+      "style": "abundant",
+      "ourTitle": "Decorative straw bales for the porch, steps and yard, set of 2",
+      "anchorCategory": "porch_steps",
+      "searchPhrase": "decorative hay bales",
+      "sortOrder": 3
+    },
+    {
+      "lookItemKey": "thanksgiving_us.house_exterior.abundant.apple_baskets",
+      "holidayId": "thanksgiving_us",
+      "sceneType": "house_exterior",
+      "style": "abundant",
+      "ourTitle": "Large wicker harvest baskets for apples and gourds",
+      "anchorCategory": "porch_steps",
+      "searchPhrase": "large wicker harvest basket",
+      "sortOrder": 4
+    },
+    {
+      "lookItemKey": "thanksgiving_us.house_exterior.abundant.tall_flameless_lanterns",
+      "holidayId": "thanksgiving_us",
+      "sceneType": "house_exterior",
+      "style": "abundant",
+      "ourTitle": "Tall black lanterns with flameless candles for the steps",
+      "anchorCategory": "porch_steps",
+      "searchPhrase": "tall flameless candle lantern outdoor",
+      "sortOrder": 5
+    },
+    {
+      "lookItemKey": "thanksgiving_us.house_exterior.abundant.wheat_sheaves",
+      "holidayId": "thanksgiving_us",
+      "sceneType": "house_exterior",
+      "style": "abundant",
+      "ourTitle": "Dried wheat sheaves for the yard and porch, bundle of 3",
+      "anchorCategory": "lawn",
+      "searchPhrase": "dried wheat sheaf bundle decor",
+      "sortOrder": 6
+    },
+    {
+      "lookItemKey": "thanksgiving_us.house_exterior.abundant.shrub_net_lights",
+      "holidayId": "thanksgiving_us",
+      "sceneType": "house_exterior",
+      "style": "abundant",
+      "ourTitle": "Warm white net lights for shrubs",
+      "searchPhrase": "warm white net lights outdoor",
+      "sortOrder": 7
+    },
+    {
+      "lookItemKey": "new_years_eve.house_exterior.abundant.eave_curtain_lights",
+      "holidayId": "new_years_eve",
+      "sceneType": "house_exterior",
+      "style": "abundant",
+      "ourTitle": "Shimmering warm white curtain lights for the eaves",
+      "anchorCategory": "eaves",
+      "searchPhrase": "warm white icicle curtain lights outdoor",
+      "sortOrder": 1
+    },
+    {
+      "lookItemKey": "new_years_eve.house_exterior.abundant.window_ornament_wreaths",
+      "holidayId": "new_years_eve",
+      "sceneType": "house_exterior",
+      "style": "abundant",
+      "ourTitle": "Gold and silver ornament wreaths for the windows, 12–16 in.",
+      "anchorCategory": "window_frame",
+      "searchPhrase": "14 inch gold silver ornament wreath",
+      "sortOrder": 2
+    },
+    {
+      "lookItemKey": "new_years_eve.house_exterior.abundant.oversized_ornament_balls",
+      "holidayId": "new_years_eve",
+      "sceneType": "house_exterior",
+      "style": "abundant",
+      "ourTitle": "Oversized gold, silver and white ornament balls for the steps",
+      "anchorCategory": "porch_steps",
+      "searchPhrase": "extra large gold silver white ornament balls outdoor",
+      "sortOrder": 3
+    },
+    {
+      "lookItemKey": "new_years_eve.house_exterior.abundant.lit_white_potted_trees",
+      "holidayId": "new_years_eve",
+      "sceneType": "house_exterior",
+      "style": "abundant",
+      "ourTitle": "Lit white potted trees for the entry, 3–4 ft, pair",
+      "anchorCategory": "porch_steps",
+      "searchPhrase": "white pre lit potted tree outdoor",
+      "sortOrder": 4
+    },
+    {
+      "lookItemKey": "new_years_eve.house_exterior.abundant.shrub_net_lights",
+      "holidayId": "new_years_eve",
+      "sceneType": "house_exterior",
+      "style": "abundant",
+      "ourTitle": "Warm white net lights for shrubs",
+      "searchPhrase": "warm white net lights outdoor",
+      "sortOrder": 5
+    },
+    {
+      "lookItemKey": "new_years_eve.house_exterior.abundant.tree_trunk_wrap_lights",
+      "holidayId": "new_years_eve",
+      "sceneType": "house_exterior",
+      "style": "abundant",
+      "ourTitle": "Warm white lights for wrapping tree trunks",
+      "searchPhrase": "tree trunk wrap lights warm white",
+      "sortOrder": 6
+    },
+    {
+      "lookItemKey": "new_years_eve.house_exterior.abundant.starburst_stakes",
+      "holidayId": "new_years_eve",
+      "sceneType": "house_exterior",
+      "style": "abundant",
+      "ourTitle": "Lit starburst lights on stakes for the lawn and path, set of 4",
+      "anchorCategory": "lawn",
+      "searchPhrase": "lighted starburst yard stakes",
+      "sortOrder": 7
+    }
+  ]
+}

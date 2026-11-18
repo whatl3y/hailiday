@@ -204,6 +204,9 @@ function shift(value: string | null | undefined, offsetMs: number): Date | null 
  * Upserts merchant programs, products and offers by their content keys, then links kit items to
  * their current product and products to a kit item. Offer timestamps are rebased by
  * (now − authoredAt) when the content asks for it, so freshness rules behave the same any day.
+ * A program of kind `real` is insert-only in every environment, so an operator's record of an
+ * actual retailer (status, patterns, display rights) survives a seed; fixture programs follow the
+ * content when `refresh` is set.
  */
 export async function publishCommerce(
   db: DbOrTx,
@@ -239,12 +242,18 @@ export async function publishCommerce(
       reviewedAt: program.reviewedAt ?? null,
       logoPermitted: extras?.logoPermitted ?? false,
       notes: extras?.notes ?? null,
+      kind: extras?.kind ?? 'fixture',
+      placement: extras?.placement ?? 'group',
+      searchUrlTemplate: extras?.searchUrlTemplate ?? null,
+      trackingLinkTemplate: extras?.trackingLinkTemplate ?? null,
+      displayRights: toJson(extras?.displayRights ?? {}),
+      refreshTermHours: extras?.refreshTermHours ?? null,
     };
     const result = await db
       .insertInto('merchantPrograms')
       .values({ id: newId(), programKey: program.programKey, ...values })
       .onConflict((oc) =>
-        options.refresh
+        options.refresh && values.kind !== 'real'
           ? oc.column('programKey').doUpdateSet(values)
           : oc.column('programKey').doNothing(),
       )
@@ -374,6 +383,104 @@ export async function publishCommerce(
     }
   }
   return counts;
+}
+
+/**
+ * Upserts one search phrase per kit item key. When `refresh` is set (local development), a row no
+ * operator has edited (`updated_by` null) follows the content's phrase and overrides; a row an
+ * operator edited is never touched. Elsewhere phrases are insert-only.
+ */
+export async function publishSearchPhrases(
+  db: DbOrTx,
+  content: Content,
+  options: PublishOptions,
+): Promise<PublishCounts> {
+  const phrases = content.commerce.searchPhrases;
+  if (phrases.length === 0) return { searchPhrases: 0 };
+  const result = await db
+    .insertInto('kitItemSearchPhrases')
+    .values(
+      phrases.map((phrase) => ({
+        id: newId(),
+        kitItemKey: phrase.kitItemKey,
+        phrase: phrase.phrase,
+        programOverrides: toJson(phrase.programOverrides),
+      })),
+    )
+    .onConflict((oc) => {
+      const conflict = oc.column('kitItemKey');
+      return options.refresh
+        ? conflict
+            .doUpdateSet((eb) => ({
+              phrase: eb.ref('excluded.phrase'),
+              programOverrides: eb.ref('excluded.programOverrides'),
+            }))
+            .where('kitItemSearchPhrases.updatedBy', 'is', null)
+            .where(
+              sql<boolean>`(kit_item_search_phrases.phrase, kit_item_search_phrases.program_overrides)
+                is distinct from (excluded.phrase, excluded.program_overrides)`,
+            )
+        : conflict.doNothing();
+    })
+    .executeTakeFirst();
+  return { searchPhrases: Number(result.numInsertedOrUpdatedRows ?? 0) };
+}
+
+/**
+ * Upserts the look items by look item key. When `refresh` is set (local development), a row no
+ * operator has edited (`updated_by` null) follows every content field; a row an operator edited
+ * (title, phrase, order, retirement) is never touched. Elsewhere look items are insert-only.
+ */
+export async function publishLookItems(
+  db: DbOrTx,
+  content: Content,
+  options: PublishOptions,
+): Promise<PublishCounts> {
+  const lookItems = content.commerce.lookItems;
+  if (lookItems.length === 0) return { lookItems: 0 };
+  const result = await db
+    .insertInto('lookItems')
+    .values(
+      lookItems.map((item) => ({
+        id: newId(),
+        lookItemKey: item.lookItemKey,
+        holidayId: item.holidayId,
+        sceneType: item.sceneType,
+        style: item.style,
+        ourTitle: item.ourTitle,
+        anchorCategory: item.anchorCategory ?? null,
+        searchPhrase: item.searchPhrase,
+        programOverrides: toJson(item.programOverrides),
+        sortOrder: item.sortOrder,
+      })),
+    )
+    .onConflict((oc) => {
+      const conflict = oc.column('lookItemKey');
+      return options.refresh
+        ? conflict
+            .doUpdateSet((eb) => ({
+              holidayId: eb.ref('excluded.holidayId'),
+              sceneType: eb.ref('excluded.sceneType'),
+              style: eb.ref('excluded.style'),
+              ourTitle: eb.ref('excluded.ourTitle'),
+              anchorCategory: eb.ref('excluded.anchorCategory'),
+              searchPhrase: eb.ref('excluded.searchPhrase'),
+              programOverrides: eb.ref('excluded.programOverrides'),
+              sortOrder: eb.ref('excluded.sortOrder'),
+            }))
+            .where('lookItems.updatedBy', 'is', null)
+            .where(
+              sql<boolean>`(look_items.holiday_id, look_items.scene_type, look_items.style,
+                  look_items.our_title, look_items.anchor_category, look_items.search_phrase,
+                  look_items.program_overrides, look_items.sort_order)
+                is distinct from (excluded.holiday_id, excluded.scene_type, excluded.style,
+                  excluded.our_title, excluded.anchor_category, excluded.search_phrase,
+                  excluded.program_overrides, excluded.sort_order)`,
+            )
+        : conflict.doNothing();
+    })
+    .executeTakeFirst();
+  return { lookItems: Number(result.numInsertedOrUpdatedRows ?? 0) };
 }
 
 /** Target pixel size of each rendition of a crop. */

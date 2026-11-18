@@ -72,7 +72,12 @@ import {
 } from '../auth/session.js';
 import { allowanceFor } from '../domain/allowance.js';
 import { admitRender } from '../domain/capacity.js';
-import { buildProductsPanel, verifyClickToken } from '../domain/commerce.js';
+import {
+  COMMERCE_DEFAULTS,
+  buildProductsPanel,
+  subIdOf,
+  verifyClickToken,
+} from '../domain/commerce.js';
 import { emitEvent } from '../domain/events.js';
 import { commerceOccurrenceOf, holidayCalendar, packVersionFor } from '../domain/holidays.js';
 import {
@@ -889,8 +894,8 @@ export function registerRenderRoutes(app: App, deps: ApiDeps): void {
       const auth = await requireSession(deps, request, reply);
       enforceEndpointLimit(deps, request, reply, 'clicks', { auth });
       const token = request.body.clickToken;
-      const linkId = verifyClickToken(deps.config.sessionSecret, auth.session.id, token);
-      if (!linkId) throw notFound();
+      const targetId = verifyClickToken(deps.config.sessionSecret, auth.session.id, token);
+      if (!targetId) throw notFound();
       const existing = await deps.db
         .selectFrom('affiliateClicks')
         .select('id')
@@ -900,48 +905,51 @@ export function registerRenderRoutes(app: App, deps: ApiDeps): void {
         reply.code(201);
         return { clickId: existing.id };
       }
-      const link = await deps.db
-        .selectFrom('renderProductLinks')
-        .innerJoin('renderAssets', 'renderAssets.id', 'renderProductLinks.renderAssetId')
+      // Everything recorded comes from the shop target the token names, never from the request.
+      const target = await deps.db
+        .selectFrom('renderShopTargets')
+        .innerJoin('renderAssets', 'renderAssets.id', 'renderShopTargets.renderAssetId')
         .innerJoin('sourceAssets', 'sourceAssets.id', 'renderAssets.sourceAssetId')
+        .innerJoin('merchantPrograms', 'merchantPrograms.id', 'renderShopTargets.merchantProgramId')
         .select([
-          'renderProductLinks.id',
-          'renderProductLinks.chosenOfferId',
-          'renderProductLinks.linkMode',
-          'renderProductLinks.relationship',
-          'renderProductLinks.rankPosition',
-          'renderProductLinks.sponsored',
+          'renderShopTargets.id',
+          'renderShopTargets.linkKind',
+          'renderShopTargets.groupBasis',
+          'renderShopTargets.groupKey',
+          'renderShopTargets.groupPosition',
+          'renderShopTargets.optionPosition',
+          'renderShopTargets.offerId',
+          'renderShopTargets.renderProductLinkId',
+          'renderShopTargets.merchantProgramId',
+          'renderShopTargets.linkMode',
+          'renderShopTargets.relationship',
+          'renderShopTargets.sponsored',
           'renderAssets.holidayId',
           'renderAssets.ownerId',
           'sourceAssets.kind as sourceKind',
           'sourceAssets.sceneType',
-        ])
-        .where('renderProductLinks.id', '=', linkId)
-        .executeTakeFirst();
-      if (!link || !link.chosenOfferId || !link.linkMode || link.ownerId !== auth.ownerId) {
-        throw notFound();
-      }
-      const offer = await deps.db
-        .selectFrom('offers')
-        .innerJoin('merchantPrograms', 'merchantPrograms.id', 'offers.merchantProgramId')
-        .select([
-          'offers.id',
-          'offers.merchantProgramId',
-          'offers.sponsored',
           'merchantPrograms.programKey',
           'merchantPrograms.subIdCapability',
           'merchantPrograms.trackingIds',
         ])
-        .where('offers.id', '=', link.chosenOfferId)
-        .executeTakeFirstOrThrow();
+        .where('renderShopTargets.id', '=', targetId)
+        // A rendering that was deleted or withdrawn takes no more clicks.
+        .where('renderAssets.deletedAt', 'is', null)
+        .where('renderAssets.withdrawnAt', 'is', null)
+        .executeTakeFirst();
+      if (!target || target.ownerId !== auth.ownerId) throw notFound();
+      const product = target.linkKind === 'product';
+      if (product && !target.offerId) throw notFound();
       const calendar = await holidayCalendar(deps);
-      const occurrence = commerceOccurrenceOf(calendar.rows, link.holidayId, deps.clock.now());
-      const trackingId =
-        link.linkMode === 'tracking'
-          ? (offer.trackingIds.find(
-              (entry) => entry.holidayId === link.holidayId && entry.channel === 'direct',
-            )?.trackingId ?? null)
-          : null;
+      const occurrence = commerceOccurrenceOf(calendar.rows, target.holidayId, deps.clock.now());
+      const tracking = target.linkMode === 'tracking';
+      const trackingId = tracking
+        ? (target.trackingIds.find(
+            (entry) =>
+              entry.holidayId === target.holidayId && entry.channel === COMMERCE_DEFAULTS.channel,
+          )?.trackingId ?? null)
+        : null;
+      const relationship = product ? target.relationship : null;
       const clickId = newId();
       try {
         await deps.db
@@ -949,19 +957,25 @@ export function registerRenderRoutes(app: App, deps: ApiDeps): void {
           .values({
             id: clickId,
             clickToken: token,
-            renderProductLinkId: link.id,
-            offerId: offer.id,
-            merchantProgramId: offer.merchantProgramId,
-            linkMode: link.linkMode,
-            sentSubId: link.linkMode === 'tracking' && offer.subIdCapability ? token : null,
+            shopTargetId: target.id,
+            linkKind: target.linkKind,
+            groupBasis: target.groupBasis,
+            groupKey: target.groupKey,
+            groupPosition: target.groupPosition,
+            optionPosition: target.optionPosition,
+            renderProductLinkId: target.renderProductLinkId,
+            offerId: product ? target.offerId : null,
+            merchantProgramId: target.merchantProgramId,
+            linkMode: target.linkMode,
+            sentSubId: tracking && target.subIdCapability ? subIdOf(token) : null,
             trackingId,
-            relationship: link.relationship,
-            rankPosition: link.rankPosition,
-            holidayId: link.holidayId,
-            occurrenceKey: occurrence?.occurrenceKey ?? `${link.holidayId}.US`,
-            sceneType: link.sceneType ?? 'house_exterior',
-            sourceKind: link.sourceKind,
-            acquisitionChannel: 'direct',
+            relationship,
+            rankPosition: target.groupPosition,
+            holidayId: target.holidayId,
+            occurrenceKey: occurrence?.occurrenceKey ?? `${target.holidayId}.US`,
+            sceneType: target.sceneType ?? 'house_exterior',
+            sourceKind: target.sourceKind,
+            acquisitionChannel: COMMERCE_DEFAULTS.channel,
             sessionHash: sessionHashOf(deps, auth.ownerId),
             countryCode: 'US',
           })
@@ -979,15 +993,18 @@ export function registerRenderRoutes(app: App, deps: ApiDeps): void {
       await emitEvent(deps, deps.db, {
         name: 'product_clicked',
         ownerId: auth.ownerId,
-        holidayId: link.holidayId,
-        sceneType: link.sceneType,
-        sourceKind: link.sourceKind,
+        holidayId: target.holidayId,
+        sceneType: target.sceneType,
+        sourceKind: target.sourceKind,
         properties: {
-          relationship: link.relationship,
-          rankPosition: Math.max(1, link.rankPosition),
-          merchantProgramId: offer.programKey.slice(0, 64),
-          linkMode: link.linkMode,
-          sponsored: offer.sponsored || link.sponsored,
+          relationship,
+          rankPosition: Math.max(1, target.groupPosition),
+          optionPosition: Math.max(1, target.optionPosition),
+          linkKind: target.linkKind,
+          groupBasis: target.groupBasis,
+          merchantProgramId: target.programKey.slice(0, 64),
+          linkMode: target.linkMode,
+          sponsored: target.sponsored,
         },
       });
       reply.code(201);

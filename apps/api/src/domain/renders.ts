@@ -3,10 +3,12 @@ import {
   AnchorCategorySchema,
   FAILURE_CODES,
   MAX_RENDER_ATTEMPTS,
+  isLavishPlan,
   renderErrorCodeFor,
   stageLabelKeyOf,
   variantPlacements,
   type AnchorCategory,
+  type DecorationPlan,
   type FailureCode,
   type PermittedAction,
   type RenderStatus,
@@ -96,6 +98,21 @@ async function acceptedPlanDocument(deps: Pick<ApiDeps, 'db'>, jobId: string): P
     .where('renderAttempts.jobId', '=', baseOf.jobId)
     .executeTakeFirst();
   return base?.document ?? null;
+}
+
+/**
+ * Whether a render asset's accepted plan is a lavish plan (its decorate request states the pack
+ * section's lavish description); false when the plan is no longer available.
+ */
+export async function acceptedPlanIsLavish(
+  deps: Pick<ApiDeps, 'db'>,
+  asset: Pick<RenderAsset, 'jobId'>,
+): Promise<boolean> {
+  const document = await acceptedPlanDocument(deps, asset.jobId);
+  if (!document || typeof document !== 'object') return false;
+  const lavish = (document as { lavish?: unknown }).lavish;
+  if (!lavish || typeof lavish !== 'object') return false;
+  return isLavishPlan({ lavish: lavish as NonNullable<DecorationPlan['lavish']> });
 }
 
 /**

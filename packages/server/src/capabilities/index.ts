@@ -251,16 +251,23 @@ export function capabilityKeysFor(merchantProgramKeys: readonly string[]): Capab
  * whose provider resolves to a live adapter defaults to `live_public`, so a local visitor reaches
  * the live model: `image_editing`, `vision_analysis`, `address_lookup` and `street_view_display`,
  * and `street_view_ai` when both the Street View provider and the image editor are live and the
- * Street View use policy (default `full`) is not `display_only`. Staging and production defaults
- * never go live.
+ * Street View use policy (default `full`) is not `display_only`. The commerce capability of a real
+ * merchant program (one of `realProgramKeys`) defaults to `live_public` in development when the
+ * real programs are served (`COMMERCE_PROGRAMS` resolves to `real`), since a real program is
+ * served only live. Staging and production defaults never go live.
  */
 export function defaultCapabilityState(
   config: Pick<AppConfig, 'appEnv' | 'providers'> & {
     streetView?: Pick<AppConfig['streetView'], 'usePolicy'>;
   },
   capability: CapabilityKey,
+  realProgramKeys: readonly string[] = [],
 ): ActivationState {
   if (config.appEnv !== 'development') return 'fixture';
+  if (isCommerceCapabilityKey(capability)) {
+    const real = realProgramKeys.some((key) => commerceCapabilityKey(key) === capability);
+    return real && config.providers.commerce === 'real' ? 'live_public' : 'fixture';
+  }
   const usePolicy = config.streetView?.usePolicy ?? DEFAULT_STREET_VIEW_USE_POLICY;
   const live: Partial<Record<BaseCapabilityKey, boolean>> = {
     image_editing: config.providers.imageEditor !== 'fixture',

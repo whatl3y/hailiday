@@ -23,8 +23,8 @@ The model prices one visit to the landing page. A visitor may take the address p
 | s | Storage, delivery and email per accepted variant | about $0.01 (estimate) | host invoices, allocated |
 | w | Uploads per visitor (upload path, plus the user's own photo in the interim address experience, D-16) | measured; not in the canonical illustration | `upload_accepted` / `landing_viewed` |
 | q | Content-admission cost per screened upload | not yet priced (see the worksheet) | ledger, per screening job |
-| k | Shop click rate among completers who saw Shop the look | 0.25 | `product_clicked` owners / `shop_panel_viewed` owners |
-| p | Attributed purchase rate among clickers | 0.04 | `affiliate_conversions` / `affiliate_clicks` (commerce spec) |
+| k | Shop click rate among completers who saw Shop the look: a click on any option, search link or separate link | 0.25 | `product_clicked` owners / `shop_panel_viewed` owners |
+| p | Attributed purchase rate among clickers, counting only clicks on tracking links: a plain link, including every search link of a program that has not accepted, earns nothing | 0.04 | `affiliate_conversions` / `affiliate_clicks` in tracking mode (commerce spec) |
 | B | Eligible basket: commissionable order value per purchase | $120 | merchant reports |
 | r | Effective commission rate after reversals | 0.03 (0.04 as the upside case) | merchant reports |
 
@@ -235,7 +235,7 @@ The illustration uses 3% (Amazon's home categories) as the base and 4% as the up
 
 ### Program dependencies
 
-Commission is measurable only for merchant programs in `provisional` or `approved` status ([merchant onboarding](commerce.md#merchant-onboarding)). Amazon Associates requires three qualifying sales within 180 days of application before review, and its Creators API requires at least 10 qualifying sales in the trailing 30 days, so Amazon offers are manually curated links at first and Amazon revenue depends on an account that is not approved on day one (D-25; [Amazon](https://affiliate-program.amazon.com/help/node/topic/G7MJTPEP9NC3YKMG), [Creators API](https://affiliate-program.amazon.com/creatorsapi/docs/en-us/introduction)). Commerce activates per program independently of public rollout ([commerce activation](commerce.md#commerce-activation)), so the pilot and early public traffic can run with plain links or the panel hidden and R = 0 for a cohort; those visitors still count in C.
+Commission is measurable only for merchant programs in `provisional` or `approved` status ([merchant onboarding](commerce.md#merchant-onboarding)). Amazon Associates requires three qualifying sales within 180 days of application before review, and its Creators API requires at least 10 qualifying sales in the trailing 30 days, so Amazon is a links-only retailer at first ([D-54](../decisions.md#d-54)) and Amazon revenue depends on an account that is not approved on day one (D-25; [Amazon](https://affiliate-program.amazon.com/help/node/topic/G7MJTPEP9NC3YKMG), [Creators API](https://affiliate-program.amazon.com/creatorsapi/docs/en-us/introduction)). Commerce activates per program independently of public rollout ([commerce activation](commerce.md#commerce-activation)), so the pilot and early public traffic can run with plain links or the panel hidden and R = 0 for a cohort; those visitors still count in C.
 
 Every revenue and contribution reading carries an affiliate-tracking label per merchant program and per reporting cohort, derived from `merchant_programs.status` over the reading window:
 
@@ -251,8 +251,8 @@ Only `tracking` readings feed the revenue terms of the [decision rules](#decisio
 
 | Term | Illustration | Evidence | Rule |
 | --- | --- | --- | --- |
-| Click rate among completers, k | 25% | none | pilot measurement; reported per holiday, scene type, source kind, merchant program |
-| Purchase rate among clickers, p | 4% | weak secondary figures only: home and furniture site conversion 0.6–1.8% ([Razorpay](https://razorpay.com/learn/order-conversion-rate-benchmarks/)), not affiliate click-to-purchase | pilot measurement; bounded by each program's attribution window, so report per program |
+| Click rate among completers, k | 25% | none | pilot measurement; reported per holiday, scene type, source kind, merchant program and link kind (an option, or a link to a retailer's search results). A panel offers several options and search links per decoration, so k counts visitors who clicked at least once, never clicks |
+| Purchase rate among clickers, p | 4% | weak secondary figures only: home and furniture site conversion 0.6–1.8% ([Razorpay](https://razorpay.com/learn/order-conversion-rate-benchmarks/)), not affiliate click-to-purchase | pilot measurement on tracking links only; bounded by each program's attribution window, so report per program and per link kind. A click on a search link can earn on whatever the visitor buys there, so its p and B are read apart from an option's; clicks on plain links, which most search links are until their program accepts, measure intent and count in k but not in p |
 | Eligible basket, B | $120 | weak secondary figures: home-decor accessories median order $66 with a middle half of $31–$142 ([Madgicx](https://madgicx.com/labs/industries/home-goods-furnishings/home-decor-accessories)); a home-decor affiliate-traffic order value near $192 reported by one vendor without a date | pilot measurement from merchant reports |
 | Effective commission after reversals, r | 3% | published gross rates above; reversal rate unknown | gross rate × (1 − reversal rate); returns and cancellations arrive weeks after the click |
 

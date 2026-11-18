@@ -117,3 +117,84 @@ export type IndoorOutdoor = z.infer<typeof IndoorOutdoorSchema>;
 export const LIGHT_TYPES = ['electric', 'flameless'] as const;
 export const LightTypeSchema = z.enum(LIGHT_TYPES);
 export type LightType = z.infer<typeof LightTypeSchema>;
+
+/** Whether a merchant program is example data or an actual retailer. */
+export const PROGRAM_KINDS = ['fixture', 'real'] as const;
+export const ProgramKindSchema = z.enum(PROGRAM_KINDS);
+export type ProgramKind = z.infer<typeof ProgramKindSchema>;
+
+/** Which kind of merchant program is served; fixture and real programs are never served together. */
+export const COMMERCE_MODES = ['fixture', 'real'] as const;
+export const CommerceModeSchema = z.enum(COMMERCE_MODES);
+export type CommerceMode = z.infer<typeof CommerceModeSchema>;
+
+/** Where a program's links sit in Shop the look: in a group's row, or on a line of their own. */
+export const PROGRAM_PLACEMENTS = ['group', 'separate'] as const;
+export const ProgramPlacementSchema = z.enum(PROGRAM_PLACEMENTS);
+export type ProgramPlacement = z.infer<typeof ProgramPlacementSchema>;
+
+/** Whether a shop target is a product offer or a link to a retailer's search results. */
+export const SHOP_LINK_KINDS = ['product', 'search'] as const;
+export const ShopLinkKindSchema = z.enum(SHOP_LINK_KINDS);
+export type ShopLinkKind = z.infer<typeof ShopLinkKindSchema>;
+
+/** Why a decoration is in the panel: the plan placed it, or it is typical of the look. */
+export const SHOP_GROUP_BASES = ['placed', 'typical'] as const;
+export const ShopGroupBasisSchema = z.enum(SHOP_GROUP_BASES);
+export type ShopGroupBasis = z.infer<typeof ShopGroupBasisSchema>;
+
+/** Whether a commerce window is open for the variant's holiday. */
+export const SHOP_SEASONS = ['in_window', 'off_season'] as const;
+export const ShopSeasonSchema = z.enum(SHOP_SEASONS);
+export type ShopSeason = z.infer<typeof ShopSeasonSchema>;
+
+/** Look item status. */
+export const LOOK_ITEM_STATUSES = ['active', 'retired'] as const;
+export const LookItemStatusSchema = z.enum(LOOK_ITEM_STATUSES);
+export type LookItemStatus = z.infer<typeof LookItemStatusSchema>;
+
+/** Uses of retailer data or links that a program's terms may allow. */
+export const PROGRAM_RIGHT_USES = [
+  'tracked_product_links',
+  'tracked_search_links',
+  'product_name',
+  'picture',
+  'picture_storage',
+  'price',
+  'data_storage',
+  'beside_other_retailers',
+  'beside_ai_picture',
+  'retailer_name',
+] as const;
+export const ProgramRightUseSchema = z.enum(PROGRAM_RIGHT_USES);
+export type ProgramRightUse = z.infer<typeof ProgramRightUseSchema>;
+
+/** What a program's terms say about one use; `unknown` counts as denied. */
+export const PROGRAM_RIGHT_STATES = ['allowed', 'denied', 'unknown'] as const;
+export const ProgramRightStateSchema = z.enum(PROGRAM_RIGHT_STATES);
+export type ProgramRightState = z.infer<typeof ProgramRightStateSchema>;
+
+/** One recorded right: evidence is required unless the state is `unknown`. */
+export const ProgramRightSchema = z
+  .strictObject({
+    state: ProgramRightStateSchema,
+    evidence: z.string().min(1).max(500).nullable(),
+    recordedAt: z.iso.datetime().nullable(),
+  })
+  .refine((right) => right.state === 'unknown' || right.evidence !== null, {
+    message: 'evidence is required',
+    path: ['evidence'],
+  });
+export type ProgramRight = z.infer<typeof ProgramRightSchema>;
+
+/** Rights by use; a missing use is `unknown`. */
+export const ProgramRightsSchema = z.partialRecord(ProgramRightUseSchema, ProgramRightSchema);
+export type ProgramRights = z.infer<typeof ProgramRightsSchema>;
+
+/** True only when the use is recorded as `allowed`. */
+export function programRightAllowed(rights: ProgramRights, use: ProgramRightUse): boolean {
+  return rights[use]?.state === 'allowed';
+}
+
+/** Placeholder of a search link pattern. */
+export const SEARCH_QUERY_PLACEHOLDER = '{query}';

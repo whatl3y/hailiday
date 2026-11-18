@@ -23,7 +23,14 @@ import {
   ReportReasonSchema,
   ReportTargetKindSchema,
 } from '../types/api.js';
-import { LinkModeSchema, PanelStateSchema, ProductRelationshipSchema } from '../types/commerce.js';
+import {
+  LinkModeSchema,
+  PanelStateSchema,
+  ProductRelationshipSchema,
+  ShopGroupBasisSchema,
+  ShopLinkKindSchema,
+  ShopSeasonSchema,
+} from '../types/commerce.js';
 import {
   HolidayIdSchema,
   LightingModeSchema,
@@ -169,14 +176,24 @@ export const ANALYTICS_EVENT_PROPERTY_SCHEMAS = {
   }),
   shop_panel_viewed: z.object({
     panelState: PanelStateSchema,
+    /** Number of groups. */
     cardCount: count,
+    optionCount: count,
+    /** Search links and separate links together. */
+    searchLinkCount: count,
+    season: ShopSeasonSchema.nullable(),
     linkMode: LinkModeSchema.nullable(),
     programs: z.array(experimentSlug).max(20),
     relationships: z.array(ProductRelationshipSchema).max(20),
   }),
   product_clicked: z.object({
-    relationship: ProductRelationshipSchema,
+    /** Null for a search link. */
+    relationship: ProductRelationshipSchema.nullable(),
+    /** Position of the group. */
     rankPosition: z.int().positive(),
+    optionPosition: z.int().positive(),
+    linkKind: ShopLinkKindSchema,
+    groupBasis: ShopGroupBasisSchema,
     merchantProgramId: z.string().max(64),
     linkMode: LinkModeSchema,
     sponsored: z.boolean(),

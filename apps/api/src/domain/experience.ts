@@ -15,6 +15,7 @@ import {
   type ExperienceHoliday,
   type Hero,
   type HolidayId,
+  type PublicCapabilities,
   type Rendition,
   type SceneType,
   type SceneTypeOffer,
@@ -22,6 +23,7 @@ import {
 import { capabilityMode, type Audience } from '@hailiday/server/capabilities';
 import type { HeroAsset, HeroCropJson } from '@hailiday/server/db';
 import type { ApiDeps } from '../deps.js';
+import { servedPrograms } from './commerce.js';
 import {
   currentOccurrence,
   editorialDate,
@@ -209,6 +211,18 @@ export async function fixtureCapabilitiesFor(
     .filter(isCapabilityKey);
 }
 
+/**
+ * The capability flags of the experience for an audience: `commerce` is true only when at least
+ * one merchant program is served to the audience (`programServed`).
+ */
+export async function experienceCapabilities(
+  deps: Pick<ApiDeps, 'db' | 'config' | 'capabilities'>,
+  audience: Audience,
+): Promise<PublicCapabilities> {
+  const projection = await deps.capabilities.publicProjection('US', audience);
+  return { ...projection, commerce: (await servedPrograms(deps, audience)).length > 0 };
+}
+
 /** The full `GET /v1/experience` payload for an audience and allowance. */
 export async function experienceFor(
   deps: ApiDeps,
@@ -219,7 +233,7 @@ export async function experienceFor(
   const fixtureCapabilities = await fixtureCapabilitiesFor(deps, input.audience);
   return {
     ...rest,
-    capabilities: await deps.capabilities.publicProjection('US', input.audience),
+    capabilities: await experienceCapabilities(deps, input.audience),
     ...(fixtureCapabilities ? { fixtureCapabilities } : {}),
     allowance: input.allowance,
   };

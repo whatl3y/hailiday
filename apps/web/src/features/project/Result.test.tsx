@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { ProductCard, ProductsPanel, Project } from '@hailiday/core';
+import type { ProductsPanel, Project, ShopGroup } from '@hailiday/core';
 import * as endpoints from '../../api/endpoints';
 import { useAppStore } from '../../state/appStore';
 import { t } from '../../copy';
@@ -72,19 +72,30 @@ function renderResult(overrides: Partial<Project> = {}) {
   return shown;
 }
 
-function card(n: number): ProductCard {
+function shopGroup(n: number): ShopGroup {
   return {
-    clickToken: `click-${n}`,
+    groupKey: `christmas.house_exterior.wreath_${n}`,
+    basis: 'placed',
     title: `Wreath ${n}`,
-    merchantName: 'Shop',
-    relationship: 'similar',
-    relationshipLabelKey: 'commerce.relationship.similar',
     anchorCategory: 'front_door',
-    price: { policy: 'check_at_retailer' },
-    linkMode: 'plain',
-    sponsored: false,
-    href: `https://shop.test/${n}`,
-    rankPosition: n,
+    options: [
+      {
+        clickToken: `click-${n}`,
+        programKey: 'shop',
+        title: `Wreath ${n}`,
+        merchantName: 'Shop',
+        relationship: 'similar',
+        relationshipLabelKey: 'commerce.relationship.similar',
+        price: { policy: 'check_at_retailer' },
+        linkMode: 'plain',
+        sponsored: false,
+        href: `https://shop.test/${n}`,
+        position: 1,
+      },
+    ],
+    searchLinks: [],
+    separateLinks: [],
+    position: n,
   };
 }
 
@@ -223,8 +234,10 @@ describe('a minimal result', () => {
     const panel: ProductsPanel = {
       panelState: 'active',
       linkMode: 'plain',
+      season: 'in_window',
       disclosure: { copyKeys: ['commerce.disclosure.plain'], programs: [] },
-      items: [card(1), card(2)],
+      retailers: [{ programKey: 'shop', merchantName: 'Shop' }],
+      groups: [shopGroup(1), shopGroup(2)],
     };
     api.getProducts.mockResolvedValue(panel);
     const shown = renderResult();
@@ -243,8 +256,10 @@ describe('a minimal result', () => {
     api.getProducts.mockResolvedValue({
       panelState: 'hidden',
       linkMode: null,
+      season: null,
       disclosure: { copyKeys: [], programs: [] },
-      items: [],
+      retailers: [],
+      groups: [],
     });
     renderResult();
     const toggle = screen.getByRole('button', { name: /^Shop the look/ });

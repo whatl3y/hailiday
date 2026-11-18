@@ -351,17 +351,18 @@ describe('POST /v1/renders', () => {
 });
 
 describe('Shop the look', () => {
-  it('returns a panel state and cards with pre-issued click tokens', async () => {
+  it('returns a panel state and groups with pre-issued click tokens', async () => {
     const response = await client.get(`/v1/renders/${firstJobId}/products`);
     expect(response.statusCode).toBe(200);
     const panel = ProductsPanelSchema.parse(response.json());
     expect(['active', 'no_offers', 'off_season', 'hidden']).toContain(panel.panelState);
     if (panel.panelState === 'active') {
-      const card = panel.items[0];
-      expect(card?.clickToken).toBeTruthy();
-      const click = await client.post('/v1/clicks', { clickToken: card?.clickToken });
+      const group = panel.groups[0];
+      const link = group?.options[0] ?? group?.searchLinks[0] ?? group?.separateLinks[0];
+      expect(link?.clickToken).toBeTruthy();
+      const click = await client.post('/v1/clicks', { clickToken: link?.clickToken });
       expect(click.statusCode).toBe(201);
-      const repeat = await client.post('/v1/clicks', { clickToken: card?.clickToken });
+      const repeat = await client.post('/v1/clicks', { clickToken: link?.clickToken });
       expect(json(repeat).clickId).toBe(json(click).clickId);
     }
     const forged = await client.post('/v1/clicks', {

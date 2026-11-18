@@ -6,7 +6,9 @@
     {
       "merchantProgramId": "fixture_decor_us",
       "merchantName": "Fixture Decor Co.",
+      "kind": "fixture",
       "programType": "direct",
+      "placement": "group",
       "network": "direct",
       "status": "planned",
       "statusHistory": [
@@ -33,12 +35,15 @@
       "reviewedAt": "2026-11-01T00:00:00.000Z",
       "activation": "fixture",
       "logoPermitted": false,
-      "notes": "The fixture program named in the commerce spec. Planned status: plain destination links, no commission, no Ad chip."
+      "notes": "The fixture program named in the commerce spec. Planned status: plain destination links, no commission, no Ad chip.",
+      "searchUrlTemplate": "https://example.com/fixture-decor/search?q={query}"
     },
     {
       "merchantProgramId": "fixture_home_garden_us",
       "merchantName": "Fixture Home & Garden",
+      "kind": "fixture",
       "programType": "network",
+      "placement": "group",
       "network": "fixture_affiliate_network",
       "status": "approved",
       "statusHistory": [
@@ -76,12 +81,38 @@
       "reviewedAt": "2026-11-01T00:00:00.000Z",
       "activation": "fixture",
       "logoPermitted": false,
-      "notes": "Approved network program: tracking links with the paid-links disclosure; prices come from the network product feed."
+      "notes": "Approved network program: tracking links with the paid-links disclosure; prices come from the network product feed.",
+      "searchUrlTemplate": "https://example.com/fixture-home-garden/search?q={query}",
+      "trackingLinkTemplate": "https://example.com/fixture-network/click/fhg?subId1={subId}&url={destinationUrl}",
+      "displayRights": {
+        "tracked_product_links": {
+          "state": "allowed",
+          "evidence": "Fixture data",
+          "recordedAt": "2026-11-01T00:00:00.000Z"
+        },
+        "tracked_search_links": {
+          "state": "allowed",
+          "evidence": "Fixture data",
+          "recordedAt": "2026-11-01T00:00:00.000Z"
+        },
+        "beside_ai_picture": {
+          "state": "allowed",
+          "evidence": "Fixture data",
+          "recordedAt": "2026-11-01T00:00:00.000Z"
+        },
+        "beside_other_retailers": {
+          "state": "allowed",
+          "evidence": "Fixture data",
+          "recordedAt": "2026-11-01T00:00:00.000Z"
+        }
+      }
     },
     {
       "merchantProgramId": "fixture_marketplace_us",
       "merchantName": "Fixture Marketplace",
+      "kind": "fixture",
       "programType": "amazon_associates",
+      "placement": "separate",
       "network": "direct",
       "status": "provisional",
       "statusHistory": [
@@ -149,12 +180,38 @@
       "reviewedAt": "2026-11-01T00:00:00.000Z",
       "activation": "fixture",
       "logoPermitted": false,
-      "notes": "Amazon Associates-type program (fictional): no per-click SubId, static tracking IDs per holiday and channel, the required Amazon statement whenever its tracking links are on screen, no stored product images or text, hand-entered prices never displayed."
+      "notes": "Amazon Associates-type program (fictional): no per-click SubId, static tracking IDs per holiday and channel, the required Amazon statement whenever its tracking links are on screen, no stored product images or text, hand-entered prices never displayed.",
+      "searchUrlTemplate": "https://example.com/fixture-marketplace/search?k={query}",
+      "trackingLinkTemplate": "{destinationUrl}&tag={trackingId}",
+      "displayRights": {
+        "tracked_product_links": {
+          "state": "allowed",
+          "evidence": "Fixture data",
+          "recordedAt": "2026-11-01T00:00:00.000Z"
+        },
+        "tracked_search_links": {
+          "state": "allowed",
+          "evidence": "Fixture data",
+          "recordedAt": "2026-11-01T00:00:00.000Z"
+        },
+        "beside_ai_picture": {
+          "state": "allowed",
+          "evidence": "Fixture data",
+          "recordedAt": "2026-11-01T00:00:00.000Z"
+        },
+        "beside_other_retailers": {
+          "state": "allowed",
+          "evidence": "Fixture data",
+          "recordedAt": "2026-11-01T00:00:00.000Z"
+        }
+      }
     },
     {
       "merchantProgramId": "fixture_lights_lanterns_us",
       "merchantName": "Fixture Lights & Lanterns",
+      "kind": "fixture",
       "programType": "network",
+      "placement": "group",
       "network": "fixture_affiliate_network",
       "status": "approved",
       "statusHistory": [
@@ -192,12 +249,37 @@
       "reviewedAt": "2026-11-01T00:00:00.000Z",
       "activation": "fixture",
       "logoPermitted": false,
-      "notes": "Approved network program with API access: prices come from the merchant API."
+      "notes": "Approved network program with API access: prices come from the merchant API.",
+      "trackingLinkTemplate": "https://example.com/fixture-network/click/fll?subId1={subId}&url={destinationUrl}",
+      "displayRights": {
+        "tracked_product_links": {
+          "state": "allowed",
+          "evidence": "Fixture data",
+          "recordedAt": "2026-11-01T00:00:00.000Z"
+        },
+        "tracked_search_links": {
+          "state": "allowed",
+          "evidence": "Fixture data",
+          "recordedAt": "2026-11-01T00:00:00.000Z"
+        },
+        "beside_ai_picture": {
+          "state": "allowed",
+          "evidence": "Fixture data",
+          "recordedAt": "2026-11-01T00:00:00.000Z"
+        },
+        "beside_other_retailers": {
+          "state": "allowed",
+          "evidence": "Fixture data",
+          "recordedAt": "2026-11-01T00:00:00.000Z"
+        }
+      }
     },
     {
       "merchantProgramId": "fixture_harvest_market_us",
       "merchantName": "Fixture Harvest Market",
+      "kind": "fixture",
       "programType": "network",
+      "placement": "group",
       "network": "fixture_affiliate_network",
       "status": "applied",
       "statusHistory": [
@@ -229,7 +311,9 @@
     {
       "merchantProgramId": "fixture_holiday_outlet_us",
       "merchantName": "Fixture Holiday Outlet",
+      "kind": "fixture",
       "programType": "network",
+      "placement": "group",
       "network": "fixture_affiliate_network",
       "status": "suspended",
       "statusHistory": [
@@ -268,6 +352,181 @@
       "activation": "fixture",
       "logoPermitted": false,
       "notes": "Suspended after a policy problem: tracking links removed; its offers are paused."
+    },
+    {
+      "merchantProgramId": "walmart_us",
+      "merchantName": "Walmart",
+      "kind": "real",
+      "programType": "network",
+      "placement": "group",
+      "network": "impact",
+      "status": "planned",
+      "statusHistory": [
+        {
+          "status": "planned",
+          "at": "2026-11-17T00:00:00.000Z",
+          "evidenceRef": "program-record/walmart_us"
+        }
+      ],
+      "appliedAt": null,
+      "approvedAt": null,
+      "endedAt": null,
+      "requiredDisclosureKey": null,
+      "disclosureText": null,
+      "redirectPermitted": false,
+      "linkMethod": "manual_links",
+      "subIdCapability": false,
+      "subIdParam": null,
+      "apiAccess": "none",
+      "attributionWindowHours": null,
+      "commissionSchedule": [],
+      "trackingIds": [],
+      "policyVersion": null,
+      "reviewedAt": "2026-11-17T00:00:00.000Z",
+      "activation": "planned",
+      "logoPermitted": false,
+      "searchUrlTemplate": "https://www.walmart.com/search?q={query}",
+      "notes": "Real retailer, not yet applied to. Search links only, plain, until the program is joined and its link pattern is checked."
+    },
+    {
+      "merchantProgramId": "target_us",
+      "merchantName": "Target",
+      "kind": "real",
+      "programType": "network",
+      "placement": "group",
+      "network": "impact",
+      "status": "planned",
+      "statusHistory": [
+        {
+          "status": "planned",
+          "at": "2026-11-17T00:00:00.000Z",
+          "evidenceRef": "program-record/target_us"
+        }
+      ],
+      "appliedAt": null,
+      "approvedAt": null,
+      "endedAt": null,
+      "requiredDisclosureKey": null,
+      "disclosureText": null,
+      "redirectPermitted": false,
+      "linkMethod": "manual_links",
+      "subIdCapability": false,
+      "subIdParam": null,
+      "apiAccess": "none",
+      "attributionWindowHours": null,
+      "commissionSchedule": [],
+      "trackingIds": [],
+      "policyVersion": null,
+      "reviewedAt": "2026-11-17T00:00:00.000Z",
+      "activation": "planned",
+      "logoPermitted": false,
+      "searchUrlTemplate": "https://www.target.com/s?searchTerm={query}",
+      "notes": "Real retailer, not yet applied to. Search links only, plain, until the program is joined and its link pattern is checked."
+    },
+    {
+      "merchantProgramId": "home_depot_us",
+      "merchantName": "The Home Depot",
+      "kind": "real",
+      "programType": "network",
+      "placement": "group",
+      "network": "impact",
+      "status": "planned",
+      "statusHistory": [
+        {
+          "status": "planned",
+          "at": "2026-11-17T00:00:00.000Z",
+          "evidenceRef": "program-record/home_depot_us"
+        }
+      ],
+      "appliedAt": null,
+      "approvedAt": null,
+      "endedAt": null,
+      "requiredDisclosureKey": null,
+      "disclosureText": null,
+      "redirectPermitted": false,
+      "linkMethod": "manual_links",
+      "subIdCapability": false,
+      "subIdParam": null,
+      "apiAccess": "none",
+      "attributionWindowHours": null,
+      "commissionSchedule": [],
+      "trackingIds": [],
+      "policyVersion": null,
+      "reviewedAt": "2026-11-17T00:00:00.000Z",
+      "activation": "planned",
+      "logoPermitted": false,
+      "searchUrlTemplate": "https://www.homedepot.com/s/{query}",
+      "notes": "Real retailer, not yet applied to. Search links only, plain, until the program is joined and its link pattern is checked."
+    },
+    {
+      "merchantProgramId": "lowes_us",
+      "merchantName": "Lowe's",
+      "kind": "real",
+      "programType": "network",
+      "placement": "group",
+      "network": "unconfirmed",
+      "status": "planned",
+      "statusHistory": [
+        {
+          "status": "planned",
+          "at": "2026-11-17T00:00:00.000Z",
+          "evidenceRef": "program-record/lowes_us"
+        }
+      ],
+      "appliedAt": null,
+      "approvedAt": null,
+      "endedAt": null,
+      "requiredDisclosureKey": null,
+      "disclosureText": null,
+      "redirectPermitted": false,
+      "linkMethod": "manual_links",
+      "subIdCapability": false,
+      "subIdParam": null,
+      "apiAccess": "none",
+      "attributionWindowHours": null,
+      "commissionSchedule": [],
+      "trackingIds": [],
+      "policyVersion": null,
+      "reviewedAt": "2026-11-17T00:00:00.000Z",
+      "activation": "planned",
+      "logoPermitted": false,
+      "searchUrlTemplate": "https://www.lowes.com/search?searchTerm={query}",
+      "notes": "Real retailer; the affiliate network is not confirmed. Plain search links only."
+    },
+    {
+      "merchantProgramId": "amazon_us",
+      "merchantName": "Amazon",
+      "kind": "real",
+      "programType": "amazon_associates",
+      "placement": "separate",
+      "network": "amazon",
+      "status": "planned",
+      "statusHistory": [
+        {
+          "status": "planned",
+          "at": "2026-11-17T00:00:00.000Z",
+          "evidenceRef": "program-record/amazon_us"
+        }
+      ],
+      "appliedAt": null,
+      "approvedAt": null,
+      "endedAt": null,
+      "requiredDisclosureKey": "commerce.disclosure.amazon",
+      "disclosureText": "As an Amazon Associate I earn from qualifying purchases.",
+      "redirectPermitted": false,
+      "linkMethod": "manual_links",
+      "subIdCapability": false,
+      "subIdParam": null,
+      "apiAccess": "none",
+      "attributionWindowHours": null,
+      "commissionSchedule": [],
+      "trackingIds": [],
+      "policyVersion": null,
+      "reviewedAt": "2026-11-17T00:00:00.000Z",
+      "activation": "planned",
+      "logoPermitted": false,
+      "searchUrlTemplate": "https://www.amazon.com/s?k={query}",
+      "notes": "Real retailer, links only, on a line of its own. Not applied to; Associates policies bar mixing its links with other retailers without written permission."
     }
   ]
 }

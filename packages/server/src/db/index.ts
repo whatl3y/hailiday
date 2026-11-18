@@ -14,6 +14,7 @@ export {
   SEED_EXTENSION_MODULES,
   loadExtensionSeedSteps,
   runSeed,
+  seedDefaultCapabilities,
 } from './seed.js';
 export type { SeedContext, SeedResult, SeedStep } from './seed.js';
 export { factories } from './factories.js';

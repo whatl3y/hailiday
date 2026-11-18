@@ -13,6 +13,7 @@ import { currentAuth, ipHashOf, sessionHashOf } from '../auth/session.js';
 import { allowanceFor } from '../domain/allowance.js';
 import { emitEvent } from '../domain/events.js';
 import {
+  experienceCapabilities,
   fixtureCapabilitiesFor,
   publicExperience,
   type PublicExperience,
@@ -87,7 +88,7 @@ async function shellExperience(
     publicPart,
     experience: {
       ...rest,
-      capabilities: await deps.capabilities.publicProjection('US', ANONYMOUS_AUDIENCE),
+      capabilities: await experienceCapabilities(deps, ANONYMOUS_AUDIENCE),
       ...(fixtureCapabilities ? { fixtureCapabilities } : {}),
       allowance: await allowanceFor(deps, null),
     },

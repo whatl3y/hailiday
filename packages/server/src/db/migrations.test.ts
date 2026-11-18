@@ -15,6 +15,7 @@ import * as threeAttemptRelights from './migrations/0014_three_attempt_relights.
 import * as keepEveryRendering from './migrations/0015_keep_every_rendering.js';
 import * as streetViewEnhancement from './migrations/0018_street_view_enhancement.js';
 import * as framingSubStage from './migrations/0019_framing_sub_stage.js';
+import * as shopGroups from './migrations/0020_shop_groups_and_search_links.js';
 import { testDatabaseUrl } from './testing.js';
 
 /** A scratch database named after this run's test database, so parallel runs never share it. */
@@ -97,6 +98,9 @@ describe('migrations', () => {
       'products',
       'offers',
       'render_product_links',
+      'render_shop_targets',
+      'kit_item_search_phrases',
+      'look_items',
       'affiliate_clicks',
       'affiliate_conversions',
       'share_grants',
@@ -673,6 +677,228 @@ describe('migrations', () => {
     } finally {
       await framingSubStage.up(raw).catch(() => undefined);
       await sql`delete from owners where id = ${owner.id}`.execute(db);
+    }
+    expect(await appliedMigrations(db)).toEqual(Object.keys(MIGRATIONS));
+  });
+
+  it('records program patterns, phrases, look items and shop targets, keeps clicks when a rendering goes, and reverts', async () => {
+    const raw = db.withoutPlugins() as Kysely<unknown>;
+    const owner = await factories.owner(db);
+    const project = await factories.project(db, { ownerId: owner.id });
+    const source = await factories.sourceAsset(db, { ownerId: owner.id, projectId: project.id });
+    const job = await factories.renderJob(db, {
+      ownerId: owner.id,
+      projectId: project.id,
+      sourceAssetId: source.id,
+      state: 'succeeded',
+    });
+    const programs: string[] = [];
+    const insertClick = (values: { shopTargetId?: string }) =>
+      sql`
+        insert into affiliate_clicks (id, click_token, merchant_program_id, link_mode, rank_position,
+          holiday_id, occurrence_key, scene_type, source_kind, session_hash, country_code,
+          shop_target_id, link_kind, group_basis, group_key, group_position, option_position)
+        values (${randomUUID()}, ${randomUUID()}, ${programs[0]}, 'plain', 1, 'christmas',
+          'christmas.US.2026', 'house_exterior', 'fixture', 'hash', 'US',
+          ${values.shopTargetId ?? null}, 'search', 'placed',
+          'christmas.house_exterior.wreath_evergreen', 1, 1)
+      `.execute(db);
+    try {
+      // Program defaults, and the checks on the patterns and the refresh term.
+      const program = await factories.merchantProgram(db, { searchUrlTemplate: null });
+      programs.push(program.id);
+      expect(program).toMatchObject({
+        kind: 'fixture',
+        placement: 'group',
+        searchUrlTemplate: null,
+        trackingLinkTemplate: null,
+        displayRights: {},
+        refreshTermHours: null,
+      });
+      const real = await factories.merchantProgram(db, {
+        kind: 'real',
+        placement: 'separate',
+        searchUrlTemplate: 'https://www.example.com/s?k={query}',
+        trackingLinkTemplate: '{destinationUrl}&tag={trackingId}',
+        displayRights: {
+          beside_ai_picture: { state: 'allowed', evidence: 'Terms 4.2', recordedAt: null },
+        },
+        refreshTermHours: 24,
+      });
+      programs.push(real.id);
+      expect(real.displayRights).toEqual({
+        beside_ai_picture: { state: 'allowed', evidence: 'Terms 4.2', recordedAt: null },
+      });
+      await factories.merchantProgram(db, {
+        trackingLinkTemplate: 'https://network.example/click?url={destinationUrl}',
+      });
+      await factories.merchantProgram(db, {
+        searchUrlTemplate: 'https://www.example.com:8443/s/{query}',
+        trackingLinkTemplate: 'https://network.example:8443/c?sub={subId}&u={destinationUrl}',
+      });
+      for (const bad of [
+        { kind: 'partner' as never },
+        { placement: 'inline' as never },
+        { searchUrlTemplate: 'https://www.example.com/search' },
+        { searchUrlTemplate: 'http://www.example.com/search?q={query}' },
+        { searchUrlTemplate: 'https://www.example.com/s?k={query}&tag=hailiday-20' },
+        { searchUrlTemplate: 'https://www.example.com/s?k={query}&SubId=1' },
+        { searchUrlTemplate: 'https://{query}.example.com/search' },
+        { searchUrlTemplate: 'https://www.example.com?q={query}' },
+        { searchUrlTemplate: 'https://www.example.com/s?k={query}&sub={subId}' },
+        { trackingLinkTemplate: 'http://network.example/click?url={destinationUrl}' },
+        { trackingLinkTemplate: 'tag={trackingId}&{destinationUrl}' },
+        { trackingLinkTemplate: 'https://network.example/click?sub={subId}' },
+        { trackingLinkTemplate: 'https://{trackingId}.network.example/c?u={destinationUrl}' },
+        { trackingLinkTemplate: 'https://network.example?u={destinationUrl}' },
+        { refreshTermHours: 0 },
+      ]) {
+        await expect(factories.merchantProgram(db, bad), JSON.stringify(bad)).rejects.toThrow(
+          /check/,
+        );
+      }
+
+      // One phrase per kit item key, 2 to 120 characters.
+      await factories.kitItemSearchPhrase(db, { kitItemKey: 'christmas.test.migration_key' });
+      await expect(
+        factories.kitItemSearchPhrase(db, { kitItemKey: 'christmas.test.migration_key' }),
+      ).rejects.toThrow(/duplicate key/);
+      await expect(
+        factories.kitItemSearchPhrase(db, { kitItemKey: 'christmas.test.short', phrase: 'x' }),
+      ).rejects.toThrow(/check/);
+
+      // Look items: a key in the key pattern, known look values and anchor, active by default.
+      const lookItem = await factories.lookItem(db, { anchorCategory: 'roofline' });
+      expect(lookItem).toMatchObject({ status: 'active', programOverrides: {} });
+      for (const bad of [
+        { lookItemKey: 'Christmas.Upper' },
+        { style: 'lavish' as never },
+        { sceneType: 'garden' as never },
+        { anchorCategory: 'chimney_top' },
+        { status: 'hidden' as never },
+        { ourTitle: 'x' },
+      ]) {
+        await expect(factories.lookItem(db, bad), JSON.stringify(bad)).rejects.toThrow(/check/);
+      }
+      expect(Object.keys(await indexesOf('look_items'))).toContain('look_items_look_idx');
+
+      // Shop targets: one per (rendering, target key), gone with the rendering; clicks stay.
+      const targetIndexes = await indexesOf('render_shop_targets');
+      for (const column of ['render_product_link_id', 'offer_id', 'look_item_id']) {
+        expect(targetIndexes[`render_shop_targets_${column}_idx`]).toContain(
+          `WHERE (${column} IS NOT NULL)`,
+        );
+      }
+      const renderAssetId = await insertRenderAsset(job.id);
+      const target = await factories.renderShopTarget(db, {
+        renderAssetId,
+        merchantProgramId: real.id,
+        programKey: real.programKey,
+        placement: 'separate',
+      });
+      expect(target).toMatchObject({ linkKind: 'search', relationship: null, sponsored: false });
+      await expect(
+        factories.renderShopTarget(db, {
+          renderAssetId,
+          merchantProgramId: real.id,
+          programKey: real.programKey,
+        }),
+      ).rejects.toThrow(/duplicate key/);
+      const typical = await factories.renderShopTarget(db, {
+        renderAssetId,
+        merchantProgramId: program.id,
+        groupBasis: 'typical',
+        groupKey: lookItem.lookItemKey,
+        lookItemId: lookItem.id,
+      });
+      await expect(
+        factories.renderShopTarget(db, {
+          renderAssetId,
+          merchantProgramId: program.id,
+          groupKey: 'other',
+          linkKind: 'banner' as never,
+        }),
+      ).rejects.toThrow(/check/);
+      await insertClick({ shopTargetId: target.id });
+      const click = await db
+        .selectFrom('affiliateClicks')
+        .selectAll()
+        .where('shopTargetId', '=', target.id)
+        .executeTakeFirstOrThrow();
+      expect(click).toMatchObject({ offerId: null, relationship: null, linkKind: 'search' });
+      // A deleted look item leaves the shop target without it.
+      await db.deleteFrom('lookItems').where('id', '=', lookItem.id).execute();
+      expect(
+        (
+          await db
+            .selectFrom('renderShopTargets')
+            .select('lookItemId')
+            .where('id', '=', typical.id)
+            .executeTakeFirstOrThrow()
+        ).lookItemId,
+      ).toBeNull();
+      await sql`delete from render_assets where id = ${renderAssetId}`.execute(db);
+      const left = await sql<{ count: string }>`
+        select count(*) from render_shop_targets where render_asset_id = ${renderAssetId}
+      `.execute(db);
+      expect(Number(left.rows[0]?.count)).toBe(0);
+      const kept = await db
+        .selectFrom('affiliateClicks')
+        .select(['id', 'shopTargetId', 'groupKey'])
+        .where('id', '=', click.id)
+        .executeTakeFirstOrThrow();
+      expect(kept).toEqual({
+        id: click.id,
+        shopTargetId: null,
+        groupKey: 'christmas.house_exterior.wreath_evergreen',
+      });
+
+      const nullable = async () =>
+        Object.fromEntries(
+          (
+            await sql<{ column: string; nullable: string }>`
+              select column_name as column, is_nullable as nullable from information_schema.columns
+              where table_name = 'affiliate_clicks' and column_name in ('offer_id', 'relationship')
+            `.execute(db)
+          ).rows.map((row) => [row.column, row.nullable]),
+        );
+      const shopTables = async () =>
+        (
+          await sql<{ tableName: string }>`
+            select table_name from information_schema.tables where table_schema = 'public'
+              and table_name in ('render_shop_targets', 'look_items', 'kit_item_search_phrases')
+          `.execute(db)
+        ).rows.length;
+      const programColumns = async () =>
+        (
+          await sql<{ columnName: string }>`
+            select column_name from information_schema.columns
+            where table_name = 'merchant_programs' and column_name in ('kind', 'placement',
+              'search_url_template', 'tracking_link_template', 'display_rights', 'refresh_term_hours')
+          `.execute(db)
+        ).rows.length;
+
+      // A stored click on a search link keeps the click's offer and relationship optional.
+      await shopGroups.down(raw);
+      expect(await shopTables()).toBe(0);
+      expect(await programColumns()).toBe(0);
+      expect(await nullable()).toEqual({ offer_id: 'YES', relationship: 'YES' });
+      await shopGroups.up(raw);
+      await sql`delete from affiliate_clicks where id = ${click.id}`.execute(db);
+      // With none stored, both are required again on the way down.
+      await shopGroups.down(raw);
+      expect(await nullable()).toEqual({ offer_id: 'NO', relationship: 'NO' });
+      await shopGroups.up(raw);
+      expect(await shopTables()).toBe(3);
+      expect(await programColumns()).toBe(6);
+      expect(await nullable()).toEqual({ offer_id: 'YES', relationship: 'YES' });
+    } finally {
+      await shopGroups.up(raw).catch(() => undefined);
+      await sql`delete from affiliate_clicks`.execute(db);
+      await sql`delete from owners where id = ${owner.id}`.execute(db);
+      await sql`delete from merchant_programs`.execute(db);
+      await sql`delete from kit_item_search_phrases`.execute(db);
+      await sql`delete from look_items`.execute(db);
     }
     expect(await appliedMigrations(db)).toEqual(Object.keys(MIGRATIONS));
   });

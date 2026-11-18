@@ -8,12 +8,18 @@ import {
   ContentError,
   DEFAULT_CONTENT_DIR,
   heroRenditionSizes,
+  isSearchPhrase,
+  isSearchUrlTemplate,
+  isTrackingLinkTemplate,
   lavishTextIssues,
   loadContent,
+  lookItemIssues,
   occurrenceYears,
   packTextIssues,
   readPackByRef,
+  searchPhraseIssues,
 } from './index.js';
+import type { LookItemContent, PackContent, SearchPhraseContent } from './index.js';
 
 /** Runs `use` on a temporary copy of the content directory. */
 async function withContentCopy(use: (dir: string) => Promise<void>): Promise<void> {
@@ -335,6 +341,285 @@ describe('loadContent', () => {
         (e: unknown) => e,
       );
       expect((sceneRead as ContentError).issues).toEqual([scene]);
+    });
+  });
+
+  it('reads the program records, a search phrase per kit item and the look items of the lavish looks', async () => {
+    const content = await loadContent();
+    const { catalog, programExtras, searchPhrases, lookItems } = content.commerce;
+    const kindOf = (key: string) => programExtras.get(key)?.kind;
+    const real = catalog.merchantPrograms.filter((p) => kindOf(p.programKey) === 'real');
+    expect(real.map((p) => p.programKey).sort()).toEqual([
+      'amazon_us',
+      'home_depot_us',
+      'lowes_us',
+      'target_us',
+      'walmart_us',
+    ]);
+    for (const program of real) {
+      const extras = programExtras.get(program.programKey);
+      expect(program.status, program.programKey).toBe('planned');
+      expect(extras?.searchUrlTemplate, program.programKey).toMatch(/^https:\/\/www\./);
+      expect(extras?.displayRights, program.programKey).toEqual({});
+      expect(extras?.placement, program.programKey).toBe(
+        program.programKey === 'amazon_us' ? 'separate' : 'group',
+      );
+    }
+    for (const program of catalog.merchantPrograms) {
+      expect(kindOf(program.programKey), program.programKey).toMatch(/^(fixture|real)$/);
+    }
+    expect(programExtras.get('fixture_marketplace_us')).toMatchObject({
+      kind: 'fixture',
+      placement: 'separate',
+      trackingLinkTemplate: '{destinationUrl}&tag={trackingId}',
+      refreshTermHours: null,
+    });
+
+    const kitItemKeys = content.kits.flatMap(({ kit }) => kit.items.map((item) => item.kitItemId));
+    expect(searchPhrases.map((phrase) => phrase.kitItemKey).sort()).toEqual(kitItemKeys.sort());
+    expect(lookItems.length).toBeGreaterThan(0);
+    for (const item of lookItems) {
+      expect(item.lookItemKey).toMatch(/^[a-z_]+\.house_exterior\.abundant\./);
+      expect(item.programOverrides).toEqual({});
+    }
+    expect(lookItems.some((item) => item.anchorCategory === null)).toBe(true);
+  });
+
+  it('accepts only the search and tracking link patterns the database accepts', () => {
+    expect(isSearchUrlTemplate('https://www.example.com/s?k={query}')).toBe(true);
+    expect(isSearchUrlTemplate('https://www.example.com/s/{query}')).toBe(true);
+    expect(isSearchUrlTemplate('http://www.example.com/s?k={query}')).toBe(false);
+    expect(isSearchUrlTemplate('https://www.example.com/search')).toBe(false);
+    expect(isSearchUrlTemplate('{query}')).toBe(false);
+    expect(isSearchUrlTemplate('https://www.example.com:8443/s/{query}')).toBe(true);
+    // An affiliate parameter, a placeholder in the host, no slash after the host, and a tracking
+    // placeholder are refused.
+    expect(isSearchUrlTemplate('https://www.example.com/s?k={query}&tag=hailiday-20')).toBe(false);
+    expect(isSearchUrlTemplate('https://www.example.com/s?SubId=1&k={query}')).toBe(false);
+    expect(isSearchUrlTemplate('https://www.example.com/s?k={query}&u1=a')).toBe(false);
+    expect(isSearchUrlTemplate('https://{query}.example.com/search')).toBe(false);
+    expect(isSearchUrlTemplate('https://www.example.com?q={query}')).toBe(false);
+    expect(isSearchUrlTemplate('https://www.example.com/s?k={query}&sub={subId}')).toBe(false);
+    expect(isSearchUrlTemplate('https://www.example.com/s?k={query}&t={trackingId}')).toBe(false);
+    expect(isSearchUrlTemplate('https://www.example.com/s?k={query}&u={destinationUrl}')).toBe(
+      false,
+    );
+    expect(isTrackingLinkTemplate('https://network.example/c?url={destinationUrl}')).toBe(true);
+    expect(isTrackingLinkTemplate('{destinationUrl}&tag={trackingId}')).toBe(true);
+    expect(isTrackingLinkTemplate('http://network.example/c?url={destinationUrl}')).toBe(false);
+    expect(isTrackingLinkTemplate('tag={trackingId}&{destinationUrl}')).toBe(false);
+    // Without `{destinationUrl}`, with a placeholder in the host, or no slash after the host.
+    expect(isTrackingLinkTemplate('https://network.example/c?sub={subId}')).toBe(false);
+    expect(
+      isTrackingLinkTemplate('https://{trackingId}.network.example/c?u={destinationUrl}'),
+    ).toBe(false);
+    expect(isTrackingLinkTemplate('https://network.example?u={destinationUrl}')).toBe(false);
+  });
+
+  it('accepts only plain words as a search phrase', () => {
+    expect(isSearchPhrase('30 inch pre-lit wreath')).toBe(true);
+    expect(isSearchPhrase("shepherd's hook lantern")).toBe(true);
+    expect(isSearchPhrase('x')).toBe(false);
+    expect(isSearchPhrase('a'.repeat(121))).toBe(false);
+    expect(isSearchPhrase('lights/garland')).toBe(false);
+    expect(isSearchPhrase('lights...')).toBe(false);
+    expect(isSearchPhrase(' leading space')).toBe(false);
+  });
+
+  it('reports a search phrase for no kit item, twice for one, or missing for one', async () => {
+    const content = await loadContent();
+    const programKeys = new Set(content.commerce.catalog.merchantPrograms.map((p) => p.programKey));
+    const phrases = content.commerce.searchPhrases;
+    expect(searchPhraseIssues(phrases, content.kits, programKeys)).toEqual([]);
+    const [first, second, ...rest] = phrases as [
+      SearchPhraseContent,
+      SearchPhraseContent,
+      ...SearchPhraseContent[],
+    ];
+    const changed: SearchPhraseContent[] = [
+      first,
+      { ...first, phrase: 'another phrase' },
+      {
+        kitItemKey: 'christmas.house_exterior.not_a_kit_item',
+        phrase: 'lights',
+        programOverrides: {},
+      },
+      { ...rest[0]!, programOverrides: { walmart_us: 'walmart words', nowhere_us: 'other words' } },
+      ...rest.slice(1),
+    ];
+    expect(searchPhraseIssues(changed, content.kits, programKeys)).toEqual([
+      `search-phrases.json: ${first.kitItemKey} appears twice`,
+      'search-phrases.json: christmas.house_exterior.not_a_kit_item is not a kit item key',
+      `search-phrases.json: ${rest[0]!.kitItemKey}: programOverrides names unknown program nowhere_us`,
+      `search-phrases.json: kit item ${second.kitItemKey} has no search phrase`,
+    ]);
+  });
+
+  it('reports a look item outside its look, without a lavish description or out of order', async () => {
+    const content = await loadContent();
+    const programKeys = new Set(content.commerce.catalog.merchantPrograms.map((p) => p.programKey));
+    const items = content.commerce.lookItems;
+    expect(lookItemIssues(items, content.packs, programKeys)).toEqual([]);
+    const christmas = items.filter((item) => item.holidayId === 'christmas');
+    const [first, second] = christmas as [LookItemContent, LookItemContent];
+    const look = 'christmas.house_exterior.abundant';
+    const at = (key: string) => `look-items.json: ${key}`;
+    const halloween = items.find((item) => item.holidayId === 'halloween')!;
+    const changed: LookItemContent[] = [
+      first,
+      // The same key twice.
+      { ...first, sortOrder: 90 },
+      // A key outside its look.
+      { ...second, lookItemKey: 'christmas.house_exterior.classic.porch_lights', sortOrder: 91 },
+      // The sort order of another item of the same look.
+      { ...second, lookItemKey: `${look}.second_at_first`, sortOrder: first.sortOrder },
+      // The same sort order in another look is fine.
+      { ...halloween, sortOrder: first.sortOrder },
+      // A style the pack does not offer for the scene, and a scene the pack has no section for.
+      {
+        ...first,
+        lookItemKey: 'new_years_eve.apartment_entry.abundant.gold_garland',
+        holidayId: 'new_years_eve',
+        sceneType: 'apartment_entry',
+        sortOrder: 1,
+      },
+      {
+        ...first,
+        lookItemKey: `${look}.overrides`,
+        sortOrder: 92,
+        programOverrides: { nowhere_us: 'x y' },
+      },
+    ];
+    expect(lookItemIssues(changed, content.packs, programKeys)).toEqual([
+      `${at(first.lookItemKey)}: appears twice`,
+      `${at('christmas.house_exterior.classic.porch_lights')}: the key must start with ${look}.`,
+      `${at(`${look}.second_at_first`)}: sortOrder ${first.sortOrder} is used twice in the look ${look}`,
+      `${at('new_years_eve.apartment_entry.abundant.gold_garland')}: pack new_years_eve.US has no apartment_entry section`,
+      `${at(`${look}.overrides`)}: programOverrides names unknown program nowhere_us`,
+    ]);
+
+    // A pack section without a lavish description, and a holiday with no pack.
+    const withoutLavish = content.packs.map((entry): PackContent => {
+      if (entry.holidayId !== 'christmas') return entry;
+      const pack = structuredClone(entry.pack);
+      delete pack.sceneSections.house_exterior?.promptFragments.lavish;
+      return { ...entry, pack };
+    });
+    expect(lookItemIssues([first], withoutLavish, programKeys)).toEqual([
+      `${at(first.lookItemKey)}: pack christmas.US has no lavish description for house_exterior`,
+    ]);
+    const noChristmas = content.packs.filter((entry) => entry.holidayId !== 'christmas');
+    expect(lookItemIssues([first], noChristmas, programKeys)).toEqual([
+      `${at(first.lookItemKey)}: no pack for christmas`,
+    ]);
+  });
+
+  it('stops the load on a program record, search phrase or look item outside its schema', async () => {
+    await withContentCopy(async (dir) => {
+      const read = async (relative: string) =>
+        JSON.parse(await readFile(path.join(dir, relative), 'utf8')) as Record<string, unknown>;
+      const write = (relative: string, value: unknown) =>
+        writeFile(path.join(dir, relative), JSON.stringify(value, null, 2));
+      const issuesOf = async () => {
+        const loaded = await loadContent({ dir }).catch((error: unknown) => error);
+        expect(loaded).toBeInstanceOf(ContentError);
+        return (loaded as ContentError).issues;
+      };
+
+      const programsFile = 'commerce/merchant-programs.json';
+      const programs = await read(programsFile);
+      const records = programs.programs as Record<string, unknown>[];
+      const byKey = (key: string) => records.find((record) => record.merchantProgramId === key)!;
+      const original = structuredClone(programs);
+      delete byKey('walmart_us').kind;
+      byKey('target_us').searchUrlTemplate = 'https://www.target.com/s';
+      byKey('home_depot_us').trackingLinkTemplate = 'http://www.homedepot.com/?u={destinationUrl}';
+      byKey('lowes_us').displayRights = {
+        tracked_search_links: { state: 'allowed', evidence: null, recordedAt: null },
+      };
+      byKey('amazon_us').refreshTermHours = 0;
+      byKey('fixture_decor_us').placement = 'inline';
+      byKey('fixture_harvest_market_us').displayRights = {
+        logo: { state: 'unknown', evidence: null, recordedAt: null },
+      };
+      byKey('fixture_home_garden_us').searchUrlTemplate =
+        'https://example.com/fixture-home-garden/search?q={query}&tag=hailiday-20';
+      byKey('fixture_marketplace_us').searchUrlTemplate = 'https://{query}.example.com/search';
+      byKey('fixture_holiday_outlet_us').searchUrlTemplate = 'https://example.com?q={query}';
+      byKey('fixture_lights_lanterns_us').trackingLinkTemplate =
+        'https://example.com/fixture-network/click/fll?subId1={subId}';
+      await write(programsFile, programs);
+      const programIssues = await issuesOf();
+      for (const [key, field] of [
+        ['walmart_us', 'kind'],
+        ['target_us', 'searchUrlTemplate'],
+        ['home_depot_us', 'trackingLinkTemplate'],
+        ['lowes_us', 'displayRights.tracked_search_links.evidence'],
+        ['amazon_us', 'refreshTermHours'],
+        ['fixture_decor_us', 'placement'],
+        ['fixture_harvest_market_us', 'displayRights'],
+        ['fixture_home_garden_us', 'searchUrlTemplate'],
+        ['fixture_marketplace_us', 'searchUrlTemplate'],
+        ['fixture_holiday_outlet_us', 'searchUrlTemplate'],
+        ['fixture_lights_lanterns_us', 'trackingLinkTemplate'],
+      ]) {
+        expect(
+          programIssues.some((issue) =>
+            issue.startsWith(`merchant-programs.json ${key}: ${field}`),
+          ),
+          `${key} ${field}: ${programIssues.join('\n')}`,
+        ).toBe(true);
+      }
+      expect(programIssues).toHaveLength(11);
+      await write(programsFile, original);
+      await expect(loadContent({ dir })).resolves.toBeDefined();
+
+      const phrasesFile = 'commerce/search-phrases.json';
+      const phrases = await read(phrasesFile);
+      const entries = phrases.phrases as Record<string, unknown>[];
+      const keyOf = (index: number) => String(entries[index]?.kitItemKey);
+      entries[0]!.phrase = 'x';
+      entries[1]!.phrase = 'y'.repeat(121);
+      entries[2]!.extra = true;
+      entries[3]!.phrase = 'lights/garland';
+      entries[4]!.phrase = 'pre.lit wreath';
+      entries[5]!.programOverrides = { walmart_us: 'net lights...' };
+      await write(phrasesFile, phrases);
+      expect(await issuesOf()).toEqual([
+        expect.stringMatching(/^search-phrases\.json: phrases\.0\.phrase: /),
+        expect.stringMatching(/^search-phrases\.json: phrases\.1\.phrase: /),
+        expect.stringMatching(/^search-phrases\.json: phrases\.2: Unrecognized key/),
+        expect.stringMatching(/^search-phrases\.json: phrases\.3\.phrase: /),
+        expect.stringMatching(/^search-phrases\.json: phrases\.4\.phrase: /),
+        expect.stringMatching(/^search-phrases\.json: phrases\.5\.programOverrides\.walmart_us: /),
+      ]);
+      expect(keyOf(0)).toMatch(/^christmas\./);
+      await rm(path.join(dir, phrasesFile));
+      expect(await issuesOf()).toEqual([
+        expect.stringMatching(/^commerce\/search-phrases\.json: .*ENOENT/),
+      ]);
+      await cp(path.join(DEFAULT_CONTENT_DIR, phrasesFile), path.join(dir, phrasesFile));
+
+      const lookFile = 'commerce/look-items.json';
+      const looks = await read(lookFile);
+      const lookItems = looks.lookItems as Record<string, unknown>[];
+      lookItems[0]!.anchorCategory = 'chimney_top';
+      lookItems[1]!.style = 'lavish';
+      lookItems[2]!.lookItemKey = 'Christmas.Upper';
+      lookItems[3]!.ourTitle = 'x';
+      lookItems[4]!.holidayId = 'easter';
+      lookItems[5]!.searchPhrase = 'net/curtain lights';
+      await write(lookFile, looks);
+      expect(await issuesOf()).toEqual([
+        expect.stringMatching(/^look-items\.json: lookItems\.0\.anchorCategory: /),
+        expect.stringMatching(/^look-items\.json: lookItems\.1\.style: /),
+        expect.stringMatching(/^look-items\.json: lookItems\.2\.lookItemKey: /),
+        expect.stringMatching(/^look-items\.json: lookItems\.3\.ourTitle: /),
+        expect.stringMatching(/^look-items\.json: lookItems\.4\.holidayId: /),
+        expect.stringMatching(/^look-items\.json: lookItems\.5\.searchPhrase: /),
+      ]);
+      await cp(path.join(DEFAULT_CONTENT_DIR, lookFile), path.join(dir, lookFile));
+      await expect(loadContent({ dir })).resolves.toBeDefined();
     });
   });
 

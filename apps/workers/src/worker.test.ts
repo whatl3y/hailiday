@@ -71,6 +71,7 @@ describe('worker process', () => {
       visionProvider: 'fixture',
       safetyProvider: 'fixture',
       emailProvider: 'fixture',
+      commercePrograms: 'fixture',
     });
     expect(ready?.imageEditor).toMatchObject({ provider: 'fixture', model: null });
     expect(ready?.vision).toEqual({ provider: 'fixture', model: null });

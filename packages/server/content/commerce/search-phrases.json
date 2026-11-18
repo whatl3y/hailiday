@@ -1,0 +1,391 @@
+{
+  "version": 1,
+  "description": "What a shopper would type into a retailer search box for each kit item: the kind of item first, then the one or two attributes that matter. One phrase per kit item key. programOverrides maps a program key to a different phrase for that retailer.",
+  "phrases": [
+    {
+      "kitItemKey": "christmas.house_exterior.wreath_evergreen",
+      "phrase": "30 inch christmas wreath red bow",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "christmas.house_exterior.garland_evergreen",
+      "phrase": "outdoor christmas garland with pinecones",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "christmas.house_exterior.potted_evergreen_pair",
+      "phrase": "4 ft potted christmas tree lit",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "christmas.house_exterior.lantern_flameless",
+      "phrase": "black flameless candle lantern outdoor",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "christmas.house_exterior.string_lights_warm_white",
+      "phrase": "outdoor warm white led string lights",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "christmas.house_exterior.window_wreath",
+      "phrase": "14 inch christmas wreath red bow",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "christmas.apartment_entry.door_wreath",
+      "phrase": "22 inch christmas wreath red bow",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "christmas.apartment_entry.frame_garland_lit",
+      "phrase": "9 ft lit christmas garland battery",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "christmas.apartment_entry.lantern_pair",
+      "phrase": "small black flameless candle lanterns",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "christmas.apartment_entry.potted_evergreen_small",
+      "phrase": "2 ft potted christmas tree lit",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "christmas.apartment_entry.banister_garland",
+      "phrase": "9 ft christmas garland with pinecones",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "christmas.balcony.railing_lights_warm_white",
+      "phrase": "battery warm white string lights outdoor",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "christmas.balcony.door_frame_garland",
+      "phrase": "outdoor christmas garland with pinecones",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "christmas.balcony.potted_evergreen_small",
+      "phrase": "2 ft potted christmas tree lit",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "christmas.balcony.lantern_flameless",
+      "phrase": "black flameless candle lantern outdoor",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "christmas.balcony.door_wreath",
+      "phrase": "18 inch christmas wreath red bow",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "christmas.interior.tree_prelit",
+      "phrase": "7 ft pre lit christmas tree",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "christmas.interior.mantel_garland_lit",
+      "phrase": "pre lit christmas mantel garland",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "christmas.interior.stockings",
+      "phrase": "knit christmas stockings set",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "christmas.interior.table_centerpiece",
+      "phrase": "christmas table centerpiece flameless candles",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "christmas.interior.sideboard_arrangement",
+      "phrase": "small christmas evergreen arrangement gold",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "christmas.interior.wrapped_gifts",
+      "phrase": "decorative wrapped christmas gift boxes",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "halloween.house_exterior.cobwebs",
+      "phrase": "stretchable white spider web decoration",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "halloween.house_exterior.jack_o_lanterns",
+      "phrase": "flameless carved foam jack o lanterns",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "halloween.house_exterior.pumpkin_group",
+      "phrase": "faux pumpkins and gourds set",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "halloween.house_exterior.mums_and_corn",
+      "phrase": "rust potted chrysanthemum",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "halloween.house_exterior.string_lights_orange_purple",
+      "phrase": "outdoor orange and purple string lights",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "halloween.house_exterior.skeleton_stylized",
+      "phrase": "5 ft plastic skeleton halloween decoration",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "halloween.apartment_entry.door_wreath",
+      "phrase": "black and orange halloween wreath",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "halloween.apartment_entry.jack_o_lantern_pair",
+      "phrase": "small flameless carved foam pumpkins",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "halloween.apartment_entry.cobweb_frame",
+      "phrase": "stretchable white spider web decoration",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "halloween.apartment_entry.bat_silhouettes",
+      "phrase": "black paper bat wall decals",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "halloween.balcony.railing_lights",
+      "phrase": "battery orange string lights outdoor",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "halloween.balcony.jack_o_lanterns_small",
+      "phrase": "small flameless carved foam pumpkins",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "halloween.balcony.cobwebs",
+      "phrase": "stretchable white spider web decoration",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "halloween.balcony.door_wreath",
+      "phrase": "small black and orange halloween wreath",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "halloween.balcony.mums_potted",
+      "phrase": "rust potted chrysanthemum",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "halloween.balcony.bat_silhouettes",
+      "phrase": "black paper bat wall decals",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "halloween.interior.garland_black_orange",
+      "phrase": "black and orange halloween leaf garland",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "halloween.interior.pumpkin_gourd_grouping",
+      "phrase": "small faux pumpkins and gourds",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "halloween.interior.candles_flameless_dark",
+      "phrase": "black flameless pillar candles set",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "halloween.interior.bat_silhouettes_wall",
+      "phrase": "black paper bat wall decals",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "halloween.interior.cobweb_shelf",
+      "phrase": "stretchable white spider web decoration",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "new_years_eve.house_exterior.door_wreath_ornament",
+      "phrase": "22 inch gold silver ornament wreath",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "new_years_eve.house_exterior.garland_metallic",
+      "phrase": "gold silver tinsel garland outdoor",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "new_years_eve.house_exterior.lantern_pair_gold",
+      "phrase": "gold flameless candle lanterns outdoor",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "new_years_eve.house_exterior.planter_ornament_fill",
+      "phrase": "gold silver white shatterproof ornaments",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "new_years_eve.house_exterior.string_lights_warm_white",
+      "phrase": "outdoor warm white led string lights",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "new_years_eve.balcony.railing_lights_warm_white",
+      "phrase": "battery warm white string lights outdoor",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "new_years_eve.balcony.lantern_cluster_gold",
+      "phrase": "gold flameless candle lanterns set",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "new_years_eve.balcony.door_frame_garland_metallic",
+      "phrase": "gold silver tinsel garland outdoor",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "new_years_eve.balcony.ornament_planter",
+      "phrase": "gold silver white shatterproof ornaments",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "new_years_eve.interior.table_runner_metallic",
+      "phrase": "champagne gold table runner",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "new_years_eve.interior.candles_flameless",
+      "phrase": "flameless taper and pillar candles",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "new_years_eve.interior.garland_metallic_lit",
+      "phrase": "gold silver tinsel garland with lights",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "new_years_eve.interior.ornament_bowl",
+      "phrase": "gold silver white ornaments clear bowl",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "new_years_eve.interior.place_accents_gold",
+      "phrase": "ivory cloth napkins gold rings",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "new_years_eve.interior.curtain_lights_window",
+      "phrase": "warm white led curtain fairy lights",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "thanksgiving_us.house_exterior.wreath_autumn",
+      "phrase": "24 inch autumn maple leaf wreath",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "thanksgiving_us.house_exterior.garland_harvest",
+      "phrase": "autumn leaf garland with gourds",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "thanksgiving_us.house_exterior.corn_stalks",
+      "phrase": "dried corn stalks bundle",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "thanksgiving_us.house_exterior.pumpkin_group",
+      "phrase": "faux pumpkins and gourds set",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "thanksgiving_us.house_exterior.mums_potted",
+      "phrase": "potted chrysanthemums rust gold",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "thanksgiving_us.apartment_entry.wreath_autumn",
+      "phrase": "20 inch autumn maple leaf wreath",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "thanksgiving_us.apartment_entry.frame_garland_harvest",
+      "phrase": "6 ft autumn leaf garland gourds",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "thanksgiving_us.apartment_entry.pumpkin_group_alcove",
+      "phrase": "small faux pumpkins set",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "thanksgiving_us.apartment_entry.mum_potted",
+      "phrase": "potted chrysanthemum rust terracotta pot",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "thanksgiving_us.balcony.door_wreath_autumn",
+      "phrase": "18 inch autumn maple leaf wreath",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "thanksgiving_us.balcony.pumpkin_gourd_group",
+      "phrase": "faux pumpkins and gourds set",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "thanksgiving_us.balcony.mums_potted",
+      "phrase": "potted chrysanthemums rust gold",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "thanksgiving_us.balcony.railing_garland_harvest",
+      "phrase": "autumn leaf garland outdoor 6 ft",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "thanksgiving_us.interior.table_runner",
+      "phrase": "rust woven linen table runner",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "thanksgiving_us.interior.centerpiece_low",
+      "phrase": "low autumn pumpkin table centerpiece",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "thanksgiving_us.interior.candles_flameless",
+      "phrase": "flameless taper and pillar candles",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "thanksgiving_us.interior.place_accents",
+      "phrase": "autumn cloth napkins with rings",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "thanksgiving_us.interior.sideboard_harvest",
+      "phrase": "autumn leaf pumpkin wheat arrangement",
+      "programOverrides": {}
+    },
+    {
+      "kitItemKey": "thanksgiving_us.interior.window_garland",
+      "phrase": "autumn leaf garland 6 ft",
+      "programOverrides": {}
+    }
+  ]
+}

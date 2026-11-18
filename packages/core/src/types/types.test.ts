@@ -25,6 +25,11 @@ import {
   isRepairableFailureCode,
   isTerminalRenderJobState,
   merchantProgramIdFromCapability,
+  PROGRAM_RIGHT_USES,
+  ProgramRightSchema,
+  ProgramRightsSchema,
+  programRightAllowed,
+  SEARCH_QUERY_PLACEHOLDER,
   packMajorMinor,
   parseVariantKey,
   projectSkipReason,
@@ -291,5 +296,60 @@ describe('anchors and buckets', () => {
     expect(byteBucket(2_457_600)).toBe('1_5mb');
     expect(byteBucket(26_214_400)).toBe('10_25mb');
     expect(byteBucket(30_000_000)).toBe('over_25mb');
+  });
+});
+
+describe('program rights', () => {
+  const allowed = {
+    state: 'allowed',
+    evidence: 'Operating agreement, section 4',
+    recordedAt: '2026-11-17T10:00:00.000Z',
+  } as const;
+
+  it('requires evidence unless the state is unknown', () => {
+    expect(ProgramRightSchema.safeParse(allowed).success).toBe(true);
+    expect(ProgramRightSchema.safeParse({ ...allowed, state: 'denied' }).success).toBe(true);
+    const missing = ProgramRightSchema.safeParse({ ...allowed, evidence: null });
+    expect(missing.success).toBe(false);
+    expect(missing.error?.issues[0]?.path).toEqual(['evidence']);
+    expect(
+      ProgramRightSchema.safeParse({ ...allowed, state: 'denied', evidence: null }).success,
+    ).toBe(false);
+    expect(
+      ProgramRightSchema.safeParse({ state: 'unknown', evidence: null, recordedAt: null }).success,
+    ).toBe(true);
+    expect(ProgramRightSchema.safeParse({ ...allowed, evidence: '' }).success).toBe(false);
+    expect(ProgramRightSchema.safeParse({ ...allowed, note: 'x' }).success).toBe(false);
+  });
+
+  it('accepts only known uses, each optional', () => {
+    expect(ProgramRightsSchema.safeParse({}).success).toBe(true);
+    expect(ProgramRightsSchema.safeParse({ tracked_search_links: allowed }).success).toBe(true);
+    expect(
+      ProgramRightsSchema.safeParse(
+        Object.fromEntries(PROGRAM_RIGHT_USES.map((use) => [use, allowed])),
+      ).success,
+    ).toBe(true);
+    expect(ProgramRightsSchema.safeParse({ search_ads: allowed }).success).toBe(false);
+    expect(ProgramRightsSchema.safeParse({ price: { ...allowed, evidence: null } }).success).toBe(
+      false,
+    );
+  });
+
+  it('allows a use only when it is recorded as allowed', () => {
+    const rights = ProgramRightsSchema.parse({
+      tracked_product_links: allowed,
+      beside_ai_picture: { ...allowed, state: 'denied' },
+      price: { state: 'unknown', evidence: null, recordedAt: null },
+    });
+    expect(programRightAllowed(rights, 'tracked_product_links')).toBe(true);
+    expect(programRightAllowed(rights, 'beside_ai_picture')).toBe(false);
+    expect(programRightAllowed(rights, 'price')).toBe(false);
+    expect(programRightAllowed(rights, 'retailer_name')).toBe(false);
+    expect(programRightAllowed({}, 'tracked_search_links')).toBe(false);
+  });
+
+  it('names the search phrase placeholder', () => {
+    expect(SEARCH_QUERY_PLACEHOLDER).toBe('{query}');
   });
 });

@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { APP_ENVS, NormalizedBoxSchema } from '@hailiday/core';
-import type { AppEnv, NormalizedBox } from '@hailiday/core';
+import { APP_ENVS, COMMERCE_MODES, NormalizedBoxSchema } from '@hailiday/core';
+import type { AppEnv, CommerceMode, NormalizedBox } from '@hailiday/core';
 import { REFUSED_ENV_NAMES } from './dotenv.js';
 
 /** Session secret used only when `APP_ENV` is `development` or `test`. */
@@ -199,6 +199,7 @@ const EnvSchema = z.object({
   SAFETY_PROVIDER: z.enum(SAFETY_PROVIDERS).default('fixture'),
   EMAIL_PROVIDER: z.enum(EMAIL_PROVIDERS).default('fixture'),
   TURNSTILE_MODE: z.enum(TURNSTILE_MODES).default('fixture'),
+  COMMERCE_PROGRAMS: z.enum([AUTO_PROVIDER, ...COMMERCE_MODES]).optional(),
 
   GOOGLE_MAPS_SERVER_KEY: optionalSecret,
   GOOGLE_STREET_VIEW_BROWSER_KEY: optionalSecret,
@@ -307,6 +308,7 @@ export interface AppConfig {
     streetView: StreetViewProviderName | AutoProvider;
     imageEditor: ImageEditorProviderName | AutoProvider;
     vision: VisionProviderName | AutoProvider;
+    commerce: CommerceMode | AutoProvider;
   };
   google: { mapsServerKey: string; streetViewBrowserKey: string; streetViewSigningSecret: string };
   streetView: {
@@ -385,6 +387,11 @@ export interface ResolvedProviders {
   imageEditor: ImageEditorProviderName;
   vision: VisionProviderName;
   safety: SafetyProviderName;
+  /**
+   * Which kind of merchant program Shop the look serves (`COMMERCE_PROGRAMS`): `fixture` programs
+   * (example data) or `real` programs (actual retailers). The two are never served together.
+   */
+  commerce: CommerceMode;
 }
 
 /** A configuration problem detected at startup. */
@@ -414,7 +421,20 @@ function providerSelectionOf(env: Env): ProviderSelection {
     streetView: env.STREET_VIEW_PROVIDER ?? fallback,
     imageEditor: env.IMAGE_EDITOR_PROVIDER ?? fallback,
     vision: env.VISION_PROVIDER ?? fallback,
+    commerce: env.COMMERCE_PROGRAMS ?? fallback,
   };
+}
+
+/**
+ * Resolves the commerce selection: `auto` serves the real programs, except under `APP_ENV=test`,
+ * which only ever serves the fixture programs. Explicit selections pass through.
+ */
+export function resolveCommerceMode(
+  selection: CommerceMode | AutoProvider,
+  appEnv: AppEnv,
+): CommerceMode {
+  if (selection !== AUTO_PROVIDER) return selection;
+  return appEnv === 'test' ? 'fixture' : 'real';
 }
 
 /**
@@ -425,7 +445,7 @@ function providerSelectionOf(env: Env): ProviderSelection {
  * resolves to the fixture adapter. Explicit selections pass through.
  */
 export function resolveProviderSelection(
-  selection: ProviderSelection,
+  selection: Omit<ProviderSelection, 'commerce'>,
   keys: {
     googleMapsServerKey: string;
     googleStreetViewBrowserKey: string;
@@ -435,7 +455,7 @@ export function resolveProviderSelection(
     anthropicApiKey: string;
   },
   imageEditorPreference: ImageEditorPreference = DEFAULT_IMAGE_EDITOR_PREFERENCE,
-): Omit<ResolvedProviders, 'safety'> {
+): Omit<ResolvedProviders, 'safety' | 'commerce'> {
   const google = Boolean(keys.googleMapsServerKey);
   const editors: ImageEditorProviderName[] = [];
   if (keys.openaiApiKey) editors.push('openai');
@@ -488,7 +508,10 @@ function selectionKeysOf(env: Env): Parameters<typeof resolveProviderSelection>[
   };
 }
 
-/** Under `APP_ENV=test` every leg runs its fixture: an explicit live selection is an error. */
+/**
+ * Under `APP_ENV=test` every leg runs its fixture and only fixture merchant programs are served: an
+ * explicit live selection, or `COMMERCE_PROGRAMS=real`, is an error.
+ */
 function testEnvironmentIssues(env: Env): string[] {
   if (env.APP_ENV !== 'test') return [];
   const issues: string[] = [];
@@ -503,6 +526,7 @@ function testEnvironmentIssues(env: Env): string[] {
   live('VISION_PROVIDER', env.VISION_PROVIDER);
   live('SAFETY_PROVIDER', env.SAFETY_PROVIDER);
   live('TURNSTILE_MODE', env.TURNSTILE_MODE);
+  live('COMMERCE_PROGRAMS', env.COMMERCE_PROGRAMS);
   return issues;
 }
 
@@ -529,7 +553,10 @@ function deployedEnvironmentIssues(env: Env, isLocal: boolean): string[] {
   return issues;
 }
 
-function liveProviderIssues(env: Env, providers: Omit<ResolvedProviders, 'safety'>): string[] {
+function liveProviderIssues(
+  env: Env,
+  providers: Omit<ResolvedProviders, 'safety' | 'commerce'>,
+): string[] {
   const issues: string[] = [];
   const need = (provider: string, keys: (keyof Env)[]) => {
     for (const key of keys) {
@@ -745,7 +772,11 @@ export function parseConfig(source: EnvSource = process.env): AppConfig {
       uploadMaxBytes: env.UPLOAD_MAX_BYTES,
     },
     email: { provider: env.EMAIL_PROVIDER, smtpUrl: env.SMTP_URL, from: env.EMAIL_FROM },
-    providers: { ...resolvedProviders, safety: env.SAFETY_PROVIDER },
+    providers: {
+      ...resolvedProviders,
+      safety: env.SAFETY_PROVIDER,
+      commerce: resolveCommerceMode(providerSelection.commerce, env.APP_ENV),
+    },
     providerSelection,
     google: {
       mapsServerKey: env.GOOGLE_MAPS_SERVER_KEY,

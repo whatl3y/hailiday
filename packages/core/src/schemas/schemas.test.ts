@@ -536,35 +536,112 @@ describe('discovery, uploads, products and experience', () => {
     );
   });
 
-  it('keeps product items empty unless the panel is active', () => {
-    const card = {
-      clickToken: 'tok',
+  describe('products panel', () => {
+    const option = {
+      clickToken: 'tok-option',
+      programKey: 'fixture_decor_us',
       title: 'Pre-lit artificial garland, 9 ft, warm white',
-      merchantName: 'Amazon',
+      merchantName: 'Fixture Decor',
       relationship: 'described',
       relationshipLabelKey: 'commerce.relationship.described',
-      anchorCategory: 'porch_rail',
       price: { policy: 'check_at_retailer' },
       linkMode: 'tracking',
       sponsored: false,
       href: 'https://merchant.example/item',
-      rankPosition: 1,
+      position: 1,
+    };
+    const searchLink = {
+      clickToken: 'tok-search',
+      programKey: 'fixture_decor_us',
+      merchantName: 'Fixture Decor',
+      linkMode: 'plain',
+      sponsored: false,
+      href: 'https://merchant.example/search?q=pre%20lit%20garland',
+    };
+    const separateLink = {
+      ...searchLink,
+      clickToken: 'tok-separate',
+      programKey: 'fixture_marketplace_us',
+      merchantName: 'Fixture Marketplace',
+      href: 'https://marketplace.example/s?k=pre%20lit%20garland',
+    };
+    const placed = {
+      groupKey: 'christmas.house_exterior.garland_porch_rail',
+      basis: 'placed',
+      title: 'Pre-lit artificial garland',
+      anchorCategory: 'porch_rail',
+      options: [option],
+      searchLinks: [searchLink],
+      separateLinks: [separateLink],
+      position: 1,
+    };
+    const typical = {
+      groupKey: 'christmas.house_exterior.abundant.lit_window_candles',
+      basis: 'typical',
+      title: 'Lit window candles',
+      anchorCategory: null,
+      options: [],
+      searchLinks: [{ ...searchLink, clickToken: 'tok-typical' }],
+      separateLinks: [],
+      position: 2,
     };
     const panel = {
       panelState: 'active',
       linkMode: 'tracking',
+      season: 'in_window',
       disclosure: {
         copyKeys: ['commerce.disclosure.paid', 'commerce.disclosure.amazon'],
-        programs: ['amazon_associates'],
+        programs: ['fixture_decor_us', 'fixture_marketplace_us'],
       },
-      items: [card],
+      retailers: [{ programKey: 'fixture_decor_us', merchantName: 'Fixture Decor' }],
+      groups: [placed, typical],
     };
-    expect(ProductsPanelSchema.safeParse(panel).success).toBe(true);
-    expect(ProductsPanelSchema.safeParse({ ...panel, panelState: 'hidden' }).success).toBe(false);
-    expect(
-      ProductsPanelSchema.safeParse({ ...panel, items: [{ ...card, price: { policy: 'show' } }] })
-        .success,
-    ).toBe(false);
+    const empty = {
+      panelState: 'off_season',
+      linkMode: null,
+      season: null,
+      disclosure: { copyKeys: [], programs: [] },
+      retailers: [],
+      groups: [],
+    };
+
+    it('parses an active panel with placed and typical groups', () => {
+      expect(ProductsPanelSchema.parse(panel).groups).toHaveLength(2);
+      expect(ProductsPanelSchema.safeParse(empty).success).toBe(true);
+      expect(
+        ProductsPanelSchema.safeParse({
+          ...panel,
+          groups: [{ ...placed, options: [{ ...option, price: { policy: 'show' } }] }],
+        }).success,
+      ).toBe(false);
+      expect(
+        ProductsPanelSchema.safeParse({ ...panel, groups: [{ ...placed, basis: 'kit' }] }).success,
+      ).toBe(false);
+      expect(ProductsPanelSchema.safeParse({ ...panel, items: [] }).success).toBe(false);
+    });
+
+    it('keeps groups and retailers empty unless the panel is active', () => {
+      expect(ProductsPanelSchema.safeParse({ ...panel, panelState: 'hidden' }).success).toBe(false);
+      expect(ProductsPanelSchema.safeParse({ ...empty, groups: [typical] }).success).toBe(false);
+      expect(ProductsPanelSchema.safeParse({ ...empty, retailers: panel.retailers }).success).toBe(
+        false,
+      );
+    });
+
+    it('rejects a group with nothing to show', () => {
+      const bare = { ...placed, options: [], searchLinks: [], separateLinks: [] };
+      expect(ProductsPanelSchema.safeParse({ ...panel, groups: [bare] }).success).toBe(false);
+      expect(
+        ProductsPanelSchema.safeParse({ ...panel, groups: [{ ...bare, options: [option] }] })
+          .success,
+      ).toBe(true);
+      expect(
+        ProductsPanelSchema.safeParse({
+          ...panel,
+          groups: [{ ...bare, separateLinks: [separateLink] }],
+        }).success,
+      ).toBe(true);
+    });
   });
 
   it('parses an experience projection, including off-season', () => {
@@ -1448,6 +1525,56 @@ describe('analytics', () => {
     const failed = { failureKind: 'timeout', failureDetail: null, attempts: 3 };
     expect(parseAnalyticsProperties('render_failed', failed)).toMatchObject({ attempts: 3 });
     expect(() => parseAnalyticsProperties('render_failed', { ...failed, attempts: 4 })).toThrow();
+  });
+
+  it('describes shop panel views and clicks on options and search links', () => {
+    const viewed = {
+      panelState: 'active',
+      cardCount: 3,
+      optionCount: 5,
+      searchLinkCount: 7,
+      season: 'off_season',
+      linkMode: 'plain',
+      programs: ['fixture_decor_us'],
+      relationships: ['described'],
+    };
+    expect(parseAnalyticsProperties('shop_panel_viewed', viewed)).toMatchObject({
+      season: 'off_season',
+    });
+    expect(
+      parseAnalyticsProperties('shop_panel_viewed', { ...viewed, season: null }),
+    ).toMatchObject({ season: null });
+    expect(() =>
+      parseAnalyticsProperties('shop_panel_viewed', { ...viewed, optionCount: -1 }),
+    ).toThrow();
+    const clicked = {
+      relationship: null,
+      rankPosition: 2,
+      optionPosition: 3,
+      linkKind: 'search',
+      groupBasis: 'typical',
+      merchantProgramId: 'walmart_us',
+      linkMode: 'plain',
+      sponsored: false,
+    };
+    expect(parseAnalyticsProperties('product_clicked', clicked)).toMatchObject({
+      linkKind: 'search',
+      relationship: null,
+    });
+    expect(
+      parseAnalyticsProperties('product_clicked', {
+        ...clicked,
+        relationship: 'similar',
+        linkKind: 'product',
+        groupBasis: 'placed',
+      }),
+    ).toMatchObject({ linkKind: 'product' });
+    expect(() =>
+      parseAnalyticsProperties('product_clicked', { ...clicked, optionPosition: 0 }),
+    ).toThrow();
+    expect(() =>
+      parseAnalyticsProperties('product_clicked', { ...clicked, linkKind: 'banner' }),
+    ).toThrow();
   });
 
   it('limits batch size', () => {

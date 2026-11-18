@@ -1,6 +1,8 @@
 import { sql } from '@hailiday/server/db';
 import { z } from 'zod';
 import {
+  AnchorCategorySchema,
+  ApiAccessStateSchema,
   CapabilityListResponseSchema,
   CapabilityParamsSchema,
   CapabilityRecordSchema,
@@ -8,17 +10,27 @@ import {
   CreateBlockedAddressRequestSchema,
   CreatePreservationHoldRequestSchema,
   EmptyObjectSchema,
+  HolidayIdSchema,
   IdParamsSchema,
+  IsoDateSchema,
+  LookItemStatusSchema,
   MERCHANT_PROGRAM_STATUSES,
   OfferStatusRequestSchema,
   PauseStateSchema,
+  ProgramPlacementSchema,
+  ProgramRightStateSchema,
+  ProgramRightUseSchema,
+  ProgramRightsSchema,
   PutCapabilityRequestSchema,
   ReleasePreservationHoldRequestSchema,
   ReportTriageRequestSchema,
   ReviewDecisionRequestSchema,
   SPEND_CEILING_KEYS,
+  SceneTypeSchema,
   SettingRecordSchema,
   SettingWriteSchema,
+  SlugSchema,
+  StyleSchema,
   UploadHoldDecisionRequestSchema,
   isRuntimeSettingKey,
   normalizeEmail,
@@ -26,11 +38,27 @@ import {
   type JobEnhancementRecord,
   type PauseState,
   type Ceilings,
+  type ProgramRights,
 } from '@hailiday/core';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { toCapabilityRecord } from '@hailiday/server/capabilities';
 import { addMs, DAY_MS } from '@hailiday/server/clock';
-import { toJson, type Db, type DbOrTx, type Tx, type User } from '@hailiday/server/db';
+import {
+  isSearchPhrase,
+  isSearchUrlTemplate,
+  isTrackingLinkTemplate,
+} from '@hailiday/server/content';
+import {
+  isUniqueViolation,
+  toJson,
+  type Db,
+  type DbOrTx,
+  type KitItemSearchPhrase,
+  type LookItem,
+  type MerchantProgram,
+  type Tx,
+  type User,
+} from '@hailiday/server/db';
 import { forbidden, notFound, validationFailed } from '@hailiday/server/errors';
 import { newId, safeEqual, sha256Hex } from '@hailiday/server/ids';
 import {
@@ -306,6 +334,168 @@ async function enhancedSourceUrlOf(
     .executeTakeFirst();
   if (row?.status !== 'accepted' || !row.objectKey) return null;
   return deps.storage.presignGet('private', row.objectKey);
+}
+
+/**
+ * The words sent to a retailer's search for a decoration: plain words of 2 to 120 characters, the
+ * rule the content loader applies.
+ */
+const SearchPhraseSchema = z.string().refine(isSearchPhrase, {
+  message: 'Expected 2 to 120 letters, digits, spaces, hyphens and apostrophes',
+});
+
+/** Search phrases by program key, replacing the decoration's phrase for that retailer. */
+const ProgramOverridesSchema = z
+  .record(SlugSchema, SearchPhraseSchema)
+  .refine((overrides) => Object.keys(overrides).length <= 50, { message: 'too many overrides' });
+
+/** One use of a program's terms as an operator records it; the server sets `recordedAt`. */
+const ProgramRightInputSchema = z
+  .strictObject({
+    state: ProgramRightStateSchema,
+    evidence: z.string().min(1).max(500).nullable(),
+  })
+  .refine((right) => right.state === 'unknown' || right.evidence !== null, {
+    message: 'evidence is required',
+    path: ['evidence'],
+  });
+
+/** `PUT /internal/v1/merchant-programs/:id/record`: the program record fields an operator edits. */
+const ProgramRecordRequestSchema = z.strictObject({
+  placement: ProgramPlacementSchema.optional(),
+  searchUrlTemplate: z.string().min(1).max(2000).nullable().optional(),
+  trackingLinkTemplate: z.string().min(1).max(2000).nullable().optional(),
+  subIdCapability: z.boolean().optional(),
+  subIdParam: z.string().min(1).max(64).nullable().optional(),
+  trackingIds: z
+    .array(
+      z.strictObject({
+        holidayId: HolidayIdSchema,
+        channel: z.string().min(1).max(32),
+        trackingId: z.string().min(1).max(128),
+      }),
+    )
+    .max(64)
+    .optional(),
+  apiAccess: ApiAccessStateSchema.optional(),
+  attributionWindowHours: z.int().positive().max(8784).nullable().optional(),
+  commissionSchedule: z
+    .array(
+      z.strictObject({
+        category: z.string().min(1).max(120),
+        ratePercent: z.number().min(0).max(100),
+        effectiveFrom: IsoDateSchema,
+      }),
+    )
+    .max(64)
+    .optional(),
+  policyVersion: z.string().min(1).max(120).nullable().optional(),
+  refreshTermHours: z.int().positive().max(87_840).nullable().optional(),
+  disclosureText: z.string().min(1).max(1000).nullable().optional(),
+  notes: z.string().min(1).max(2000).nullable().optional(),
+  /** Each given use replaces that use's record; uses not given are kept. */
+  displayRights: z.partialRecord(ProgramRightUseSchema, ProgramRightInputSchema).optional(),
+});
+
+/** A look item key: `<holidayId>.<sceneType>.<style>.<name>` (as the database checks it). */
+const LookItemKeySchema = z.string().regex(/^[a-z0-9][a-z0-9_.-]{0,127}$/, 'Expected a key');
+
+const LookItemCreateSchema = z.strictObject({
+  lookItemKey: LookItemKeySchema,
+  holidayId: HolidayIdSchema,
+  sceneType: SceneTypeSchema,
+  style: StyleSchema,
+  ourTitle: z.string().min(2).max(120),
+  anchorCategory: AnchorCategorySchema.nullable().optional(),
+  searchPhrase: SearchPhraseSchema,
+  programOverrides: ProgramOverridesSchema.optional(),
+  sortOrder: z.int().min(0).max(10_000),
+});
+
+const LookItemUpdateSchema = z.strictObject({
+  ourTitle: z.string().min(2).max(120).optional(),
+  anchorCategory: AnchorCategorySchema.nullable().optional(),
+  searchPhrase: SearchPhraseSchema.optional(),
+  programOverrides: ProgramOverridesSchema.optional(),
+  sortOrder: z.int().min(0).max(10_000).optional(),
+  status: LookItemStatusSchema.optional(),
+});
+
+/** A merchant program as the internal tools show it. */
+function programDto(row: MerchantProgram) {
+  return {
+    id: row.id,
+    programKey: row.programKey,
+    displayName: row.displayName,
+    programType: row.programType,
+    kind: row.kind,
+    placement: row.placement,
+    network: row.network,
+    status: row.status,
+    linkMethod: row.linkMethod,
+    searchUrlTemplate: row.searchUrlTemplate,
+    trackingLinkTemplate: row.trackingLinkTemplate,
+    subIdCapability: row.subIdCapability,
+    subIdParam: row.subIdParam,
+    trackingIds: row.trackingIds,
+    apiAccess: row.apiAccess,
+    attributionWindowHours: row.attributionWindowHours,
+    commissionSchedule: row.commissionSchedule,
+    policyVersion: row.policyVersion,
+    refreshTermHours: row.refreshTermHours,
+    disclosureText: row.disclosureText,
+    notes: row.notes,
+    displayRights: row.displayRights,
+    capabilityKey: row.capabilityKey,
+    statusHistory: row.statusHistory,
+  };
+}
+
+function searchPhraseDto(row: KitItemSearchPhrase) {
+  return {
+    id: row.id,
+    kitItemKey: row.kitItemKey,
+    phrase: row.phrase,
+    programOverrides: row.programOverrides,
+    updatedAt: row.updatedAt.toISOString(),
+    updatedBy: row.updatedBy,
+  };
+}
+
+function lookItemDto(row: LookItem) {
+  return {
+    id: row.id,
+    lookItemKey: row.lookItemKey,
+    holidayId: row.holidayId,
+    sceneType: row.sceneType,
+    style: row.style,
+    ourTitle: row.ourTitle,
+    anchorCategory: row.anchorCategory,
+    searchPhrase: row.searchPhrase,
+    programOverrides: row.programOverrides,
+    sortOrder: row.sortOrder,
+    status: row.status,
+    updatedAt: row.updatedAt.toISOString(),
+    updatedBy: row.updatedBy,
+  };
+}
+
+/** The fields of search phrase overrides that name no merchant program. */
+async function unknownOverrideFields(
+  db: DbOrTx,
+  overrides: Record<string, string> | undefined,
+): Promise<{ path: string; reason: string }[]> {
+  const keys = Object.keys(overrides ?? {});
+  if (keys.length === 0) return [];
+  const known = await db
+    .selectFrom('merchantPrograms')
+    .select('programKey')
+    .where('programKey', 'in', keys)
+    .execute();
+  const found = new Set(known.map((row) => row.programKey));
+  return keys
+    .filter((key) => !found.has(key))
+    .map((key) => ({ path: `body.programOverrides.${key}`, reason: 'unknown_program' }));
 }
 
 /** The internal operations API for operator accounts (reviewers for review endpoints). */
@@ -1264,7 +1454,7 @@ export function registerInternalRoutes(app: App, deps: ApiDeps): void {
     },
   );
 
-  // ---- commerce: programs, offers, kits --------------------------------------------------------
+  // ---- commerce: programs, search phrases, look items, offers, kits --------------------------
   app.get('/internal/v1/merchant-programs', async (request) => {
     await requireOperator(deps, request);
     const rows = await deps.db
@@ -1272,20 +1462,7 @@ export function registerInternalRoutes(app: App, deps: ApiDeps): void {
       .selectAll()
       .orderBy('programKey')
       .execute();
-    return {
-      items: rows.map((row) => ({
-        id: row.id,
-        programKey: row.programKey,
-        displayName: row.displayName,
-        network: row.network,
-        status: row.status,
-        linkMethod: row.linkMethod,
-        subIdCapability: row.subIdCapability,
-        apiAccess: row.apiAccess,
-        capabilityKey: row.capabilityKey,
-        statusHistory: row.statusHistory,
-      })),
-    };
+    return { items: rows.map(programDto) };
   });
 
   app.put(
@@ -1337,6 +1514,266 @@ export function registerInternalRoutes(app: App, deps: ApiDeps): void {
         });
       });
       return { id: program.id, status: request.body.status };
+    },
+  );
+
+  app.put(
+    '/internal/v1/merchant-programs/:id/record',
+    { schema: { params: IdParamsSchema, body: ProgramRecordRequestSchema } },
+    async (request) => {
+      const auth = await requireOperator(deps, request, { mutating: true });
+      const { displayRights, trackingIds, commissionSchedule, ...fields } = request.body;
+      const updated = await deps.db.transaction().execute(async (trx) => {
+        // The row stays locked until the update, so overlapping updates merge rights in turn.
+        const program = await trx
+          .selectFrom('merchantPrograms')
+          .selectAll()
+          .where('id', '=', request.params.id)
+          .forUpdate()
+          .executeTakeFirst();
+        if (!program) throw notFound();
+        const invalid: { path: string; reason: string }[] = [];
+        if (fields.searchUrlTemplate && !isSearchUrlTemplate(fields.searchUrlTemplate)) {
+          invalid.push({ path: 'body.searchUrlTemplate', reason: 'invalid_search_url_template' });
+        }
+        if (fields.trackingLinkTemplate && !isTrackingLinkTemplate(fields.trackingLinkTemplate)) {
+          invalid.push({
+            path: 'body.trackingLinkTemplate',
+            reason: 'invalid_tracking_link_template',
+          });
+        }
+        if (invalid.length > 0) throw validationFailed({ fields: invalid });
+        const recordedAt = deps.clock.now().toISOString();
+        const rights: ProgramRights | undefined = displayRights
+          ? ProgramRightsSchema.parse({
+              ...program.displayRights,
+              ...Object.fromEntries(
+                Object.entries(displayRights).map(([use, right]) => [
+                  use,
+                  { state: right.state, evidence: right.evidence, recordedAt },
+                ]),
+              ),
+            })
+          : undefined;
+        const after: Record<string, unknown> = {
+          ...fields,
+          ...(trackingIds ? { trackingIds } : {}),
+          ...(commissionSchedule ? { commissionSchedule } : {}),
+          ...(rights ? { displayRights: rights } : {}),
+        };
+        if (Object.keys(after).length === 0) return program;
+        const before = Object.fromEntries(
+          Object.keys(after).map((key) => [key, program[key as keyof MerchantProgram] ?? null]),
+        );
+        const row = await trx
+          .updateTable('merchantPrograms')
+          .set({
+            ...fields,
+            ...(trackingIds ? { trackingIds: toJson(trackingIds) } : {}),
+            ...(commissionSchedule ? { commissionSchedule: toJson(commissionSchedule) } : {}),
+            ...(rights ? { displayRights: toJson(rights) } : {}),
+          })
+          .where('id', '=', program.id)
+          .returningAll()
+          .executeTakeFirstOrThrow();
+        await audit(deps, trx, request, auth, {
+          action: 'merchant_program.record_update',
+          targetKind: 'merchant_program',
+          targetId: program.id,
+          before,
+          after,
+        });
+        return row;
+      });
+      return programDto(updated);
+    },
+  );
+
+  app.get('/internal/v1/search-phrases', async (request) => {
+    await requireOperator(deps, request);
+    const rows = await deps.db
+      .selectFrom('kitItemSearchPhrases')
+      .selectAll()
+      .orderBy('kitItemKey')
+      .execute();
+    return { items: rows.map(searchPhraseDto) };
+  });
+
+  app.put(
+    '/internal/v1/search-phrases/:kitItemKey',
+    {
+      schema: {
+        params: z.strictObject({ kitItemKey: z.string().min(1).max(200) }),
+        body: z.strictObject({
+          phrase: SearchPhraseSchema,
+          programOverrides: ProgramOverridesSchema.optional(),
+        }),
+      },
+    },
+    async (request) => {
+      const auth = await requireOperator(deps, request, { mutating: true });
+      const { kitItemKey } = request.params;
+      const published = await deps.db
+        .selectFrom('kitItems')
+        .innerJoin('styleKits', 'styleKits.id', 'kitItems.kitId')
+        .select('kitItems.id')
+        .where('kitItems.kitItemId', '=', kitItemKey)
+        .where('styleKits.status', '=', 'published')
+        .executeTakeFirst();
+      const invalid = [
+        ...(published ? [] : [{ path: 'params.kitItemKey', reason: 'unknown_kit_item' }]),
+        ...(await unknownOverrideFields(deps.db, request.body.programOverrides)),
+      ];
+      if (invalid.length > 0) throw validationFailed({ fields: invalid });
+      // Omitted overrides keep the stored ones (none for a new phrase).
+      const { programOverrides } = request.body;
+      const row = await deps.db.transaction().execute(async (trx) => {
+        const before = await trx
+          .selectFrom('kitItemSearchPhrases')
+          .selectAll()
+          .where('kitItemKey', '=', kitItemKey)
+          .executeTakeFirst();
+        const saved = await trx
+          .insertInto('kitItemSearchPhrases')
+          .values({
+            id: newId(),
+            kitItemKey,
+            phrase: request.body.phrase,
+            programOverrides: toJson(programOverrides ?? {}),
+            updatedBy: auth.user.id,
+          })
+          .onConflict((oc) =>
+            oc.column('kitItemKey').doUpdateSet({
+              phrase: request.body.phrase,
+              ...(programOverrides ? { programOverrides: toJson(programOverrides) } : {}),
+              updatedBy: auth.user.id,
+            }),
+          )
+          .returningAll()
+          .executeTakeFirstOrThrow();
+        await audit(deps, trx, request, auth, {
+          action: 'search_phrase.update',
+          targetKind: 'kit_item_search_phrase',
+          targetId: saved.id,
+          before: before
+            ? { phrase: before.phrase, programOverrides: before.programOverrides }
+            : null,
+          after: { kitItemKey, phrase: saved.phrase, programOverrides: saved.programOverrides },
+        });
+        return saved;
+      });
+      return searchPhraseDto(row);
+    },
+  );
+
+  app.get('/internal/v1/look-items', async (request) => {
+    await requireOperator(deps, request);
+    const rows = await deps.db
+      .selectFrom('lookItems')
+      .selectAll()
+      .orderBy('holidayId')
+      .orderBy('sceneType')
+      .orderBy('style')
+      .orderBy('sortOrder')
+      .orderBy('lookItemKey')
+      .execute();
+    return { items: rows.map(lookItemDto) };
+  });
+
+  app.post(
+    '/internal/v1/look-items',
+    { schema: { body: LookItemCreateSchema } },
+    async (request, reply) => {
+      const auth = await requireOperator(deps, request, { mutating: true });
+      const body = request.body;
+      const look = `${body.holidayId}.${body.sceneType}.${body.style}.`;
+      const invalid = [
+        ...(body.lookItemKey.startsWith(look) && body.lookItemKey.length > look.length
+          ? []
+          : [{ path: 'body.lookItemKey', reason: 'outside_look' }]),
+        ...(await unknownOverrideFields(deps.db, body.programOverrides)),
+      ];
+      if (invalid.length > 0) throw validationFailed({ fields: invalid });
+      const row = await deps.db
+        .transaction()
+        .execute(async (trx) => {
+          const created = await trx
+            .insertInto('lookItems')
+            .values({
+              id: newId(),
+              lookItemKey: body.lookItemKey,
+              holidayId: body.holidayId,
+              sceneType: body.sceneType,
+              style: body.style,
+              ourTitle: body.ourTitle,
+              anchorCategory: body.anchorCategory ?? null,
+              searchPhrase: body.searchPhrase,
+              programOverrides: toJson(body.programOverrides ?? {}),
+              sortOrder: body.sortOrder,
+              updatedBy: auth.user.id,
+            })
+            .returningAll()
+            .executeTakeFirstOrThrow();
+          await audit(deps, trx, request, auth, {
+            action: 'look_item.create',
+            targetKind: 'look_item',
+            targetId: created.id,
+            after: lookItemDto(created),
+          });
+          return created;
+        })
+        .catch((error: unknown) => {
+          if (isUniqueViolation(error)) {
+            throw validationFailed({ fields: [{ path: 'body.lookItemKey', reason: 'duplicate' }] });
+          }
+          throw error;
+        });
+      return withCodes(reply, 201).send(lookItemDto(row));
+    },
+  );
+
+  app.put(
+    '/internal/v1/look-items/:id',
+    { schema: { params: IdParamsSchema, body: LookItemUpdateSchema } },
+    async (request) => {
+      const auth = await requireOperator(deps, request, { mutating: true });
+      const existing = await deps.db
+        .selectFrom('lookItems')
+        .selectAll()
+        .where('id', '=', request.params.id)
+        .executeTakeFirst();
+      if (!existing) throw notFound();
+      const { programOverrides, ...fields } = request.body;
+      const invalid = await unknownOverrideFields(deps.db, programOverrides);
+      if (invalid.length > 0) throw validationFailed({ fields: invalid });
+      const after: Record<string, unknown> = {
+        ...fields,
+        ...(programOverrides ? { programOverrides } : {}),
+      };
+      if (Object.keys(after).length === 0) return lookItemDto(existing);
+      const row = await deps.db.transaction().execute(async (trx) => {
+        const updated = await trx
+          .updateTable('lookItems')
+          .set({
+            ...fields,
+            ...(programOverrides ? { programOverrides: toJson(programOverrides) } : {}),
+            updatedBy: auth.user.id,
+          })
+          .where('id', '=', existing.id)
+          .returningAll()
+          .executeTakeFirstOrThrow();
+        await audit(deps, trx, request, auth, {
+          action: 'look_item.update',
+          targetKind: 'look_item',
+          targetId: existing.id,
+          before: Object.fromEntries(
+            Object.keys(after).map((key) => [key, existing[key as keyof LookItem] ?? null]),
+          ),
+          after,
+        });
+        return updated;
+      });
+      return lookItemDto(row);
     },
   );
 

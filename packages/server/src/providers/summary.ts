@@ -1,3 +1,4 @@
+import type { CommerceMode } from '@hailiday/core';
 import type { AppConfig, ImageEditorProviderName, VisionProviderName } from '../config/index.js';
 import type { ProviderImplementationMode, Providers } from './types.js';
 
@@ -29,6 +30,8 @@ export interface ProviderSummary {
     imageEditorProvider: ProviderImplementationMode;
     visionProvider: ProviderImplementationMode;
     safetyProvider: ProviderImplementationMode;
+    /** Which kind of merchant program Shop the look serves (`fixture` or `real`). */
+    commercePrograms: CommerceMode;
   };
   imageEditor: ImageEditorSummary;
   vision: VisionSummary;
@@ -73,6 +76,7 @@ export function summarizeProviders(
       imageEditorProvider: providers.imageEditor.mode,
       visionProvider: providers.vision.mode,
       safetyProvider: providers.safety.mode,
+      commercePrograms: config.providers.commerce,
     },
     imageEditor,
     vision: {

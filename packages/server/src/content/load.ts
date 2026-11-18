@@ -4,24 +4,34 @@ import { fileURLToPath } from 'node:url';
 import { parse as parseYaml } from 'yaml';
 import { z } from 'zod';
 import {
+  ANCHOR_CATEGORIES,
   CLIMATE_CLASSES,
   CommerceCatalogSchema,
   HOLIDAY_IDS,
   HolidayPackSchema,
   LIGHTING_MODES,
+  ProgramKindSchema,
+  ProgramPlacementSchema,
+  ProgramRightsSchema,
   SCENE_TYPES,
+  SEARCH_QUERY_PLACEHOLDER,
   STYLES,
   SceneTypeSchema,
   SpecAttributesSchema,
   StyleKitSchema,
   packMajorMinor,
+  packOfferFor,
 } from '@hailiday/core';
 import type {
+  AnchorCategory,
   ClimateClass,
   CommerceCatalog,
   HolidayId,
   HolidayPack,
   LightingMode,
+  ProgramKind,
+  ProgramPlacement,
+  ProgramRights,
   SceneType,
   SpecAttributes,
   Style,
@@ -75,6 +85,39 @@ export interface MerchantProgramExtras {
   statusHistory: { status: string; at: string; evidenceRef: string | null }[];
   logoPermitted: boolean;
   notes: string | null;
+  /** `fixture` (example data) or `real` (an actual retailer). */
+  kind: ProgramKind;
+  /** `group` (in a decoration's group) or `separate` (a line of its own). */
+  placement: ProgramPlacement;
+  /** Link to the retailer's own search results, with a `{query}` placeholder. */
+  searchUrlTemplate: string | null;
+  /** Program-level tracking link pattern. */
+  trackingLinkTemplate: string | null;
+  /** What the program's terms allow, per use; a missing use is `unknown`. */
+  displayRights: ProgramRights;
+  /** Hours the program's data may be kept before it is refreshed. */
+  refreshTermHours: number | null;
+}
+
+/** The words sent to a retailer's search for one kit item key. */
+export interface SearchPhraseContent {
+  kitItemKey: string;
+  phrase: string;
+  /** A different phrase for a program, by program key. */
+  programOverrides: Record<string, string>;
+}
+
+/** A decoration typical of a look (holiday, scene type, style) that no kit item covers. */
+export interface LookItemContent {
+  lookItemKey: string;
+  holidayId: HolidayId;
+  sceneType: SceneType;
+  style: Style;
+  ourTitle: string;
+  anchorCategory: AnchorCategory | null;
+  searchPhrase: string;
+  programOverrides: Record<string, string>;
+  sortOrder: number;
 }
 
 /** Fields of an offer record beyond the core content schema. */
@@ -87,6 +130,10 @@ export interface CommerceContent {
   catalog: CommerceCatalog;
   programExtras: ReadonlyMap<string, MerchantProgramExtras>;
   offerExtras: ReadonlyMap<string, OfferExtras>;
+  /** One search phrase per kit item key of the kits content. */
+  searchPhrases: SearchPhraseContent[];
+  /** Decorations typical of a lavish look, each with its sort order within its look. */
+  lookItems: LookItemContent[];
   /** Offer timestamps are authored relative to this instant. */
   authoredAt: string | null;
   /** Whether the seed shifts offer timestamps by (now − authoredAt). */
@@ -224,6 +271,115 @@ const KitFileSchema = z.object({
 const ProgramFileSchema = z.object({
   programs: z.array(z.record(z.string(), z.unknown())),
 });
+
+/** `https://`, a literal host with an optional port, then `/`: no placeholder before the path. */
+const LITERAL_HTTPS_ORIGIN = /^https:\/\/[A-Za-z0-9.-]+(:[0-9]+)?\//;
+/** A query parameter that carries an affiliate ID, which only a tracking pattern may add. */
+const AFFILIATE_PARAMETER = /[?&](tag|subid|sid|u1)=/i;
+/** Placeholders of a tracking pattern, none of which a search pattern may hold. */
+const TRACKING_PLACEHOLDERS = ['{subId}', '{trackingId}', '{destinationUrl}'] as const;
+const DESTINATION_PLACEHOLDER = '{destinationUrl}';
+
+/**
+ * True for a search link pattern: `https://` and a literal host followed by `/`, a `{query}`
+ * placeholder, no tracking placeholder and no affiliate parameter. The CHECK constraint on
+ * `merchant_programs.search_url_template` (migration 0020) applies the same rule; keep the two in
+ * step.
+ */
+export function isSearchUrlTemplate(value: string): boolean {
+  return (
+    LITERAL_HTTPS_ORIGIN.test(value) &&
+    value.includes(SEARCH_QUERY_PLACEHOLDER) &&
+    !TRACKING_PLACEHOLDERS.some((placeholder) => value.includes(placeholder)) &&
+    !AFFILIATE_PARAMETER.test(value)
+  );
+}
+
+/**
+ * True for a program-level tracking link pattern: it holds `{destinationUrl}` and starts either
+ * with that placeholder or with `https://` and a literal host followed by `/`. The CHECK
+ * constraint on `merchant_programs.tracking_link_template` (migration 0020) applies the same
+ * rule; keep the two in step.
+ */
+export function isTrackingLinkTemplate(value: string): boolean {
+  return (
+    value.includes(DESTINATION_PLACEHOLDER) &&
+    (value.startsWith(DESTINATION_PLACEHOLDER) || LITERAL_HTTPS_ORIGIN.test(value))
+  );
+}
+
+/** Plain words: letters, digits, spaces, hyphens and apostrophes, starting with a letter or digit. */
+const SEARCH_PHRASE_PATTERN = /^[A-Za-z0-9][A-Za-z0-9 '-]*$/;
+
+/**
+ * True for a search phrase: what a shopper types into a retailer's search box, as plain words of
+ * 2 to 120 characters.
+ */
+export function isSearchPhrase(value: string): boolean {
+  return value.length >= 2 && value.length <= 120 && SEARCH_PHRASE_PATTERN.test(value);
+}
+
+/** The program record fields Shop the look reads, beside the core content schema. */
+const ProgramRecordSchema = z.object({
+  kind: ProgramKindSchema,
+  placement: ProgramPlacementSchema.default('group'),
+  searchUrlTemplate: z
+    .string()
+    .refine(
+      isSearchUrlTemplate,
+      'must be an https:// URL on a literal host with a {query} placeholder, no other placeholder and no affiliate parameter',
+    )
+    .nullable()
+    .default(null),
+  trackingLinkTemplate: z
+    .string()
+    .refine(
+      isTrackingLinkTemplate,
+      'must hold {destinationUrl} and start with it or with an https:// URL on a literal host',
+    )
+    .nullable()
+    .default(null),
+  displayRights: ProgramRightsSchema.default({}),
+  refreshTermHours: z.int().positive().nullable().default(null),
+});
+
+/** A search phrase: what a shopper types into a retailer's search box. */
+const PhraseSchema = z
+  .string()
+  .min(2)
+  .max(120)
+  .regex(SEARCH_PHRASE_PATTERN, 'must be letters, digits, spaces, hyphens and apostrophes');
+const ProgramOverridesSchema = z.record(z.string().min(1), PhraseSchema);
+
+const SearchPhraseFileSchema = z.object({
+  version: z.literal(1),
+  description: z.string().optional(),
+  phrases: z.array(
+    z.strictObject({
+      kitItemKey: z.string().min(1),
+      phrase: PhraseSchema,
+      programOverrides: ProgramOverridesSchema.default({}),
+    }),
+  ),
+});
+
+const LookItemFileSchema = z.object({
+  version: z.literal(1),
+  description: z.string().optional(),
+  lookItems: z.array(
+    z.strictObject({
+      lookItemKey: z.string().regex(/^[a-z0-9][a-z0-9_.-]{0,127}$/),
+      holidayId: z.enum(HOLIDAY_IDS),
+      sceneType: SceneTypeSchema,
+      style: z.enum(STYLES),
+      ourTitle: z.string().min(2).max(120),
+      anchorCategory: z.enum(ANCHOR_CATEGORIES).optional(),
+      searchPhrase: PhraseSchema,
+      programOverrides: ProgramOverridesSchema.default({}),
+      sortOrder: z.int(),
+    }),
+  ),
+});
 const ProductFileSchema = z.object({ products: z.array(z.record(z.string(), z.unknown())) });
 const OfferFileSchema = z.object({
   authoredAt: z.string().nullable().optional(),
@@ -315,7 +471,15 @@ function mapCommerce(
 
   const mappedPrograms = programs.map((program) => {
     const key = String(program.merchantProgramId ?? program.programKey ?? '');
+    const record = ProgramRecordSchema.safeParse(program);
+    if (!record.success) issues.push(...zodIssues(`merchant-programs.json ${key}`, record.error));
     programExtras.set(key, {
+      kind: record.success ? record.data.kind : 'fixture',
+      placement: record.success ? record.data.placement : 'group',
+      searchUrlTemplate: record.success ? record.data.searchUrlTemplate : null,
+      trackingLinkTemplate: record.success ? record.data.trackingLinkTemplate : null,
+      displayRights: record.success ? record.data.displayRights : {},
+      refreshTermHours: record.success ? record.data.refreshTermHours : null,
       programType: str(program.programType) ?? 'network',
       subIdParam: str(program.subIdParam),
       trackingIds: Array.isArray(program.trackingIds)
@@ -417,6 +581,103 @@ function mapCommerce(
     return { catalog: null, programExtras, offerExtras };
   }
   return { catalog: parsed.data, programExtras, offerExtras };
+}
+
+/** Problems in the program overrides of a phrase: every key must name a merchant program. */
+function overrideIssues(
+  where: string,
+  overrides: Record<string, string>,
+  programKeys: ReadonlySet<string>,
+): string[] {
+  return Object.keys(overrides)
+    .filter((key) => !programKeys.has(key))
+    .map((key) => `${where}: programOverrides names unknown program ${key}`);
+}
+
+/**
+ * Checks the search phrases against the kits: one phrase per kit item key of the kits content,
+ * none for a key that is not one, and none twice.
+ */
+export function searchPhraseIssues(
+  phrases: readonly SearchPhraseContent[],
+  kits: readonly KitContent[],
+  programKeys: ReadonlySet<string>,
+): string[] {
+  const issues: string[] = [];
+  const where = 'search-phrases.json';
+  const kitItemKeys = new Set(kits.flatMap(({ kit }) => kit.items.map((item) => item.kitItemId)));
+  const seen = new Set<string>();
+  for (const phrase of phrases) {
+    if (seen.has(phrase.kitItemKey)) issues.push(`${where}: ${phrase.kitItemKey} appears twice`);
+    seen.add(phrase.kitItemKey);
+    if (!kitItemKeys.has(phrase.kitItemKey)) {
+      issues.push(`${where}: ${phrase.kitItemKey} is not a kit item key`);
+    }
+    issues.push(
+      ...overrideIssues(`${where}: ${phrase.kitItemKey}`, phrase.programOverrides, programKeys),
+    );
+  }
+  for (const key of [...kitItemKeys].sort()) {
+    if (!seen.has(key)) issues.push(`${where}: kit item ${key} has no search phrase`);
+  }
+  return issues;
+}
+
+/**
+ * Checks the look items against the packs: the pack offers the style for the scene type and its
+ * section for the scene type has a lavish description; the key starts with
+ * `<holidayId>.<sceneType>.<style>.`; keys are unique, and so is the sort order within a look.
+ */
+export function lookItemIssues(
+  lookItems: readonly LookItemContent[],
+  packs: readonly PackContent[],
+  programKeys: ReadonlySet<string>,
+): string[] {
+  const issues: string[] = [];
+  const keys = new Set<string>();
+  const sortOrders = new Set<string>();
+  for (const item of lookItems) {
+    const where = `look-items.json: ${item.lookItemKey}`;
+    const look = `${item.holidayId}.${item.sceneType}.${item.style}`;
+    if (keys.has(item.lookItemKey)) issues.push(`${where}: appears twice`);
+    keys.add(item.lookItemKey);
+    if (!item.lookItemKey.startsWith(`${look}.`)) {
+      issues.push(`${where}: the key must start with ${look}.`);
+    }
+    const sortKey = `${look}#${item.sortOrder}`;
+    if (sortOrders.has(sortKey)) {
+      issues.push(`${where}: sortOrder ${item.sortOrder} is used twice in the look ${look}`);
+    }
+    sortOrders.add(sortKey);
+    const pack = packs.find((candidate) => candidate.holidayId === item.holidayId)?.pack;
+    if (!pack) {
+      issues.push(`${where}: no pack for ${item.holidayId}`);
+      continue;
+    }
+    const section = pack.sceneSections[item.sceneType];
+    if (!section) {
+      issues.push(`${where}: pack ${pack.id} has no ${item.sceneType} section`);
+      continue;
+    }
+    if (!section.promptFragments.lavish) {
+      issues.push(`${where}: pack ${pack.id} has no lavish description for ${item.sceneType}`);
+    }
+    if (!packOfferFor(pack, item.sceneType)?.styles.includes(item.style)) {
+      issues.push(`${where}: pack ${pack.id} does not offer ${item.style} for ${item.sceneType}`);
+    }
+    issues.push(...overrideIssues(where, item.programOverrides, programKeys));
+  }
+  return issues;
+}
+
+/** Reads a JSON content file, reporting a missing or malformed file as an issue. */
+async function readJson(dir: string, relative: string, issues: string[]): Promise<unknown> {
+  try {
+    return JSON.parse((await readText(dir, relative)).text) as unknown;
+  } catch (error) {
+    issues.push(`${relative}: ${String(error)}`);
+    return undefined;
+  }
 }
 
 function crossCheckKit(
@@ -630,6 +891,8 @@ export async function loadContent(options: { dir?: string } = {}): Promise<Conte
     catalog: { merchantPrograms: [], products: [], offers: [] },
     programExtras: new Map(),
     offerExtras: new Map(),
+    searchPhrases: [],
+    lookItems: [],
     authoredAt: null,
     rebaseTimestampsOnSeed: false,
   };
@@ -648,6 +911,8 @@ export async function loadContent(options: { dir?: string } = {}): Promise<Conte
         catalog: mapped.catalog,
         programExtras: mapped.programExtras,
         offerExtras: mapped.offerExtras,
+        searchPhrases: [],
+        lookItems: [],
         authoredAt: offerFile.data.authoredAt ?? null,
         rebaseTimestampsOnSeed: offerFile.data.rebaseTimestampsOnSeed ?? false,
       };
@@ -669,6 +934,29 @@ export async function loadContent(options: { dir?: string } = {}): Promise<Conte
         }
       }
     }
+  }
+
+  const programKeys = new Set(commerce.catalog.merchantPrograms.map((p) => p.programKey));
+  const phraseJson = await readJson(dir, 'commerce/search-phrases.json', issues);
+  const phraseFile = SearchPhraseFileSchema.safeParse(phraseJson);
+  if (phraseFile.success) {
+    const phrases = phraseFile.data.phrases;
+    issues.push(...searchPhraseIssues(phrases, kits, programKeys));
+    commerce.searchPhrases = phrases;
+  } else if (phraseJson !== undefined) {
+    issues.push(...zodIssues('search-phrases.json', phraseFile.error));
+  }
+  const lookItemJson = await readJson(dir, 'commerce/look-items.json', issues);
+  const lookItemFile = LookItemFileSchema.safeParse(lookItemJson);
+  if (lookItemFile.success) {
+    const lookItems = lookItemFile.data.lookItems.map((item) => ({
+      ...item,
+      anchorCategory: item.anchorCategory ?? null,
+    }));
+    issues.push(...lookItemIssues(lookItems, packs, programKeys));
+    commerce.lookItems = lookItems;
+  } else if (lookItemJson !== undefined) {
+    issues.push(...zodIssues('look-items.json', lookItemFile.error));
   }
 
   const heroFile = HeroFileSchema.safeParse(JSON.parse((await readText(dir, 'heroes.json')).text));

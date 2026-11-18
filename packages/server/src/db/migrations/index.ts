@@ -18,6 +18,7 @@ import * as m0016 from './0016_street_view_template_mark.js';
 import * as m0017 from './0017_display_load_window.js';
 import * as m0018 from './0018_street_view_enhancement.js';
 import * as m0019 from './0019_framing_sub_stage.js';
+import * as m0020 from './0020_shop_groups_and_search_links.js';
 
 /**
  * Every migration, in order. A static registry (no filesystem scanning) so the compiled release
@@ -45,4 +46,5 @@ export const MIGRATIONS: Readonly<Record<string, Migration>> = {
   '0017_display_load_window': m0017,
   '0018_street_view_enhancement': m0018,
   '0019_framing_sub_stage': m0019,
+  '0020_shop_groups_and_search_links': m0020,
 };

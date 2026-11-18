@@ -97,10 +97,17 @@ erDiagram
   kit_items ||--o{ products : "mapped to"
   products ||--o{ offers : "sold as"
   merchant_programs ||--o{ offers : provides
+  kit_items ||..o| kit_item_search_phrases : "searched as"
   render_assets ||--o{ render_product_links : "shops with"
   kit_items ||--o{ render_product_links : "linked in"
   offers ||--o{ render_product_links : "chosen in"
-  render_product_links ||--o{ affiliate_clicks : "clicked as"
+  render_assets ||--o{ render_shop_targets : "shows"
+  render_product_links |o--o{ render_shop_targets : "grouped in"
+  look_items |o--o{ render_shop_targets : "grouped in"
+  offers |o--o{ render_shop_targets : "offered as"
+  merchant_programs ||--o{ render_shop_targets : "linked in"
+  render_shop_targets |o--o{ affiliate_clicks : "clicked as"
+  render_product_links |o--o{ affiliate_clicks : "clicked in"
   merchant_programs ||--o{ affiliate_conversions : reports
   render_assets ||--o{ share_grants : "shared by"
   render_assets ||--o{ feedback : "rated in"
@@ -200,7 +207,7 @@ Retention class: `ledger`. One row per country and capability key (D-47); runtim
 | `reviewed_at` | timestamptz | NN |
 | `reviewed_by` | uuid | FK users |
 
-Audience projection used by every check: `live_public` is enabled for all sessions; `live_private` only for sessions whose user holds `pilot`, `reviewer` or `operator`; `fixture` only outside production, where fixture adapters serve the leg. In production a `fixture` capability is unavailable to live traffic: `street_view_ai` in `fixture` yields source mode `display_only` for every live discovery ([address spec, licensing outcomes](address-and-street-view.md#licensing-outcomes-and-activation)). Under `APP_ENV=development` the seeded default (a row at version 0, which an operator write at version 1 or later replaces for good) of `street_view_ai` is `live_public` when the Street View provider and the image editor both resolve live and `STREET_VIEW_USE_POLICY` is not `display_only`; a missing row locally takes the same default in the API and the worker (`defaultCapabilityState`). Staging and production never default to a live state.
+Audience projection used by every check: `live_public` is enabled for all sessions; `live_private` only for sessions whose user holds `pilot`, `reviewer` or `operator`; `fixture` only outside production, where fixture adapters serve the leg. In production a `fixture` capability is unavailable to live traffic: `street_view_ai` in `fixture` yields source mode `display_only` for every live discovery ([address spec, licensing outcomes](address-and-street-view.md#licensing-outcomes-and-activation)). Under `APP_ENV=development` the seeded default (a row at version 0, which an operator write at version 1 or later replaces for good) of `street_view_ai` is `live_public` when the Street View provider and the image editor both resolve live and `STREET_VIEW_USE_POLICY` is not `display_only`; a missing row locally takes the same default in the API and the worker (`defaultCapabilityState`). The `commerce:<merchantProgramId>` capability of a program of kind `real` defaults to `live_public` under `APP_ENV=development` when the commerce mode (`COMMERCE_PROGRAMS`) resolves to `real`, and every other commerce capability defaults to `fixture`. These are seeded defaults only: a commerce capability has no missing-row default and exists only through the seed, so a program without its row is not served. Whether a program is served also needs the matching commerce mode ([commerce spec, served programs](commerce.md#served-programs)). Staging and production never default to a live state.
 
 #### `runtime_settings`
 
@@ -709,20 +716,35 @@ Retention class: `ledger`.
 
 | Column | Type | Constraints and indexes |
 | --- | --- | --- |
-| `program_key` | text | NN; UQ; for example `amazon_associates` |
+| `program_key` | text | NN; UQ; lowercase letters, digits, `_` and `-`; for example `walmart_us`, `amazon_us`, `fixture_decor_us` |
+| `display_name` | text | NN; the retailer's name as shown ("The Home Depot") |
+| `program_type` | text | NN; default `network`; `amazon_associates` for an Amazon-type program (its required statement and tracking IDs) |
+| `kind` | text | NN; CK in (`fixture`, `real`); default `fixture`; never served together ([commerce spec, served programs](commerce.md#served-programs)) |
+| `placement` | text | NN; CK in (`group`, `separate`); default `group` |
 | `network` | text | NN |
 | `status` | text | NN; CK in (`planned`, `applied`, `provisional`, `approved`, `declined`, `withdrawn`, `suspended`) |
+| `status_history` | jsonb | NN; default `[]`; dated transitions with evidence references |
 | `applied_at`, `approved_at`, `ended_at` | timestamptz | |
 | `required_disclosure_key` | text | copy key of the program's required statement |
 | `disclosure_text` | text | the program's required statement as recorded from its terms |
 | `redirect_permitted` | boolean | NN; whether an intermediate redirect is allowed |
 | `link_method` | text | NN; CK in (`manual_links`, `api`) |
 | `sub_id_capability` | boolean | NN; whether the program accepts a per-click SubId |
+| `sub_id_param` | text | the program's sub-ID parameter name |
+| `tracking_ids` | jsonb | NN; default `[]`; `[{holidayId, channel, trackingId}]` for a program with static tracking IDs |
+| `search_url_template` | text | CK null or: starts with `https://` and a literal host (letters, digits, dots and hyphens, optional `:port`) followed by `/`, contains `{query}`, contains no `{subId}`, `{trackingId}` or `{destinationUrl}`, and has no affiliate parameter (`tag`, `subid`, `sid`, `u1`); the link to the retailer's own search results ([commerce spec, program record](commerce.md#program-record)). The content loader applies the same rule |
+| `tracking_link_template` | text | CK null or: contains `{destinationUrl}` and starts either with `{destinationUrl}` or with `https://` and a literal host followed by `/`; the program's tracking link, with `{destinationUrl}`, `{subId}` and `{trackingId}` placeholders; used for search links and for an offer without its own template. The content loader applies the same rule |
+| `display_rights` | jsonb | NN; default `{}`; `ProgramRights` from core: per use (`tracked_product_links`, `tracked_search_links`, `product_name`, `picture`, `picture_storage`, `price`, `data_storage`, `beside_other_retailers`, `beside_ai_picture`, `retailer_name`) `{state, evidence, recordedAt}`, state in (`allowed`, `denied`, `unknown`), evidence required unless `unknown`; a missing use is `unknown` ([commerce spec, display rights](commerce.md#display-rights)) |
+| `refresh_term_hours` | integer | CK > 0; the longest time retailer-supplied data may show after its last refresh; null when none is known |
 | `api_access` | text | NN; CK in (`none`, `requested`, `granted`); gates API-backed refresh |
-| `attribution_window_hours` | integer | |
+| `attribution_window_hours` | integer | CK > 0 |
 | `commission_schedule` | jsonb | rates by category with effective dates |
 | `policy_version`, `reviewed_at` | text, timestamptz | terms version recorded and when it was reviewed |
-| `capability_key` | text | GEN `commerce:` ∥ `id` |
+| `logo_permitted` | boolean | NN; default false |
+| `notes` | text | operator notes; internal only |
+| `capability_key` | text | GEN `commerce:` ∥ `program_key` |
+
+`kind`, `placement`, `search_url_template`, `tracking_link_template`, `display_rights` and `refresh_term_hours` come from migration `0020_shop_groups_and_search_links`, which also creates the three tables below and widens `affiliate_clicks`; its down migration reverses it, except that a click's `offer_id` and `relationship` become required again only when no stored click lacks them. How program rows are published and refreshed is in the commerce spec ([real programs](commerce.md#real-programs)).
 
 #### `products` and `offers`
 
@@ -745,16 +767,43 @@ Retention class: `content`.
 | offers | `price_observed_at` | timestamptz | required when `price_minor` is shown |
 | offers | `availability`, `availability_checked_at` | text, timestamptz | CK in (`in_stock`, `unknown`, `out_of_stock`) |
 | offers | `destination_url` | text | NN; plain merchant URL without tracking parameters; used in plain link mode |
-| offers | `tracking_url_template` | text | nullable; the program's template with `{destinationUrl}` and `{subId}` placeholders; used only in tracking link mode |
+| offers | `tracking_url_template` | text | nullable; this offer's template with `{destinationUrl}` and `{subId}` (or `{trackingId}`) placeholders; used only in tracking link mode; when null the program's `tracking_link_template` applies |
 | offers | `content_rights` | jsonb | NN; image and text permissions |
 | offers | `status` | text | NN; CK in (`draft`, `active`, `paused`, `retired`); IX |
 | offers | `seasonal_eligibility` | text[] | NN; `holiday_occurrences.occurrence_key` values; empty means never shown |
 | offers | `sponsored` | boolean | NN; default false |
 | offers | `last_verified_at`, `verification_method`, `verified_by` | timestamptz, text, uuid | method CK in (`feed`, `api`, `manual`); `verified_by` FK users |
 
+#### `kit_item_search_phrases`
+
+Retention class: `content`. The words sent to a retailer's search for one kit item, keyed by the kit item's stable text key so that one phrase serves every kit version ([commerce spec, search phrases](commerce.md#search-phrases)). Seeded from `content/commerce/search-phrases.json`: outside a local environment once per key and never changed by a later seed; locally a seed brings a row whose `updated_by` is null in line with the content, and never touches a row an operator has edited. Operators edit them through the internal operations API.
+
+| Column | Type | Constraints and indexes |
+| --- | --- | --- |
+| `kit_item_key` | text | NN; UQ; `kit_items.kit_item_id`, for example `christmas.house_exterior.wreath_evergreen` |
+| `phrase` | text | NN; CK 2 to 120 characters; plain words (letters, digits, spaces, hyphens and apostrophes, starting with a letter or digit), as the content loader and the internal operations API check it, for every override too |
+| `program_overrides` | jsonb | NN; default `{}`; `{ "<programKey>": "<phrase>" }` |
+| `updated_by` | uuid | FK users on delete set null |
+
+#### `look_items`
+
+Retention class: `content`. Decorations typical of a look (holiday, scene type, style) that are not kit items, listed for a lavish plan ([commerce spec, look items](commerce.md#look-items)). Seeded from `content/commerce/look-items.json` as search phrases are: once per key outside a local environment; locally every content field of a row whose `updated_by` is null follows the content, and a row an operator has edited is never touched. Operators create, edit or retire them through the internal operations API.
+
+| Column | Type | Constraints and indexes |
+| --- | --- | --- |
+| `look_item_key` | text | NN; UQ; CK `^[a-z0-9][a-z0-9_.-]{0,127}$`; starts with `<holidayId>.<sceneType>.<style>.` (checked by the content loader) |
+| `holiday_id`, `scene_type`, `style` | text | NN; CK in the holiday IDs, scene types and styles of core; IX `look_items_look_idx` (`holiday_id`, `scene_type`, `style`) where `status = 'active'` |
+| `our_title` | text | NN; CK 2 to 120 characters; our own words |
+| `anchor_category` | text | CK null or in the anchor vocabulary |
+| `search_phrase` | text | NN; CK 2 to 120 characters; plain words, as for search phrases |
+| `program_overrides` | jsonb | NN; default `{}`; as for search phrases |
+| `sort_order` | integer | NN; unique within a look in the content (checked by the content loader); operator edits may tie, and ties order by `look_item_key` |
+| `status` | text | NN; CK in (`active`, `retired`); default `active` |
+| `updated_by` | uuid | FK users on delete set null |
+
 #### `render_product_links`
 
-Retention class: `project`. One row per accepted variant and kit item; the offer is chosen at panel load ([commerce spec, ranking integrity](commerce.md#ranking-integrity)).
+Retention class: `project`. One row per accepted variant and kit item; its options are chosen at each panel load ([commerce spec, ranking integrity](commerce.md#ranking-integrity)).
 
 | Column | Type | Constraints and indexes |
 | --- | --- | --- |
@@ -766,28 +815,57 @@ Retention class: `project`. One row per accepted variant and kit item; the offer
 | `adherence_status` | text | NN; CK in (`pass`, `fail`, `uncertain`, `not_checked`); `pass` required for `described` |
 | `adherence_check` | jsonb | evidence for the adherence status |
 | `rank_position` | smallint | NN |
-| `chosen_offer_id` | uuid | FK offers; nullable; recorded at each panel load |
-| `link_mode` | text | CK in (`plain`, `tracking`); recorded at each panel load |
-| `candidate_offer_ids` | uuid[] | recorded at each panel load |
-| `ranking_reason` | text | the deciding tie-break criterion |
+| `chosen_offer_id` | uuid | FK offers; nullable; recorded at each panel load: the first option, null when the group has links only |
+| `link_mode` | text | CK in (`plain`, `tracking`); recorded at each panel load: the first option's, null when the group has links only |
+| `candidate_offer_ids` | uuid[] | recorded at each panel load: the option IDs in their shown order |
+| `ranking_reason` | text | the criterion that decided the first option: `single_offer`, `in_stock`, `price_displayable`, `retailer_rotation`, `offer_id` or `no_offer` |
 | `ranked_at` | timestamptz | |
 | `sponsored` | boolean | NN |
 | `hidden_at`, `hidden_reason` | timestamptz, text | set on downgrade or hide |
 
-#### `affiliate_clicks`
+#### `render_shop_targets`
 
-Retention class: `ledger`. No owner, address, place ID, project ID, image or raw session identifier.
+Retention class: `project`. One row per option or link shown for one accepted variant: a shop target ([commerce spec, shop targets](commerce.md#shop-targets)). All the targets of a panel are inserted or updated in one statement at each panel load, and each click token names one. Deleted with its render asset (on delete cascade); clicks keep their own copy of every field.
 
 | Column | Type | Constraints and indexes |
 | --- | --- | --- |
-| `click_token` | text | NN; UQ; the opaque token pre-issued with the card |
-| `render_product_link_id` | uuid | FK on delete set null |
-| `offer_id`, `merchant_program_id` | uuid | NN; IX (`merchant_program_id`, `created_at`) |
+| `render_asset_id` | uuid | NN; FK render_assets on delete cascade; UQ (`render_asset_id`, `target_key`) |
+| `target_key` | text | NN; `<groupKey>\|product:<offerId>` for an option, `<groupKey>\|search:<programKey>` for a search or separate link |
+| `link_kind` | text | NN; CK in (`product`, `search`) |
+| `group_basis` | text | NN; CK in (`placed`, `typical`) |
+| `group_key` | text | NN; the kit item key or the look item key |
+| `render_product_link_id` | uuid | FK render_product_links on delete set null; a placed group's link row |
+| `look_item_id` | uuid | FK look_items on delete set null; a typical group's look item |
+| `offer_id` | uuid | FK offers on delete set null; an option's offer |
+| `merchant_program_id` | uuid | NN; FK merchant_programs |
 | `link_mode` | text | NN; CK in (`plain`, `tracking`) |
-| `sent_sub_id` | text | nullable; the token as sent to a network that accepts SubIds |
+| `placement` | text | NN; CK in (`group`, `separate`) |
+| `relationship` | text | CK null or in (`similar`, `described`, `reference`, `verified`); null for a search or separate link |
+| `group_position` | smallint | NN; 1-based across placed and typical groups |
+| `option_position` | smallint | NN; 1-based within its list: options; search links; separate links continue the numbering of the search links |
+| `sponsored` | boolean | NN; default false |
+| `last_shown_at` | timestamptz | NN; the latest panel load that showed it |
+
+#### `affiliate_clicks`
+
+Retention class: `ledger`. No owner, address, place ID, project ID, image, search phrase or raw session identifier.
+
+| Column | Type | Constraints and indexes |
+| --- | --- | --- |
+| `click_token` | text | NN; UQ; the opaque token pre-issued with the option or link |
+| `shop_target_id` | uuid | FK render_shop_targets on delete set null; partial IX where not null |
+| `link_kind` | text | NN; CK in (`product`, `search`); default `product` |
+| `group_basis` | text | NN; CK in (`placed`, `typical`); default `placed` |
+| `group_key` | text | the kit item key or look item key |
+| `group_position`, `option_position` | smallint | copied from the shop target |
+| `render_product_link_id` | uuid | FK on delete set null |
+| `offer_id` | uuid | nullable; null for a search link |
+| `merchant_program_id` | uuid | NN; IX (`merchant_program_id`, `created_at`) |
+| `link_mode` | text | NN; CK in (`plain`, `tracking`) |
+| `sent_sub_id` | text | nullable; the opaque sub-ID sent to a network that accepts SubIds on a tracking link: derived from the click token with SHA-256, 64 lowercase hex characters, and not reversible to the token or the shop target; the value the link carried |
 | `tracking_id` | text | nullable; the static Amazon tracking ID used |
-| `relationship` | text | NN |
-| `rank_position` | smallint | NN |
+| `relationship` | text | nullable; null for a search link |
+| `rank_position` | smallint | NN; the group's position |
 | `holiday_id`, `occurrence_key`, `scene_type`, `source_kind` | text | NN |
 | `acquisition_channel` | text | |
 | `session_hash` | text | NN; daily-salted hash, as in `analytics_events` |
@@ -957,7 +1035,7 @@ Retention class: `ledger`. Append-only (no update or delete grants).
 | --- | --- | --- |
 | `actor_user_id` | uuid | FK users; null for `system` |
 | `actor_kind` | text | NN; CK in (`operator`, `reviewer`, `system`, `user`) |
-| `action` | text | NN; dotted verb such as `capability.update`, `pause.set`, `review.decide`, `upload_hold.decide`, `report.triage`, `blocked_address.add`, `preservation_hold.place`, `preservation_hold.release`, `offer.update`, `session.claim`, `operator.reauth_request`, `review.view`, `upload_hold.view`, `report.view`; IX (`action`, `created_at`) |
+| `action` | text | NN; dotted verb such as `capability.update`, `pause.set`, `review.decide`, `upload_hold.decide`, `report.triage`, `blocked_address.add`, `preservation_hold.place`, `preservation_hold.release`, `offer.update`, `merchant_program.update`, `merchant_program.record_update`, `search_phrase.update`, `look_item.create`, `look_item.update`, `session.claim`, `operator.reauth_request`, `review.view`, `upload_hold.view`, `report.view`; IX (`action`, `created_at`) |
 | `target_kind`, `target_id` | text, text | NN |
 | `before`, `after` | jsonb | the changed fields; never image bytes or addresses except `blocked_addresses` place IDs |
 | `request_id` | text | NN |
@@ -1170,7 +1248,7 @@ Every endpoint may return `VALIDATION_FAILED`, `NOT_FOUND`, `FORBIDDEN`, `RATE_L
 }
 ```
 
-`holidays[].sceneTypes` lists, per scene type, the offered styles and lighting modes from the pack (the upper bound; the per-project `offered` set narrows it). `calendar` covers the enabled occurrences of the current and next year. `hero.renditions` lists the landscape (3:2) and portrait (2:3) crops at every width the [holidays spec](holidays-and-content.md#hero-and-example-art) defines. `capabilities` is the public projection of `country_capabilities` for the caller's audience (booleans only). `fixtureCapabilities` is present only outside production (it is omitted in production): the capability keys (base keys and `commerce:<merchantProgramId>`) whose evaluated state for the caller is `fixture`, so the client can show the development "Fixture" badge on imagery those legs produce ([architecture, external integrations and fixture modes](../architecture.md#external-integrations-and-fixture-modes)). The landing shell's inline experience JSON carries the same field for the anonymous audience. `clientConfig` values are served from their owner specs' configuration so the client never hard-codes them; `retention.timeBasedDeletion` (required) is the value of the `retention.time_based_deletion` setting, and the client's retention copy follows it; `pollRenderMs` and `pollUploadMs` carry `poll.render_ms` and `poll.upload_ms` from [Live updates](#live-updates). `inWindow`, the default and the hero are resolved server-side in the editorial timezone and the client does not recompute them; `?holiday=` never changes the hero or the default and is only echoed as `requestedHolidayId` ([holidays spec](holidays-and-content.md#windows-and-selection)).
+`holidays[].sceneTypes` lists, per scene type, the offered styles and lighting modes from the pack (the upper bound; the per-project `offered` set narrows it). `calendar` covers the enabled occurrences of the current and next year. `hero.renditions` lists the landscape (3:2) and portrait (2:3) crops at every width the [holidays spec](holidays-and-content.md#hero-and-example-art) defines. `capabilities` is the public projection of `country_capabilities` for the caller's audience (booleans only); `commerce` is true only when at least one merchant program is served to the caller, by the same rule as the products endpoint ([commerce spec, served programs](commerce.md#served-programs)). `fixtureCapabilities` is present only outside production (it is omitted in production): the capability keys (base keys and `commerce:<merchantProgramId>`) whose evaluated state for the caller is `fixture`, so the client can show the development "Fixture" badge on imagery those legs produce ([architecture, external integrations and fixture modes](../architecture.md#external-integrations-and-fixture-modes)). The landing shell's inline experience JSON carries the same field for the anonymous audience. `clientConfig` values are served from their owner specs' configuration so the client never hard-codes them; `retention.timeBasedDeletion` (required) is the value of the `retention.time_based_deletion` setting, and the client's retention copy follows it; `pollRenderMs` and `pollUploadMs` carry `poll.render_ms` and `poll.upload_ms` from [Live updates](#live-updates). `inWindow`, the default and the hero are resolved server-side in the editorial timezone and the client does not recompute them; `?holiday=` never changes the hero or the default and is only echoed as `requestedHolidayId` ([holidays spec](holidays-and-content.md#windows-and-selection)).
 
 ### Addresses
 
@@ -1315,16 +1393,29 @@ The server updates `projects.holiday_id`, `style` and `lighting_mode` to the req
 {
   "panelState": "active",
   "linkMode": "tracking",
-  "disclosure": { "copyKeys": ["commerce.disclosure.paid", "commerce.disclosure.amazon"], "programs": ["amazon_associates"] },
-  "items": [
-    { "clickToken": "…", "title": "Pre-lit artificial garland, 9 ft, warm white", "merchantName": "Amazon", "relationship": "described", "relationshipLabelKey": "commerce.relationship.described", "price": { "policy": "check_at_retailer" }, "linkMode": "tracking", "sponsored": false, "href": "https://…", "rankPosition": 1 }
+  "season": "in_window",
+  "disclosure": { "copyKeys": ["commerce.disclosure.paid", "commerce.disclosure.amazon"], "programs": ["fixture_home_garden_us", "fixture_decor_us", "fixture_marketplace_us"] },
+  "retailers": [ { "programKey": "fixture_home_garden_us", "merchantName": "Fixture Home & Garden" }, { "programKey": "fixture_decor_us", "merchantName": "Fixture Decor Co." } ],
+  "groups": [
+    {
+      "groupKey": "christmas.house_exterior.wreath_evergreen", "basis": "placed", "title": "Pre-lit mixed-pine wreath, 30–36 in., warm-white lights", "anchorCategory": "front_door", "position": 1,
+      "options": [ { "clickToken": "…", "programKey": "fixture_home_garden_us", "title": "Pre-lit mixed-pine wreath, 30–36 in., warm-white lights", "merchantName": "Fixture Home & Garden", "relationship": "described", "relationshipLabelKey": "commerce.relationship.described", "price": { "policy": "check_at_retailer" }, "linkMode": "tracking", "sponsored": false, "href": "https://…", "position": 1 } ],
+      "searchLinks": [ { "clickToken": "…", "programKey": "fixture_home_garden_us", "merchantName": "Fixture Home & Garden", "linkMode": "tracking", "sponsored": false, "href": "https://…" }, { "clickToken": "…", "programKey": "fixture_decor_us", "merchantName": "Fixture Decor Co.", "linkMode": "plain", "sponsored": false, "href": "https://example.com/fixture-decor/search?q=30%20inch%20christmas%20wreath%20red%20bow" } ],
+      "separateLinks": [ { "clickToken": "…", "programKey": "fixture_marketplace_us", "merchantName": "Fixture Marketplace", "linkMode": "tracking", "sponsored": false, "href": "https://…" } ]
+    },
+    {
+      "groupKey": "christmas.house_exterior.abundant.shrub_net_lights", "basis": "typical", "title": "Warm white net lights for shrubs and bushes", "anchorCategory": null, "position": 2,
+      "options": [], "searchLinks": [ "…" ], "separateLinks": [ "…" ]
+    }
   ]
 }
 ```
 
-`panelState` ∈ `active`, `no_offers`, `off_season`, `hidden` ([commerce spec, shop the look](commerce.md#shop-the-look)); `items` is empty in every state but `active`. `hidden` is returned when the job is not `succeeded` (with `RENDER_REJECTED` for `rejected`), when no `commerce:<merchantProgramId>` capability is enabled for the audience, when the global commerce pause is on, or when the evaluated `commerceAdjacent` of a source whose imagery the result screen shows is not allowed (D-15). For a Street View source the template-derived policy is first brought up to the current `STREET_VIEW_USE_POLICY` and the source's copyright line is part of the evaluation (a fixture stand-in under a `fixture` capability follows the fixture rule), so a tightened use policy hides the panel on the first request. `disclosure.copyKeys` are `commerce.disclosure.paid` when any card carries a tracking link, plus `commerce.disclosure.amazon` when any Amazon tracking link is shown, or `commerce.disclosure.plain` when every card is a plain link; wording lives in the [commerce spec, disclosure](commerce.md#disclosure). `href` is the final merchant URL: the tracking template with the token as SubId where the network accepts one, or the plain `destinationUrl`. `price` is `{ "policy": "show", "amountMinor": 3999, "currency": "USD", "observedAt": "…" }` only when a permitted price with a timestamp exists. Each panel load records the chosen offer, link mode, candidates and ranking reason on `render_product_links`.
+`panelState` ∈ `active`, `no_offers`, `off_season`, `hidden` ([commerce spec, panel states](commerce.md#panel-states)). `season` is `in_window` or `off_season` on an `active` panel and null otherwise; `groups` and `retailers` are empty in every state but `active`, and every group has at least one option, search link or separate link (both checked by `ProductsPanelSchema` in core). `hidden` is returned when the job is not `succeeded` (with `RENDER_REJECTED` for `rejected`), when no merchant program is served to the caller (a program of kind `fixture` needs commerce mode `fixture` and a `fixture` capability for the audience, one of kind `real` needs commerce mode `real` and a live capability: [commerce spec, served programs](commerce.md#served-programs)), when the global commerce pause is on, or when the evaluated `commerceAdjacent` of a source whose imagery the result screen shows is not allowed (D-15). For a Street View source the template-derived policy is first brought up to the current `STREET_VIEW_USE_POLICY` and the source's copyright line is part of the evaluation (a fixture stand-in under a `fixture` capability follows the fixture rule), so a tightened use policy hides the panel on the first request.
 
-`POST /v1/clicks` body `{ "clickToken": "…" }` → 201 `{ "clickId": "…" }`. The client sends this request as a keep-alive request and navigates to the card's `href` without waiting, so Hailiday never interposes a redirect ([commerce spec, click tracking and attribution](commerce.md#click-tracking-and-attribution)). The token is bound to the session, the `render_product_links` row and the chosen offer; an unknown or expired token answers `NOT_FOUND`. The row stores the token, offer, link mode, rank and context only.
+A group is a kit item the plan placed (`basis` `placed`, `groupKey` the kit item key) or a look item of a lavish plan (`basis` `typical`, `groupKey` the look item key); `position` runs across both, placed groups first. `options` are offers of programs with placement `group`, only inside a commerce window, each with its 1-based `position`; `searchLinks` are links to the search results of the served programs with placement `group`, and `separateLinks` those of programs with placement `separate`, both in the rotation order ([commerce spec, panel composition](commerce.md#panel-composition)). A program with placement `separate` never appears in `options`, `searchLinks` or `retailers`. `retailers` lists, in rotation order, the programs with placement `group` that have at least one option or search link in the panel; the client shows the retailer filter when it holds two or more. `disclosure.copyKeys` are `commerce.disclosure.paid` when any option or link is a tracking link, plus `commerce.disclosure.amazon` when any tracking option or link belongs to a program of type `amazon_associates`, or `commerce.disclosure.plain` when every option and link is plain; `disclosure.programs` lists the program keys of everything shown; the panel's `linkMode` is `tracking` when any option or link is, else `plain`; wording lives in the [commerce spec, disclosure](commerce.md#disclosure). `href` is the final merchant URL ([commerce spec, click event](commerce.md#click-event)); an option or link whose plain destination or built `href` does not start with `https://` is dropped with its shop target, and a warning with the program key is logged. Each option's and link's `linkMode` follows the commerce spec's link-mode rule ([display rights](commerce.md#display-rights)); a link whose template uses `{trackingId}` is `tracking` only when the program has a tracking ID for the look's holiday and channel, and `plain` otherwise. `price` is `{ "policy": "show", "amountMinor": 3999, "currency": "USD", "observedAt": "…" }` only when a permitted price with a timestamp exists. Each panel load writes the shown options and links as `render_shop_targets` in one statement and records the first option, its link mode, the ordered option IDs and the ranking reason on each placed group's `render_product_links` row.
+
+`POST /v1/clicks` body `{ "clickToken": "…" }` → 201 `{ "clickId": "…" }`. The client sends this request as a keep-alive request and opens the option's or link's `href` in a new tab without waiting, so Hailiday never interposes a redirect ([commerce spec, click tracking and attribution](commerce.md#click-tracking-and-attribution)). The token names a shop target and is bound to the session, and it must be in its canonical base64url form: a different spelling of the same bytes does not verify. A token already used returns its first click's ID before its shop target is looked at. Otherwise `NOT_FOUND` answers a token that does not verify, whose shop target no longer exists, whose target is an option whose offer was removed, whose render asset is not the caller's, or whose render asset was deleted or withdrawn. The row stores the token, the shop target and its group, positions, offer (null for a search link), program, link mode, relationship (null for a search link), the sub-ID or tracking ID sent (the opaque sub-ID of [`affiliate_clicks`](#affiliate_clicks)) and the context columns only; a click outside a commerce window is stored with the occurrence key `<holidayId>.US`, which marks an off-season click.
 
 ### Gallery
 
@@ -1541,7 +1632,10 @@ All routes live under `/internal/v1`, require auth level `operator`, and require
 | `GET` / `POST /internal/v1/preservation-holds` | `{ "targetKind": "project", "targetId": "…", "reason": "legal_process", "authorityRef": "…", "releaseCondition": "…" }` | Places a hold on the target and every object it covers ([`preservation_holds`](#preservation_holds)). |
 | `POST /internal/v1/preservation-holds/:id/release` | `{ "releaseReason": "…" }` | Releases the hold; held objects then follow the ordinary retention and deletion order. |
 | `GET` / `POST` / `DELETE /internal/v1/blocked-addresses[/:id]` | `{ "placeId": "ChIJ…", "normalizedAddressHash": "…", "source": "homeowner_request", "evidenceRef": "…", "expiresAt": null }` | Opt-out list; `DELETE` sets `removed_at`. `POST` for a place already listed (removed or expired) lists it again: `removed_at` cleared, `expires_at` set to the request's `expiresAt` (null when absent), `evidence_ref` and `source` replaced. |
-| `GET` / `POST` / `PUT /internal/v1/merchant-programs[/:id]` | program fields | Program status (`planned` … `suspended`). |
+| `GET /internal/v1/merchant-programs`; `PUT /internal/v1/merchant-programs/:id` | `PUT`: `{ "status": "applied", "evidenceRef": "…" }` | `GET` → 200 `{ "items": [Program] }`, every program field, including `kind`, `placement`, both link patterns, `displayRights` and `refreshTermHours`. `PUT` sets the program status (`planned` … `suspended`) and appends it with its evidence to the status history → 200 `{ "id", "status" }`; an unknown program ID answers `NOT_FOUND`; audited as `merchant_program.update`. |
+| `PUT /internal/v1/merchant-programs/:id/record` | `{ "placement": "group", "searchUrlTemplate": "https://…{query}", "trackingLinkTemplate": null, "subIdCapability": true, "subIdParam": "subId1", "trackingIds": [], "apiAccess": "requested", "attributionWindowHours": 24, "commissionSchedule": [], "policyVersion": "…", "refreshTermHours": 24, "disclosureText": null, "notes": "…", "displayRights": { "beside_ai_picture": { "state": "allowed", "evidence": "owner-decision:2026-11-17" } } }` | Edits the program record ([commerce spec, program record](commerce.md#program-record)). A strict body in which every field is optional; the nullable fields accept null. Each use given in `displayRights` replaces that use's record (`{ state, evidence }`), evidence is required unless the state is `unknown`, and `recordedAt` is set by the server: a body that sends it is refused. The program row is read under a row lock in the same transaction as the write, so overlapping updates of different uses keep each other's change. The templates are validated as the database checks them (`VALIDATION_FAILED` with reason `invalid_search_url_template` or `invalid_tracking_link_template`). → 200 the program, as in the list; an unknown program ID answers `NOT_FOUND`; audited as `merchant_program.record_update`. |
+| `GET /internal/v1/search-phrases`; `PUT /internal/v1/search-phrases/:kitItemKey` | `{ "phrase": "30 inch pre lit christmas wreath", "programOverrides": { "walmart_us": "…" } }` | `GET` → 200 `{ "items": [ { "id", "kitItemKey", "phrase", "programOverrides", "updatedAt", "updatedBy" } ] }`, every kit item key's phrase. `PUT` inserts or replaces the phrase of a key that belongs to a published kit ([commerce spec, search phrases](commerce.md#search-phrases)) and sets `updatedBy` → 200 the phrase in the same shape. `programOverrides` is optional: when omitted, the stored overrides are kept. The phrase and every override are plain words. `VALIDATION_FAILED` reasons: `unknown_kit_item` (the key is not in a published kit), `unknown_program` (an override names no program). Audited as `search_phrase.update`. |
+| `GET` / `POST /internal/v1/look-items`; `PUT /internal/v1/look-items/:id` | `POST`: `{ "lookItemKey", "holidayId", "sceneType", "style", "ourTitle", "searchPhrase", "sortOrder" }` plus the optional `anchorCategory` and `programOverrides`, and no `status` (a new item is `active`); `PUT`: any of `{ "ourTitle": "…", "anchorCategory": null, "searchPhrase": "…", "programOverrides": {}, "sortOrder": 4, "status": "retired" }` | Lists, creates and edits look items ([commerce spec, look items](commerce.md#look-items)). `GET` → 200 `{ "items": [LookItem] }`, every field of [`look_items`](#look_items) with `id`, `updatedAt` and `updatedBy`, ordered by look, `sortOrder` and `lookItemKey`. `POST` → 201 the item; `PUT` → 200 the item, and an unknown look item ID answers `NOT_FOUND`; both set `updatedBy`, and an omitted field keeps its stored value. `searchPhrase` and every override are plain words. `VALIDATION_FAILED` reasons: `outside_look` (the key does not start with `<holidayId>.<sceneType>.<style>.` of the body), `duplicate` (the key exists), `unknown_program` (an override names no program). Audited as `look_item.create` and `look_item.update`. |
 | `GET` / `POST` / `PUT /internal/v1/products[/:id]`, `…/offers[/:id]` | product and offer fields; `PUT /offers/:id/status { "status": "paused" }` | Catalog management; verification timestamps. |
 | `GET` / `POST /internal/v1/kits`, `…/kits/:id/items`, `POST …/kits/:id/publish` | kit and item fields | Style kit versions; publishing retires the previous version. |
 | `GET /internal/v1/audit-log?cursor=&action=` | | Read-only audit trail. |
@@ -1574,8 +1668,8 @@ Events are first-party rows in `analytics_events` (D-45). Every event carries th
 | `variant_viewed` | client | `cached`, `style`, `lightingMode` |
 | `compare_used` | client | `mode` (`slider`, `toggle`, `keyboard`) |
 | `allowance_reached` | server | `scope`, `gateVariant` (D-13 option shown) |
-| `shop_panel_viewed` | client | `panelState`, `cardCount`, `linkMode`, `programs`, `relationships` |
-| `product_clicked` | server (`POST /v1/clicks`) | `relationship`, `rankPosition`, `merchantProgramId`, `linkMode`, `sponsored` |
+| `shop_panel_viewed` | client | `panelState`, `cardCount` (the number of groups), `optionCount`, `searchLinkCount` (search links and separate links), `season` (`in_window`, `off_season` or null), `linkMode`, `programs`, `relationships` (of the options) |
+| `product_clicked` | server (`POST /v1/clicks`) | `relationship` (null for a search link), `rankPosition` (the group's position), `optionPosition`, `linkKind` (`product`, `search`), `groupBasis` (`placed`, `typical`), `merchantProgramId`, `linkMode`, `sponsored` |
 | `project_saved` | server | `newAccount` |
 | `share_created` | server | `includeBefore` |
 | `share_viewed` | server | `referrerClass`, `viewerHasSession` |

@@ -29,6 +29,7 @@ import type {
   HolidayId,
   JobEnhancementRecord,
   JudgeDecision,
+  LookItemStatus,
   KitStatus,
   LedgerCategory,
   LedgerKind,
@@ -51,6 +52,9 @@ import type {
   PreservationHoldTargetKind,
   PriceSource,
   ProductRelationship,
+  ProgramKind,
+  ProgramPlacement,
+  ProgramRights,
   ProjectKind,
   ProviderMode,
   ProviderWatermark,
@@ -66,6 +70,8 @@ import type {
   ReviewSubjectKind,
   RoomType,
   SceneType,
+  ShopGroupBasis,
+  ShopLinkKind,
   SkipReason,
   SourceAssetState,
   SourceKind,
@@ -615,6 +621,44 @@ export interface MerchantProgramsTable extends Mutable {
   logoPermitted: WithDefault<boolean>;
   notes: string | null;
   capabilityKey: GeneratedAlways<string>;
+  /** `fixture` (example data) or `real` (an actual retailer). */
+  kind: WithDefault<ProgramKind>;
+  /** `group` (links and offers in a decoration's group) or `separate` (a line of its own). */
+  placement: WithDefault<ProgramPlacement>;
+  /** Link to the retailer's own search results, with a `{query}` placeholder. */
+  searchUrlTemplate: string | null;
+  /** Program-level tracking link pattern (`{destinationUrl}`, `{subId}`, `{trackingId}`). */
+  trackingLinkTemplate: string | null;
+  /** What the program's terms allow, per use; a missing use is `unknown`. */
+  displayRights: JsonWithDefault<ProgramRights>;
+  /** Hours the program's data may be kept before it is refreshed. */
+  refreshTermHours: number | null;
+}
+
+/** Search phrase overrides by program key. */
+export type ProgramOverridesJson = Record<string, string>;
+
+/** The words sent to a retailer's search for one kit item key. */
+export interface KitItemSearchPhrasesTable extends Mutable {
+  kitItemKey: string;
+  phrase: string;
+  programOverrides: JsonWithDefault<ProgramOverridesJson>;
+  updatedBy: string | null;
+}
+
+/** A decoration typical of a look (holiday, scene type, style) that no kit item covers. */
+export interface LookItemsTable extends Mutable {
+  lookItemKey: string;
+  holidayId: HolidayId;
+  sceneType: SceneType;
+  style: Style;
+  ourTitle: string;
+  anchorCategory: string | null;
+  searchPhrase: string;
+  programOverrides: JsonWithDefault<ProgramOverridesJson>;
+  sortOrder: number;
+  status: WithDefault<LookItemStatus>;
+  updatedBy: string | null;
 }
 
 export interface ProductsTable extends Mutable {
@@ -960,15 +1004,39 @@ export interface RenderProductLinksTable extends Mutable {
   hiddenReason: string | null;
 }
 
+/** One option or link as shown for one rendering; a click token names a shop target. */
+export interface RenderShopTargetsTable extends Mutable {
+  renderAssetId: string;
+  /** `<groupKey>|product:<offerId>` or `<groupKey>|search:<programKey>`. */
+  targetKey: string;
+  linkKind: ShopLinkKind;
+  groupBasis: ShopGroupBasis;
+  /** Kit item key or look item key. */
+  groupKey: string;
+  renderProductLinkId: string | null;
+  lookItemId: string | null;
+  offerId: string | null;
+  merchantProgramId: string;
+  linkMode: LinkMode;
+  placement: ProgramPlacement;
+  relationship: ProductRelationship | null;
+  groupPosition: number;
+  optionPosition: number;
+  sponsored: WithDefault<boolean>;
+  lastShownAt: Timestamp;
+}
+
 export interface AffiliateClicksTable extends Base {
   clickToken: string;
   renderProductLinkId: string | null;
-  offerId: string;
+  /** Null for a click on a search link. */
+  offerId: string | null;
   merchantProgramId: string;
   linkMode: LinkMode;
   sentSubId: string | null;
   trackingId: string | null;
-  relationship: ProductRelationship;
+  /** Null for a click on a search link. */
+  relationship: ProductRelationship | null;
   rankPosition: number;
   holidayId: string;
   occurrenceKey: string;
@@ -977,6 +1045,12 @@ export interface AffiliateClicksTable extends Base {
   acquisitionChannel: string | null;
   sessionHash: string;
   countryCode: string;
+  shopTargetId: string | null;
+  linkKind: WithDefault<ShopLinkKind>;
+  groupBasis: WithDefault<ShopGroupBasis>;
+  groupKey: string | null;
+  groupPosition: number | null;
+  optionPosition: number | null;
 }
 
 export interface AffiliateConversionsTable extends Mutable {
@@ -1130,6 +1204,8 @@ export interface Database {
   styleKits: StyleKitsTable;
   kitItems: KitItemsTable;
   merchantPrograms: MerchantProgramsTable;
+  kitItemSearchPhrases: KitItemSearchPhrasesTable;
+  lookItems: LookItemsTable;
   products: ProductsTable;
   offers: OffersTable;
   usageLedger: UsageLedgerTable;
@@ -1142,6 +1218,7 @@ export interface Database {
   renderAssets: RenderAssetsTable;
   reviews: ReviewsTable;
   renderProductLinks: RenderProductLinksTable;
+  renderShopTargets: RenderShopTargetsTable;
   affiliateClicks: AffiliateClicksTable;
   affiliateConversions: AffiliateConversionsTable;
   shareGrants: ShareGrantsTable;
@@ -1181,6 +1258,11 @@ export type ExampleAsset = Row<'exampleAssets'>;
 export type StyleKitRow = Row<'styleKits'>;
 export type KitItem = Row<'kitItems'>;
 export type MerchantProgram = Row<'merchantPrograms'>;
+export type KitItemSearchPhrase = Row<'kitItemSearchPhrases'>;
+export type LookItem = Row<'lookItems'>;
+export type RenderProductLink = Row<'renderProductLinks'>;
+export type RenderShopTarget = Row<'renderShopTargets'>;
+export type AffiliateClick = Row<'affiliateClicks'>;
 export type Product = Row<'products'>;
 export type Offer = Row<'offers'>;
 export type ShareGrant = Row<'shareGrants'>;

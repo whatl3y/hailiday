@@ -2,6 +2,7 @@ import sharp from 'sharp';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { addMs } from '../../clock/index.js';
 import { toJson } from '../../db/client.js';
+import { factories } from '../../db/factories.js';
 import type { DeletionReceiptEntry, SourceAsset } from '../../db/schema.js';
 import { renderFixturePanorama } from '../../fixtures/street-view.js';
 import { newId, randomToken, sha256Hex } from '../../ids/index.js';
@@ -334,6 +335,104 @@ describe('partially held project deletion', () => {
       revokedAt.getTime(),
       revokedAt.getTime(),
     ]);
+  });
+});
+
+describe('shop targets of a deleted variant', () => {
+  /** A shown search link of the variant, and a click on it. */
+  async function shownAndClicked(assetId: string) {
+    const program = await deps.db
+      .selectFrom('merchantPrograms')
+      .select(['id', 'programKey'])
+      .where('programKey', '=', 'fixture_decor_us')
+      .executeTakeFirstOrThrow();
+    const link = await deps.db
+      .selectFrom('renderProductLinks')
+      .select('id')
+      .where('renderAssetId', '=', assetId)
+      .executeTakeFirst();
+    const target = await factories.renderShopTarget(deps.db, {
+      renderAssetId: assetId,
+      merchantProgramId: program.id,
+      programKey: program.programKey,
+      renderProductLinkId: link?.id ?? null,
+    });
+    const click = await factories.affiliateClick(deps.db, {
+      merchantProgramId: program.id,
+      shopTargetId: target.id,
+      renderProductLinkId: link?.id ?? null,
+      groupKey: target.groupKey,
+    });
+    return { target, click };
+  }
+
+  const targetsOf = (assetId: string) =>
+    deps.db
+      .selectFrom('renderShopTargets')
+      .select('id')
+      .where('renderAssetId', '=', assetId)
+      .execute();
+
+  const clickOf = (id: string) =>
+    deps.db
+      .selectFrom('affiliateClicks')
+      .select(['shopTargetId', 'renderProductLinkId', 'linkKind', 'groupKey'])
+      .where('id', '=', id)
+      .executeTakeFirstOrThrow();
+
+  it('go with the project, and its clicks stay without them', async () => {
+    const { ownerId, projectId, source } = await createUploadSource(deps, { image: photo });
+    const asset = await renderVariant({ ownerId, projectId, source });
+    const { target, click } = await shownAndClicked(asset.id);
+
+    const outcome = await deleteProject(deps, {
+      project: (await projectOf(projectId))!,
+      scope: 'project',
+      requestedBy: 'user',
+    });
+    expect(outcome.status).toBe('completed');
+    expect(await targetsOf(asset.id)).toEqual([]);
+    expect(await clickOf(click.id)).toEqual({
+      shopTargetId: null,
+      renderProductLinkId: null,
+      linkKind: 'search',
+      groupKey: target.groupKey,
+    });
+  });
+
+  it('go with an unpinned variant and stay with a pinned one', async () => {
+    const { ownerId, projectId, source } = await createUploadSource(deps, { image: photo });
+    const pinned = await renderVariant({ ownerId, projectId, source });
+    const unpinned = await renderVariant({ ownerId, projectId, source, holidayId: 'halloween' });
+    const token = randomToken(16);
+    await deps.db
+      .insertInto('shareGrants')
+      .values({
+        id: newId(),
+        ownerId,
+        renderAssetId: pinned.id,
+        tokenHash: sha256Hex(token),
+        expiresAt: addMs(new Date(), 30 * 86_400_000),
+        shareCardObjectKey: keys.card(token),
+      })
+      .execute();
+    const kept = await shownAndClicked(pinned.id);
+    const removed = await shownAndClicked(unpinned.id);
+
+    const outcome = await deleteProject(deps, {
+      project: (await projectOf(projectId))!,
+      scope: 'expiry_sweep',
+      requestedBy: 'system',
+    });
+    expect(outcome.status).toBe('pinned');
+    expect(await targetsOf(pinned.id)).toEqual([{ id: kept.target.id }]);
+    expect((await clickOf(kept.click.id)).shopTargetId).toBe(kept.target.id);
+    expect(await targetsOf(unpinned.id)).toEqual([]);
+    expect(await clickOf(removed.click.id)).toMatchObject({
+      shopTargetId: null,
+      renderProductLinkId: null,
+      groupKey: removed.target.groupKey,
+    });
   });
 });
 

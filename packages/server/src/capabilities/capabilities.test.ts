@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseConfig } from '../config/index.js';
+import { parseConfig, testConfig } from '../config/index.js';
 import {
   capabilityKeysFor,
   capabilityMode,
@@ -87,6 +87,24 @@ describe('capability defaults', () => {
     ).toBe('live_public');
     const staging = { ...parseConfig(keys), appEnv: 'staging' as const };
     expect(defaultCapabilityState(staging, 'street_view_ai')).toBe('fixture');
+  });
+
+  it('serves a real program live in development only while the real programs are served', () => {
+    const real = ['walmart_us', 'amazon_us'];
+    const development = parseConfig({});
+    expect(development.providers.commerce).toBe('real');
+    expect(defaultCapabilityState(development, 'commerce:walmart_us', real)).toBe('live_public');
+    expect(defaultCapabilityState(development, 'commerce:amazon_us', real)).toBe('live_public');
+    expect(defaultCapabilityState(development, 'commerce:fixture_decor_us', real)).toBe('fixture');
+    // Without the real program keys every commerce capability stays in fixture.
+    expect(defaultCapabilityState(development, 'commerce:walmart_us')).toBe('fixture');
+    const fixturePrograms = parseConfig({ COMMERCE_PROGRAMS: 'fixture' });
+    expect(defaultCapabilityState(fixturePrograms, 'commerce:walmart_us', real)).toBe('fixture');
+    for (const appEnv of ['staging', 'production'] as const) {
+      const deployed = { ...parseConfig({ COMMERCE_PROGRAMS: 'real' }), appEnv };
+      expect(defaultCapabilityState(deployed, 'commerce:walmart_us', real), appEnv).toBe('fixture');
+    }
+    expect(defaultCapabilityState(testConfig(), 'commerce:walmart_us', real)).toBe('fixture');
   });
 
   it('stays fixture without keys and outside development', () => {

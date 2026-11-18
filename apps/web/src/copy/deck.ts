@@ -278,6 +278,16 @@ const resultControlsAndAllowance = {
   'shop.heading': 'Shop the look',
   'shop.summary': '{n} items',
   'shop.summaryOne': '1 item',
+  'shop.filter.label': 'Show retailers',
+  'shop.filter.all': 'All',
+  'shop.find.label': 'Find similar at',
+  'shop.find.linkLabel': 'Find similar at {merchant}',
+  'shop.separate.link': 'Also at {merchant}',
+  'shop.typical.heading': 'Typical of this look',
+  'shop.typical.note':
+    'These decorations are typical of this look. Some may not appear in your picture.',
+  'shop.offSeasonNote':
+    '{holiday} is out of season, so retailers may have little of this in stock right now.',
   'commerce.noOffers': "Matching decorations aren't available for this look yet.",
   'commerce.offSeason': 'Plan ahead: decorations for {holiday} appear here closer to the season.',
   'commerce.relationship.similar': 'Similar item',

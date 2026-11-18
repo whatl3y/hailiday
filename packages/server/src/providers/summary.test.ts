@@ -22,6 +22,7 @@ describe('summarizeProviders', () => {
       imageEditorProvider: 'live',
       visionProvider: 'live',
       safetyProvider: 'fixture',
+      commercePrograms: 'real',
     });
     expect(summary.imageEditor).toEqual({
       provider: 'gemini',
@@ -62,5 +63,6 @@ describe('summarizeProviders', () => {
     expect(summary.imageEditor.model).toBeNull();
     expect(summary.imageEditor.selection).toBe('fixture');
     expect(summary.vision).toEqual({ provider: 'fixture', model: null });
+    expect(summary.providerModes.commercePrograms).toBe('fixture');
   });
 });

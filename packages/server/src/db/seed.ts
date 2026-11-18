@@ -14,15 +14,17 @@ import {
   publishExamplePlaceholders,
   publishHeroPlaceholders,
   publishKits,
+  publishLookItems,
   publishOccurrences,
   publishPacks,
+  publishSearchPhrases,
 } from '../content/publish.js';
 import type { PublishCounts, PublishOptions } from '../content/publish.js';
 import type { Logger } from '../logger/index.js';
 import { seedSettingDefaults } from '../settings/index.js';
 import { createStorage } from '../storage/client.js';
 import type { Storage } from '../storage/client.js';
-import type { Db } from './client.js';
+import type { Db, DbOrTx } from './client.js';
 
 /** Everything a seed step may use. Storage is created lazily for steps that need it. */
 export interface SeedContext {
@@ -68,20 +70,39 @@ const transactional = (
         ),
   }) satisfies SeedStep;
 
+/**
+ * Seeds a country's capability rows in the environment's default profile: the base capabilities
+ * and one commerce capability per merchant program of the content, the real programs named so
+ * their default follows the commerce mode. In development, rows still at their seeded version
+ * follow the current default.
+ */
+export async function seedDefaultCapabilities(
+  db: DbOrTx,
+  input: { config: AppConfig; content: Content; now: Date; countryCode: string },
+): Promise<number> {
+  const { catalog, programExtras } = input.content.commerce;
+  const programKeys = catalog.merchantPrograms.map((p) => p.programKey);
+  const realProgramKeys = programKeys.filter((key) => programExtras.get(key)?.kind === 'real');
+  return seedCapabilities(db, {
+    countryCode: input.countryCode,
+    keys: capabilityKeysFor(programKeys),
+    state: (key) => defaultCapabilityState(input.config, key, realProgramKeys),
+    evidenceRef: `seed:default-profile:${input.config.appEnv}`,
+    now: input.now,
+    refreshSeeded: input.config.appEnv === 'development',
+  });
+}
+
 /** The core steps: capabilities, settings, packs, kits, commerce, hero and example rows. */
 export const CORE_SEED_STEPS: readonly SeedStep[] = [
-  transactional('country_capabilities', async (db, context) => {
-    const programKeys = context.content.commerce.catalog.merchantPrograms.map((p) => p.programKey);
-    const inserted = await seedCapabilities(db, {
-      countryCode: 'US',
-      keys: capabilityKeysFor(programKeys),
-      state: (key) => defaultCapabilityState(context.config, key),
-      evidenceRef: `seed:default-profile:${context.config.appEnv}`,
+  transactional('country_capabilities', async (db, context) => ({
+    countryCapabilities: await seedDefaultCapabilities(db, {
+      config: context.config,
+      content: context.content,
       now: context.now,
-      refreshSeeded: context.config.appEnv === 'development',
-    });
-    return { countryCapabilities: inserted };
-  }),
+      countryCode: 'US',
+    }),
+  })),
   transactional('runtime_settings', async (db, context) => ({
     runtimeSettings: await seedSettingDefaults(db, context.config),
   })),
@@ -89,9 +110,11 @@ export const CORE_SEED_STEPS: readonly SeedStep[] = [
     publishPacks(db, context.content, options),
   ),
   transactional('style_kits', (db, context, options) => publishKits(db, context.content, options)),
-  transactional('commerce', (db, context, options) =>
-    publishCommerce(db, context.content, options),
-  ),
+  transactional('commerce', async (db, context, options) => ({
+    ...(await publishCommerce(db, context.content, options)),
+    ...(await publishSearchPhrases(db, context.content, options)),
+    ...(await publishLookItems(db, context.content, options)),
+  })),
   transactional('hero_assets', (db, context, options) =>
     publishHeroPlaceholders(db, context.content, options),
   ),

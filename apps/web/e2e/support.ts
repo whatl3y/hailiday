@@ -52,6 +52,9 @@ export const COPY = {
   disclosurePlain: "These links go to the retailer. We don't earn anything from them.",
   noOffers: "Matching decorations aren't available for this look yet.",
   offSeason: /Plan ahead: decorations for .* appear here closer to the season\./,
+  /** The label before a decoration's links to retailers' own search results. */
+  shopFindLabel: 'Find similar at',
+  shopFitNote: /Sizes, quantities and fit aren't guaranteed/,
 } as const;
 
 /**

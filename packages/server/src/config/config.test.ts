@@ -41,6 +41,7 @@ const ALL_FIXTURE = {
   imageEditor: 'fixture',
   vision: 'fixture',
   safety: 'fixture',
+  commerce: 'fixture',
 };
 
 describe('parseConfig', () => {
@@ -59,12 +60,14 @@ describe('parseConfig', () => {
       imageEditor: 'fixture',
       vision: 'fixture',
       safety: 'fixture',
+      commerce: 'real',
     });
     expect(config.providerSelection).toEqual({
       address: 'auto',
       streetView: 'auto',
       imageEditor: 'auto',
       vision: 'auto',
+      commerce: 'auto',
     });
     expect(config.email.provider).toBe('fixture');
     expect(config.turnstile.mode).toBe('fixture');
@@ -286,6 +289,7 @@ describe('parseConfig', () => {
       STREET_VIEW_PROVIDER: 'auto',
       IMAGE_EDITOR_PROVIDER: 'auto',
       VISION_PROVIDER: 'auto',
+      COMMERCE_PROGRAMS: 'auto',
     });
     expect(explicitAuto.providers).toEqual(ALL_FIXTURE);
     expect(explicitAuto.providerSelection.imageEditor).toBe('auto');
@@ -302,6 +306,7 @@ describe('parseConfig', () => {
       ['IMAGE_EDITOR_PROVIDER', 'gemini'],
       ['VISION_PROVIDER', 'anthropic'],
       ['TURNSTILE_MODE', 'live'],
+      ['COMMERCE_PROGRAMS', 'real'],
     ] as const) {
       expect(() =>
         parseConfig({
@@ -314,6 +319,27 @@ describe('parseConfig', () => {
       ).toThrow(new RegExp(`${name}=${value} is live, but APP_ENV=test`));
     }
     expect(() => parseConfig({ APP_ENV: 'test', IMAGE_EDITOR_PROVIDER: 'fixture' })).not.toThrow();
+    expect(() => parseConfig({ APP_ENV: 'test', COMMERCE_PROGRAMS: 'fixture' })).not.toThrow();
+  });
+
+  it('serves the real merchant programs for auto, the default only in development', () => {
+    expect(parseConfig({}).providers.commerce).toBe('real');
+    expect(parseConfig({ COMMERCE_PROGRAMS: 'auto' }).providers.commerce).toBe('real');
+    expect(parseConfig({ COMMERCE_PROGRAMS: 'fixture' }).providers.commerce).toBe('fixture');
+    expect(parseConfig({ COMMERCE_PROGRAMS: 'real' }).providerSelection.commerce).toBe('real');
+    for (const appEnv of ['staging', 'production']) {
+      const deployed = parseConfig({ ...PRODUCTION, APP_ENV: appEnv });
+      expect(deployed.providerSelection.commerce, appEnv).toBe('fixture');
+      expect(deployed.providers.commerce, appEnv).toBe('fixture');
+      expect(
+        parseConfig({ ...PRODUCTION, APP_ENV: appEnv, COMMERCE_PROGRAMS: 'real' }).providers
+          .commerce,
+        appEnv,
+      ).toBe('real');
+    }
+    expect(testConfig().providers.commerce).toBe('fixture');
+    expect(testConfig({ COMMERCE_PROGRAMS: 'auto' }).providers.commerce).toBe('fixture');
+    expect(() => parseConfig({ COMMERCE_PROGRAMS: 'live' })).toThrow(/COMMERCE_PROGRAMS/);
   });
 
   it('defaults to auto only in development', () => {
@@ -333,6 +359,7 @@ describe('parseConfig', () => {
         streetView: 'fixture',
         imageEditor: 'fixture',
         vision: 'fixture',
+        commerce: 'fixture',
       });
       expect(config.providers).toEqual(ALL_FIXTURE);
     }
