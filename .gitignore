@@ -11,13 +11,16 @@ playwright-report/
 test-results/
 blob-report/
 
-# Environment files: never commit secrets (only the documented example)
+# Environment, direnv and npm configuration files: never commit secrets (only the
+# documented example)
 .env
 .env.*
 !.env.example
+.envrc
+.npmrc
 
-# Local tool settings
-.claude/settings.local.json
+# Local tool settings, at any depth
+**/.claude/settings.local.json
 
 # Logs
 *.log

@@ -9,9 +9,19 @@ How to run, try, test and develop Hailiday on one machine. It is written for the
 
 | Need | Version | Why |
 | --- | --- | --- |
-| Docker with Compose | Compose 2.24 or later | `docker-compose.yml` marks `.env` as an optional env file (`required: false`), which older Compose versions reject. This is all the one-command start needs. |
+| Docker with Compose | Compose 2.24 or later; on Linux, Docker Engine 28 or later | `docker-compose.yml` marks `.env` as an optional env file (`required: false`), which older Compose versions reject. Docker with Compose is all the one-command start needs. On Linux, engines older than 28.0.0 let other hosts on the same network segment reach ports published on 127.0.0.1 (https://docs.docker.com/engine/network/port-publishing/, retrieved 2026-11-20). |
 | Node | 26 (`.node-version` is `26`; `engines.node` is `>=26`) | Host development, tests and the browser tests only. |
-| pnpm | 10.34.9, pinned by `packageManager` in the root `package.json` | Host development, tests and the browser tests only. With Corepack enabled (`corepack enable`), running `pnpm` in the repository selects that version. |
+| pnpm | 10.34.9, pinned by `packageManager` in the root `package.json` | Host development, tests and the browser tests only. Node 26 no longer bundles Corepack, so install that version with npm, checking the tarball against the sha512 that `packageManager` carries as the Dockerfiles do (commands below). Where Corepack is installed and enabled, running `pnpm` in the repository selects that version and checks the sha512 itself. |
+
+To install pnpm with the same check as the Dockerfiles, run this from the repository root. `shasum -c` (`sha512sum -c` on Linux) exits non-zero on a mismatch, so nothing is installed then, and the tarball goes to a temporary directory that is removed afterwards:
+
+```sh
+hash=$(node -p "require('./package.json').packageManager.split('+sha512.')[1]") \
+  && dir=$(mktemp -d) \
+  && npm pack pnpm@10.34.9 --pack-destination "$dir" \
+  && echo "$hash  $dir/pnpm-10.34.9.tgz" | shasum -a 512 -c - \
+  && npm install -g "$dir/pnpm-10.34.9.tgz"; rm -rf "$dir"
+```
 
 You need no provider accounts or keys: with none configured, every integration runs in fixture mode ([fixture and live providers](#fixture-and-live-providers)).
 
@@ -36,7 +46,7 @@ Compose starts these services:
 | `migrate` | A one-shot job that runs the database migrations, installs the queues, creates the buckets with their CORS and public-read policy, then seeds content. It exits when done | none | none |
 | `workers` | The pg-boss consumers that run renders, upload screening and the scheduled sweeps | none | none |
 
-`api` and `workers` start only after `migrate` has finished successfully, so a failed migration keeps the app down ([troubleshooting](#troubleshooting)). Postgres listens on 5434, not 5432, so it does not collide with a Postgres already on your machine.
+`api` and `workers` start only after `migrate` has finished successfully, so a failed migration keeps the app down ([troubleshooting](#troubleshooting)). Postgres listens on 5434, not 5432, so it does not collide with a Postgres already on your machine. Every port is published on 127.0.0.1 only, so other machines on your network cannot reach the stack or use its fixed local credentials (on Linux this needs Docker Engine 28 or later; see [prerequisites](#prerequisites)). That covers the Compose stack only: under `pnpm dev` the API on the host listens on all interfaces.
 
 `docker-compose.yml` sets the local storage's credentials and bucket names itself, for the app services and the storage service with the same literals (`S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_PRIVATE_BUCKET` and `S3_PUBLIC_BUCKET` in `x-app-env`), so a value left in `.env` from an earlier `.env.example` cannot make the stack's storage, the app and the tests disagree.
 
@@ -317,7 +327,7 @@ Addresses and ports on the host:
 
 | Process | Address | Notes |
 | --- | --- | --- |
-| API | http://localhost:8080 (`PORT`) | Also serves `apps/web/dist` if you have run `pnpm --filter @hailiday/web build` |
+| API | http://localhost:8080 (`PORT`) | Also serves `apps/web/dist` if you have run `pnpm --filter @hailiday/web build`; listens on all interfaces (0.0.0.0), unlike the Compose ports, so other machines on your network can reach it |
 | Web dev server | http://localhost:5173 | Proxies `/v1`, `/internal` and `/s/` to `HAILIDAY_API_URL` (default `http://localhost:8080`). Set `HAILIDAY_API_URL` in your shell to point it elsewhere |
 
 The magic link written to the API log starts with `PUBLIC_BASE_URL`. If you browse the web dev server, set `PUBLIC_BASE_URL=http://localhost:5173` so the link opens the app you are using; in development and test the default bucket CORS (`STORAGE_CORS_ORIGINS`) already allows `http://localhost:5173`; in staging and production it does not.
@@ -414,7 +424,7 @@ HAILIDAY_E2E_BASE_URL=http://localhost:18080 HAILIDAY_E2E_MAILPIT_URL=http://loc
 | One service's logs | `docker compose logs -f api` (also `workers`, `migrate`, `postgres`, `storage`, `mailpit`) |
 | Rebuild after changing code | `docker compose up --build -d` (the images contain the built code, so a restart alone does not pick up edits) |
 | Rebuild with no cache | `docker compose build --no-cache`, then `docker compose up -d` |
-| Update the third-party images (RustFS and Mailpit use the `latest` tag) | `docker compose pull` |
+| Update a third-party image (`docker-compose.yml` pins each by version and digest, and the three Dockerfiles pin the Node base image the same way; [policy](architecture.md#secrets-dependencies-and-rate-limits)) | Prefer an image created at least 7 days earlier, as the update bot will, unless the update is a security release (`docker buildx imagetools inspect <image>:<version> --format '{{json .Image}}'` shows each platform's `created` time); for the Node image, also check that its provenance (`--format '{{json .Provenance}}'`) names `nodejs/docker-node`. Change both the version and the digest (`docker buildx imagetools inspect <image>:<version>` prints the digest), then `docker compose pull && docker compose up -d` for a Compose image, or `docker compose up --build -d` after changing the Dockerfiles' Node image |
 | Re-run migrations, bucket setup and the seed | `docker compose up migrate` |
 
 ## Troubleshooting

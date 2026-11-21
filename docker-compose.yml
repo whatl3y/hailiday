@@ -26,7 +26,13 @@ name: hailiday
 #
 # URLs: app http://localhost:8080 · mail http://localhost:8025 · storage console
 # http://localhost:9001 · Postgres localhost:5434 (ports: APP_PORT, MAILPIT_PORT,
-# STORAGE_CONSOLE_PORT, DB_PORT and STORAGE_PORT in .env).
+# STORAGE_CONSOLE_PORT, DB_PORT and STORAGE_PORT in .env). Every port is published on
+# 127.0.0.1 only, so other machines on the network cannot reach the stack or use its
+# fixed local credentials (on Linux, Docker Engine 28 or later enforces this).
+#
+# Third-party images are pinned by version and digest, so a pull cannot silently swap
+# one. To update an image, change both parts; `docker buildx imagetools inspect
+# <image>:<version>` prints the digest.
 
 x-app-env-file: &app-env-file
   - path: .env
@@ -48,13 +54,13 @@ x-app-env: &app-env
 
 services:
   postgres:
-    image: postgres:16-alpine
+    image: postgres:16.16-alpine3.24@sha256:1d5b02d3a9941fbd52437db4107f8c52d6297dac553ca1e5c299ebb3756b4857
     environment:
       POSTGRES_DB: hailiday
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
-      - '${DB_PORT:-5434}:5432'
+      - '127.0.0.1:${DB_PORT:-5434}:5432'
     volumes:
       - hailiday-pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -67,14 +73,14 @@ services:
   # S3-compatible object storage for uploads, renders, heroes and share cards. Its
   # credentials are the config module's local defaults, the same the app services get above.
   storage:
-    image: rustfs/rustfs:latest
+    image: rustfs/rustfs:1.0.6@sha256:ee717072290bec9b11abfc0365f8310b00df1cd9b3639943edae47bdef05044a
     environment:
       RUSTFS_ACCESS_KEY: hailiday
       RUSTFS_SECRET_KEY: hailiday-dev-secret
       RUSTFS_CONSOLE_ENABLE: 'true'
     ports:
-      - '${STORAGE_PORT:-9000}:9000'
-      - '${STORAGE_CONSOLE_PORT:-9001}:9001'
+      - '127.0.0.1:${STORAGE_PORT:-9000}:9000'
+      - '127.0.0.1:${STORAGE_CONSOLE_PORT:-9001}:9001'
     volumes:
       - hailiday-storage:/data
     healthcheck:
@@ -90,9 +96,9 @@ services:
 
   # Catches every email the app sends (magic links); browse them at http://localhost:8025.
   mailpit:
-    image: axllent/mailpit:latest
+    image: axllent/mailpit:v1.34.0@sha256:23a2ef85bc50853ab3093645d1d64679afd8887e89da5e48a88940c172591a4e
     ports:
-      - '${MAILPIT_PORT:-8025}:8025'
+      - '127.0.0.1:${MAILPIT_PORT:-8025}:8025'
     restart: unless-stopped
 
   # Release phase: migrations, bucket setup (CORS, public-read policy) and seed content.
@@ -124,7 +130,7 @@ services:
       mailpit:
         condition: service_started
     ports:
-      - '${APP_PORT:-8080}:8080'
+      - '127.0.0.1:${APP_PORT:-8080}:8080'
     healthcheck:
       test:
         [

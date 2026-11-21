@@ -1,18 +1,29 @@
 # Release-phase image: runs database migrations, prepares object storage and seeds
 # reference content before any dyno boots. The build stage is identical across the web,
 # worker and release images so Docker reuses one cached build for all three.
-FROM node:26-slim AS build
+# The base image is pinned by version and digest so a rebuild cannot silently change it;
+# to update it, change both parts (`docker buildx imagetools inspect node:<tag>` prints
+# the digest).
+FROM node:26.13.1-trixie-slim@sha256:e6bedef217677b276c591795e169840edd9096dbf13f29df8ef8d1856b8820bc AS build
 
-# Corepack is no longer bundled with Node >= 25, so install the pinned pnpm (the
-# version in package.json "packageManager") with the bundled npm instead.
-RUN npm install -g pnpm@10.34.9
+# Corepack is no longer bundled with Node >= 25, so the pinned pnpm (the version and
+# sha512 in package.json "packageManager") is installed with the bundled npm, from a
+# tarball whose sha512 must equal the pinned one.
+RUN npm pack pnpm@10.34.9 --pack-destination /tmp \
+  && echo "f49b5a8ea0fdedb44bb3c0c1d6575092a53c2950d95b7ad15df11f17974877a2de3a01c07e934e9b28ce716e51c09a94962c7306d09be2e1e4b18a8c8762fd32  /tmp/pnpm-10.34.9.tgz" | sha512sum -c - \
+  && npm install -g /tmp/pnpm-10.34.9.tgz \
+  && rm /tmp/pnpm-10.34.9.tgz
 
 # Fonts let sharp render text (share cards, the "AI preview" mark) inside SVG overlays;
 # fontconfig-config supplies /etc/fonts/fonts.conf, without which every text render logs
-# "Fontconfig error: Cannot load default config file".
+# "Fontconfig error: Cannot load default config file". zlib1g is named so that apt
+# upgrades the base image's copy to the trixie-security release (DSA-6613-1), which the
+# pinned base image does not include; the build fails if the installed zlib1g is older.
+# The package and the check can go once the pinned base image includes that release.
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends fonts-dejavu-core fontconfig-config ca-certificates \
-  && rm -rf /var/lib/apt/lists/*
+  && apt-get install -y --no-install-recommends fonts-dejavu-core fontconfig-config ca-certificates zlib1g \
+  && rm -rf /var/lib/apt/lists/* \
+  && dpkg --compare-versions "$(dpkg-query -W -f='${Version}' zlib1g)" ge '1:1.3.dfsg+really1.3.1-1+deb13u1'
 
 WORKDIR /app
 

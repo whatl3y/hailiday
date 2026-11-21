@@ -2,16 +2,41 @@ packages:
   - 'apps/*'
   - 'packages/*'
 
-onlyBuiltDependencies:
-  - esbuild
-  - sharp
+# No dependency runs an install script. esbuild's postinstall links its platform binary over
+# the JavaScript shim and checks its version, and installs or downloads the binary when the
+# @esbuild/<platform> package is missing; without the postinstall, esbuild loads the binary
+# from that optional dependency at run time. sharp has no install script and loads its
+# prebuilt @img/sharp-* packages. strictDepBuilds fails every install, frozen ones included,
+# when a dependency not listed here asks to run an install script.
+allowBuilds:
+  esbuild: false
+strictDepBuilds: true
+
+# Checks pnpm applies whenever it resolves versions: when a dependency is added or
+# updated, or when the lockfile is out of date. Frozen installs take exactly what the
+# lockfile records and check its integrity hashes.
+# - minimumReleaseAge: only versions published at least 7 days (10080 minutes) earlier,
+#   which leaves time for a malicious release to be detected and removed from the
+#   registry. An urgent fix is admitted as an exact version, for example
+#   `minimumReleaseAgeExclude: ['name@1.2.3']`, and the entry is removed once that version
+#   is 7 days old; a bare package name would exempt every version of the package.
+# - trustPolicy: refuse a version published with weaker trust evidence (a trusted publisher
+#   or an npm provenance attestation) than earlier releases of the same package. A false
+#   positive is admitted the same way, as an exact version in trustPolicyExclude, and only
+#   after the maintainers have stated that the publishing method changed and the version's
+#   diff from the previous release has been reviewed.
+# - blockExoticSubdeps: transitive dependencies may not come from a git repository or a
+#   tarball URL (the registry, local paths and workspace links stay allowed).
+minimumReleaseAge: 10080
+trustPolicy: no-downgrade
+blockExoticSubdeps: true
 
 # Security floors. Playwright below 1.55.1 downloads browsers without verifying TLS
 # certificates (GHSA-7mvr-c777-76hp); every copy in the workspace is pinned to the
 # current patched release. minimatch below 11.0.1 allows a denial of service through
-# glob-part amplification (GHSA-g3hv-75wg-m249).
+# glob-part amplification (GHSA-g3hv-75wg-m249); its replacement stays on the 11.x line.
 overrides:
   '@playwright/test': 1.65.0
   playwright: 1.65.0
   playwright-core: 1.65.0
-  minimatch@>=7.0.0 <11.0.1: '>=11.0.1'
+  minimatch@>=7.0.0 <11.0.1: '^11.0.1'
